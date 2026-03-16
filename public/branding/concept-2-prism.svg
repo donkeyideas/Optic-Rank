@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120">
+  <!-- Prism triangle -->
+  <polygon points="40,95 70,25 100,95" fill="none" stroke="#1a1a1a" stroke-width="2.5"/>
+  <!-- Light beam entering -->
+  <line x1="15" y1="55" x2="55" y2="55" stroke="#1a1a1a" stroke-width="2"/>
+  <!-- Refracted beams exiting -->
+  <line x1="85" y1="50" x2="115" y2="35" stroke="#c0392b" stroke-width="2"/>
+  <line x1="85" y1="58" x2="115" y2="55" stroke="#b8860b" stroke-width="2"/>
+  <line x1="85" y1="66" x2="115" y2="75" stroke="#27ae60" stroke-width="2"/>
+  <!-- Upward arrow integrated -->
+  <polygon points="95,30 100,20 105,30" fill="#c0392b"/>
+  <rect x="98" y="30" width="4" height="15" fill="#c0392b"/>
+  <!-- Text -->
+  <text x="130" y="55" font-family="'Playfair Display', Georgia, serif" font-size="38" font-weight="700" fill="#1a1a1a">OPTIC</text>
+  <text x="130" y="85" font-family="'IBM Plex Sans', sans-serif" font-size="24" font-weight="300" letter-spacing="8" fill="#c0392b">RANK</text>
+</svg>

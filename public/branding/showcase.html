@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Optic Rank - Logo Concepts</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'IBM Plex Sans', sans-serif;
+      background: #f5f2ed;
+      color: #1a1a1a;
+      padding: 40px 20px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 60px;
+      border-bottom: 2px solid #1a1a1a;
+      padding-bottom: 30px;
+    }
+
+    .header h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 48px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      font-size: 14px;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      color: #666;
+    }
+
+    .concept {
+      max-width: 1200px;
+      margin: 0 auto 80px;
+      border: 1px solid #ddd;
+      background: #fff;
+      padding: 40px;
+    }
+
+    .concept-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      border-bottom: 1px solid #e0e0e0;
+      padding-bottom: 12px;
+      margin-bottom: 30px;
+    }
+
+    .concept-header h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .concept-header span {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      color: #999;
+    }
+
+    .concept-description {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 30px;
+      line-height: 1.6;
+      max-width: 600px;
+    }
+
+    .logo-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      margin-bottom: 30px;
+    }
+
+    .logo-variant {
+      text-align: center;
+    }
+
+    .logo-variant h3 {
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #999;
+      margin-bottom: 16px;
+    }
+
+    .logo-light {
+      background: #f5f2ed;
+      padding: 30px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 140px;
+      border: 1px solid #e0ddd8;
+    }
+
+    .logo-dark {
+      background: #1a1a1a;
+      padding: 30px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 140px;
+    }
+
+    .logo-light img, .logo-dark img {
+      max-width: 100%;
+      max-height: 100px;
+    }
+
+    .icons-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .icon-group {
+      text-align: center;
+    }
+
+    .icon-group h3 {
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #999;
+      margin-bottom: 10px;
+    }
+
+    .icon-container {
+      display: inline-block;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    }
+
+    .icon-container img {
+      display: block;
+    }
+
+    .icon-size {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      color: #bbb;
+      margin-top: 6px;
+    }
+
+    .divider {
+      width: 100%;
+      height: 1px;
+      background: #e0e0e0;
+      margin: 30px 0;
+    }
+
+    /* Dark mode variants for the full logos */
+    .dark-variant img {
+      filter: brightness(0) invert(1);
+    }
+
+    .section-label {
+      font-family: 'Playfair Display', serif;
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      color: #1a1a1a;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 60px;
+      padding-top: 30px;
+      border-top: 2px solid #1a1a1a;
+    }
+
+    .footer p {
+      font-size: 12px;
+      color: #999;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 768px) {
+      .logo-row {
+        grid-template-columns: 1fr;
+      }
+      .concept {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>OPTIC RANK</h1>
+    <p>Logo Concept Showcase &mdash; 10 Concepts</p>
+  </div>
+
+  <!-- CONCEPT 1 -->
+  <div class="concept">
+    <div class="concept-header">
+      <h2>Concept 1 &mdash; Eye + Bar Chart</h2>
+      <span>EDITORIAL / DATA-DRIVEN</span>
+    </div>
+    <p class="concept-description">
+      An eye shape where the iris contains rising bar chart columns. Combines "optic" (vision/eye) with "rank" (climbing metrics). The red accent bar draws attention to growth. Clean editorial typography pairs Playfair Display headers with IBM Plex Sans tracking.
+    </p>
+    <div class="logo-row">
+      <div class="logo-variant">
+        <h3>Light Background</h3>
+        <div class="logo-light">
+          <img src="concept-1-eye-chart.svg" alt="Concept 1 Light">
+        </div>
+      </div>
+      <div class="logo-variant">
+        <h3>Dark Background</h3>
+        <div class="logo-dark dark-variant">
+          <img src="concept-1-eye-chart.svg" alt="Concept 1 Dark">
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <p class="section-label">Favicon &amp; App Icon</p>
+    <div class="icons-row">
+      <div class="icon-group">
+        <h3>Favicon</h3>
+        <div class="icon-container"><img src="favicon-1-eye-chart.svg" width="16" height="16" alt="16x16"></div>
+        <div class="icon-size">16px</div>
+      </div>
+      <div class="icon-group">
+        <h3>Favicon 2x</h3>
+        <div class="icon-container"><img src="favicon-1-eye-chart.svg" width="32" height="32" alt="32x32"></div>
+        <div class="icon-size">32px</div>
+      </div>
+      <div class="icon-group">
+        <h3>Favicon 3x</h3>
+        <div class="icon-container"><img src="favicon-1-eye-chart.svg" width="48" height="48" alt="48x48"></div>
+        <div class="icon-size">48px</div>
+      </div>
+      <div class="icon-group">
+        <h3>App Icon</h3>
+        <div class="icon-container"><img src="appicon-1.svg" width="96" height="96" alt="96x96"></div>
+        <div class="icon-size">96px</div>
+      </div>
+      <div class="icon-group">
+        <h3>App Icon (lg)</h3>
+        <div class="icon-container"><img src="appicon-1.svg" width="192" height="192" alt="192x192"></div>
+        <div class="icon-size">192px</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONCEPT 2 -->
+  <div class="concept">
+    <div class="concept-header">
+      <h2>Concept 2 &mdash; Prism Refraction</h2>
+      <span>SCIENTIFIC / ANALYTICAL</span>
+    </div>
+    <p class="concept-description">
+      A prism refracting a single beam of light into multiple colored rays (red, gold, green). Symbolizes how Optic Rank breaks down complex SEO data into clear, actionable insights. The upward arrow reinforces ranking improvement.
+    </p>
+    <div class="logo-row">
+      <div class="logo-variant">
+        <h3>Light Background</h3>
+        <div class="logo-light">
+          <img src="concept-2-prism.svg" alt="Concept 2 Light">
+        </div>
+      </div>
+      <div class="logo-variant">
+        <h3>Dark Background</h3>
+        <div class="logo-dark dark-variant">
+          <img src="concept-2-prism.svg" alt="Concept 2 Dark">
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <p class="section-label">Favicon &amp; App Icon</p>
+    <div class="icons-row">
+      <div class="icon-group">
+        <h3>Favicon</h3>
+        <div class="icon-container"><img src="favicon-2-prism.svg" width="16" height="16" alt="16x16"></div>
+        <div class="icon-size">16px</div>
+      </div>
+      <div class="icon-group">
+        <h3>Favicon 2x</h3>
+        <div class="icon-container"><img src="favicon-2-prism.svg" width="32" height="32" alt="32x32"></div>
+        <div class="icon-size">32px</div>
+      </div>
+      <div class="icon-group">
+        <h3>Favicon 3x</h3>
+        <div class="icon-container"><img src="favicon-2-prism.svg" width="48" height="48" alt="48x48"></div>
+        <div class="icon-size">48px</div>
+      </div>
+      <div class="icon-group">
+        <h3>App Icon</h3>
+        <div class="icon-container"><img src="appicon-2.svg" width="96" height="96" alt="96x96"></div>
+        <div class="icon-size">96px</div>
+      </div>
+      <div class="icon-group">
+        <h3>App Icon (lg)</h3>
+        <div class="icon-container"><img src="appicon-2.svg" width="192" height="192" alt="192x192"></div>
+        <div class="icon-size">192px</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONCEPT 3 -->
+  <div class="concept">
+    <div class="concept-header">
+      <h2>Concept 3 &mdash; Search Lens + Arrow</h2>
+      <span>SEARCH / GROWTH</span>
+    </div>
+    <p class="concept-description">
+      A magnifying glass (the classic search symbol) with an upward-pointing arrow inside the lens. Directly communicates "search ranking improvement." Bold, clean, and immediately recognizable.
+    </p>
+    <div class="logo-row">
+      <div class="logo-variant">
+        <h3>Light Background</h3>
+        <div class="logo-light">
+          <img src="concept-3-lens-arrow.svg" alt="Concept 3 Light">
+        </div>
+      </div>
+      <div class="logo-variant">
+        <h3>Dark Background</h3>
+        <div class="logo-dark dark-variant">
+          <img src="concept-3-lens-arrow.svg" alt="Concept 3 Dark">
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <p class="section-label">Favicon &amp; App Icon</p>
+    <div class="icons-row">
+      <div class="icon-group">
+        <h3>Favicon</h3>
+        <div class="icon-container"><img src="favicon-3-lens.svg" width="16" height="16" alt="16x16"></div>
+        <div class="icon-size">16px</div>
+      </div>
+      <div class="icon-group">
+        <h3>Favicon 2x</h3>
+        <div class="icon-container"><img src="favicon-3-lens.svg" width="32" height="32" alt="32x32"></div>
+        <div class="icon-size">32px</div>
+      </div>
+      <div class="icon-group">
+        <h3>Favicon 3x</h3>
+        <div class="icon-container"><img src="favicon-3-lens.svg" width="48" height="48" alt="48x48"></div>
+        <div class="icon-size">48px</div>
+      </div>
+      <div class="icon-group">
+        <h3>App Icon</h3>
+        <div class="icon-container"><img src="appicon-3.svg" width="96" height="96" alt="96x96"></div>
+        <div class="icon-size">96px</div>
+      </div>
+      <div class="icon-group">
+        <h3>App Icon (lg)</h3>
+        <div class="icon-container"><img src="appicon-3.svg" width="192" height="192" alt="192x192"></div>
+        <div class="icon-size">192px</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONCEPT 4 -->
+  <div class="concept">
+    <div class="concept-header">
+      <h2>Concept 4 &mdash; Geometric Eye (Hexagonal)</h2>
+      <span>TECH / PRECISION</span>
+    </div>
+    <p class="concept-description">
+      A hexagonal geometric eye shape with layered depth. The center diamond pupil in red contains a subtle "#1" mark. Conveys precision, technology, and data-driven insight. The nested hexagons suggest layers of analysis.
+    </p>
+    <div class="logo-row">
+      <div class="logo-variant">
+        <h3>Light Background</h3>
+        <div class="logo-light">
+          <img src="concept-4-geometric-eye.svg" alt="Concept 4 Light">
+        </div>
+      </div>
+      <div class="logo-variant">
+        <h3>Dark Background</h3>
+        <div class="logo-dark dark-variant">
+          <img src="concept-4-geometric-eye.svg" alt="Concept 4 Dark">
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <p class="section-label">Favicon &amp; App Icon</p>
+    <div class="icons-row">
+      <div class="icon-group">
+        <h3>Favicon</h3>
+        <div class="icon-container"><img src="favicon-4-geometric.svg" width="16" height="16" alt="16x16"></div>
+        <div class="icon-size">16px</div>
+      </div>
+      <div class="icon-group">
+        <h3>Favicon 2x</h3>
+        <div class="icon-container"><img src="favicon-4-geometric.svg" width="32" height="32" alt="32x32"></div>
+        <div class="icon-size">32px</div>
+      </div>
+      <div class="icon-group">
+        <h3>Favicon 3x</h3>
+        <div class="icon-container"><img src="favicon-4-geometric.svg" width="48" height="48" alt="48x48"></div>
+        <div class="icon-size">48px</div>
+      </div>
+      <div class="icon-group">
+        <h3>App Icon</h3>
+        <div class="icon-container"><img src="appicon-4.svg" width="96" height="96" alt="96x96"></div>
+        <div class="icon-size">96px</div>
+      </div>
+      <div class="icon-group">
+        <h3>App Icon (lg)</h3>
+        <div class="icon-container"><img src="appicon-4.svg" width="192" height="192" alt="192x192"></div>
+        <div class="icon-size">192px</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONCEPT 5 -->
+  <div class="concept">
+    <div class="concept-header">
+      <h2>Concept 5 &mdash; O+R Monogram</h2>
+      <span>CLASSIC / SOPHISTICATED</span>
+    </div>
+    <p class="concept-description">
+      A bold "O" circle with crosshair targeting lines, overlapped by an elegant serif "R" in red. The monogram approach is timeless and works exceptionally well at small sizes. The crosshair adds the precision/targeting dimension.
+    </p>
+    <div class="logo-row">
+      <div class="logo-variant">
+        <h3>Light Background</h3>
+        <div class="logo-light">
+          <img src="concept-5-monogram.svg" alt="Concept 5 Light">
+        </div>
+      </div>
+      <div class="logo-variant">
+        <h3>Dark Background</h3>
+        <div class="logo-dark dark-variant">
+          <img src="concept-5-monogram.svg" alt="Concept 5 Dark">
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <p class="section-label">Favicon &amp; App Icon</p>
+    <div class="icons-row">
+      <div class="icon-group">
+        <h3>Favicon</h3>
+        <div class="icon-container"><img src="favicon-5-monogram.svg" width="16" height="16" alt="16x16"></div>
+        <div class="icon-size">16px</div>
+      </div>
+      <div class="icon-group">
+        <h3>Favicon 2x</h3>
+        <div class="icon-container"><img src="favicon-5-monogram.svg" width="32" height="32" alt="32x32"></div>
+        <div class="icon-size">32px</div>
+      </div>
+      <div class="icon-group">
+        <h3>Favicon 3x</h3>
+        <div class="icon-container"><img src="favicon-5-monogram.svg" width="48" height="48" alt="48x48"></div>
+        <div class="icon-size">48px</div>
+      </div>
+      <div class="icon-group">
+        <h3>App Icon</h3>
+        <div class="icon-container"><img src="appicon-5.svg" width="96" height="96" alt="96x96"></div>
+        <div class="icon-size">96px</div>
+      </div>
+      <div class="icon-group">
+        <h3>App Icon (lg)</h3>
+        <div class="icon-container"><img src="appicon-5.svg" width="192" height="192" alt="192x192"></div>
+        <div class="icon-size">192px</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONCEPT 6 -->
+  <div class="concept">
+    <div class="concept-header">
+      <h2>Concept 6 &mdash; Precision Crosshair</h2>
+      <span>TACTICAL / PERFORMANCE</span>
+    </div>
+    <p class="concept-description">
+      A scope/crosshair design with concentric circles and red targeting lines. Tiny bar chart elements at center. Communicates precision targeting of keywords and rankings. The sans-serif typography reinforces the modern, tactical feel.
+    </p>
+    <div class="logo-row">
+      <div class="logo-variant">
+        <h3>Light Background</h3>
+        <div class="logo-light">
+          <img src="concept-6-crosshair.svg" alt="Concept 6 Light">
+        </div>
+      </div>
+      <div class="logo-variant">
+        <h3>Dark Background</h3>
+        <div class="logo-dark dark-variant">
+          <img src="concept-6-crosshair.svg" alt="Concept 6 Dark">
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <p class="section-label">Favicon &amp; App Icon</p>
+    <div class="icons-row">
+      <div class="icon-group">
+        <h3>Favicon</h3>
+        <div class="icon-container"><img src="favicon-6-crosshair.svg" width="16" height="16" alt="16x16"></div>
+        <div class="icon-size">16px</div>
+      </div>
+      <div class="icon-group">
+        <h3>Favicon 2x</h3>
+        <div class="icon-container"><img src="favicon-6-crosshair.svg" width="32" height="32" alt="32x32"></div>
+        <div class="icon-size">32px</div>
+      </div>
+      <div class="icon-group">
+        <h3>Favicon 3x</h3>
+        <div class="icon-container"><img src="favicon-6-crosshair.svg" width="48" height="48" alt="48x48"></div>
+        <div class="icon-size">48px</div>
+      </div>
+      <div class="icon-group">
+        <h3>App Icon</h3>
+        <div class="icon-container"><img src="appicon-6.svg" width="96" height="96" alt="96x96"></div>
+        <div class="icon-size">96px</div>
+      </div>
+      <div class="icon-group">
+        <h3>App Icon (lg)</h3>
+        <div class="icon-container"><img src="appicon-6.svg" width="192" height="192" alt="192x192"></div>
+        <div class="icon-size">192px</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONCEPT 7 -->
+  <div class="concept">
+    <div class="concept-header">
+      <h2>Concept 7 &mdash; Lighthouse Beacon</h2>
+      <span>GUIDING / AUTHORITATIVE</span>
+    </div>
+    <p class="concept-description">
+      A lighthouse with a golden beam of light. Symbolizes guidance to the top of search rankings. The red stripes add visual interest while the gold light represents the "optic" element. Signal waves suggest broadcasting visibility.
+    </p>
+    <div class="logo-row">
+      <div class="logo-variant">
+        <h3>Light Background</h3>
+        <div class="logo-light">
+          <img src="concept-7-lighthouse.svg" alt="Concept 7 Light">
+        </div>
+      </div>
+      <div class="logo-variant">
+        <h3>Dark Background</h3>
+        <div class="logo-dark dark-variant">
+          <img src="concept-7-lighthouse.svg" alt="Concept 7 Dark">
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <p class="section-label">Favicon &amp; App Icon</p>
+    <div class="icons-row">
+      <div class="icon-group">
+        <h3>Favicon</h3>
+        <div class="icon-container"><img src="favicon-7-lighthouse.svg" width="16" height="16" alt="16x16"></div>
+        <div class="icon-size">16px</div>
+      </div>
+      <div class="icon-group">
+        <h3>Favicon 2x</h3>
+        <div class="icon-container"><img src="favicon-7-lighthouse.svg" width="32" height="32" alt="32x32"></div>
+        <div class="icon-size">32px</div>
+      </div>
+      <div class="icon-group">
+        <h3>Favicon 3x</h3>
+        <div class="icon-container"><img src="favicon-7-lighthouse.svg" width="48" height="48" alt="48x48"></div>
+        <div class="icon-size">48px</div>
+      </div>
+      <div class="icon-group">
+        <h3>App Icon</h3>
+        <div class="icon-container"><img src="appicon-7.svg" width="96" height="96" alt="96x96"></div>
+        <div class="icon-size">96px</div>
+      </div>
+      <div class="icon-group">
+        <h3>App Icon (lg)</h3>
+        <div class="icon-container"><img src="appicon-7.svg" width="192" height="192" alt="192x192"></div>
+        <div class="icon-size">192px</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONCEPT 8 -->
+  <div class="concept">
+    <div class="concept-header">
+      <h2>Concept 8 &mdash; Eye + Signal Waves</h2>
+      <span>VISIBILITY / BROADCAST</span>
+    </div>
+    <p class="concept-description">
+      A sleek eye with an upward arrow in the red pupil, emitting signal waves. The eye watches rankings while the waves represent broadcasting your content's visibility across search engines. Elegant dual-serif typography.
+    </p>
+    <div class="logo-row">
+      <div class="logo-variant">
+        <h3>Light Background</h3>
+        <div class="logo-light">
+          <img src="concept-8-eye-signal.svg" alt="Concept 8 Light">
+        </div>
+      </div>
+      <div class="logo-variant">
+        <h3>Dark Background</h3>
+        <div class="logo-dark dark-variant">
+          <img src="concept-8-eye-signal.svg" alt="Concept 8 Dark">
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <p class="section-label">Favicon &amp; App Icon</p>
+    <div class="icons-row">
+      <div class="icon-group">
+        <h3>Favicon</h3>
+        <div class="icon-container"><img src="favicon-8-eye-signal.svg" width="16" height="16" alt="16x16"></div>
+        <div class="icon-size">16px</div>
+      </div>
+      <div class="icon-group">
+        <h3>Favicon 2x</h3>
+        <div class="icon-container"><img src="favicon-8-eye-signal.svg" width="32" height="32" alt="32x32"></div>
+        <div class="icon-size">32px</div>
+      </div>
+      <div class="icon-group">
+        <h3>Favicon 3x</h3>
+        <div class="icon-container"><img src="favicon-8-eye-signal.svg" width="48" height="48" alt="48x48"></div>
+        <div class="icon-size">48px</div>
+      </div>
+      <div class="icon-group">
+        <h3>App Icon</h3>
+        <div class="icon-container"><img src="appicon-8.svg" width="96" height="96" alt="96x96"></div>
+        <div class="icon-size">96px</div>
+      </div>
+      <div class="icon-group">
+        <h3>App Icon (lg)</h3>
+        <div class="icon-container"><img src="appicon-8.svg" width="192" height="192" alt="192x192"></div>
+        <div class="icon-size">192px</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONCEPT 9 -->
+  <div class="concept">
+    <div class="concept-header">
+      <h2>Concept 9 &mdash; Diamond Eye</h2>
+      <span>PREMIUM / LUXURY</span>
+    </div>
+    <p class="concept-description">
+      A diamond/gem rotated 45 degrees with facet lines, containing an eye/pupil at its center. The sparkle at the top suggests premium quality. Italic serif typography gives an upscale, editorial feel. Perfect for premium-tier positioning.
+    </p>
+    <div class="logo-row">
+      <div class="logo-variant">
+        <h3>Light Background</h3>
+        <div class="logo-light">
+          <img src="concept-9-diamond-eye.svg" alt="Concept 9 Light">
+        </div>
+      </div>
+      <div class="logo-variant">
+        <h3>Dark Background</h3>
+        <div class="logo-dark dark-variant">
+          <img src="concept-9-diamond-eye.svg" alt="Concept 9 Dark">
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <p class="section-label">Favicon &amp; App Icon</p>
+    <div class="icons-row">
+      <div class="icon-group">
+        <h3>Favicon</h3>
+        <div class="icon-container"><img src="favicon-9-diamond.svg" width="16" height="16" alt="16x16"></div>
+        <div class="icon-size">16px</div>
+      </div>
+      <div class="icon-group">
+        <h3>Favicon 2x</h3>
+        <div class="icon-container"><img src="favicon-9-diamond.svg" width="32" height="32" alt="32x32"></div>
+        <div class="icon-size">32px</div>
+      </div>
+      <div class="icon-group">
+        <h3>Favicon 3x</h3>
+        <div class="icon-container"><img src="favicon-9-diamond.svg" width="48" height="48" alt="48x48"></div>
+        <div class="icon-size">48px</div>
+      </div>
+      <div class="icon-group">
+        <h3>App Icon</h3>
+        <div class="icon-container"><img src="appicon-9.svg" width="96" height="96" alt="96x96"></div>
+        <div class="icon-size">96px</div>
+      </div>
+      <div class="icon-group">
+        <h3>App Icon (lg)</h3>
+        <div class="icon-container"><img src="appicon-9.svg" width="192" height="192" alt="192x192"></div>
+        <div class="icon-size">192px</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONCEPT 10 -->
+  <div class="concept">
+    <div class="concept-header">
+      <h2>Concept 10 &mdash; Camera Aperture</h2>
+      <span>FOCUS / CLARITY</span>
+    </div>
+    <p class="concept-description">
+      A camera aperture (iris blades) forming the "O" of Optic, with an upward arrow in the red center. The aperture symbolizes focus and clarity of vision. Stacked typography with a divider line and "SEO Intelligence" tagline. The most polished, complete brand expression.
+    </p>
+    <div class="logo-row">
+      <div class="logo-variant">
+        <h3>Light Background</h3>
+        <div class="logo-light">
+          <img src="concept-10-stacked.svg" alt="Concept 10 Light">
+        </div>
+      </div>
+      <div class="logo-variant">
+        <h3>Dark Background</h3>
+        <div class="logo-dark dark-variant">
+          <img src="concept-10-stacked.svg" alt="Concept 10 Dark">
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <p class="section-label">Favicon &amp; App Icon</p>
+    <div class="icons-row">
+      <div class="icon-group">
+        <h3>Favicon</h3>
+        <div class="icon-container"><img src="favicon-10-aperture.svg" width="16" height="16" alt="16x16"></div>
+        <div class="icon-size">16px</div>
+      </div>
+      <div class="icon-group">
+        <h3>Favicon 2x</h3>
+        <div class="icon-container"><img src="favicon-10-aperture.svg" width="32" height="32" alt="32x32"></div>
+        <div class="icon-size">32px</div>
+      </div>
+      <div class="icon-group">
+        <h3>Favicon 3x</h3>
+        <div class="icon-container"><img src="favicon-10-aperture.svg" width="48" height="48" alt="48x48"></div>
+        <div class="icon-size">48px</div>
+      </div>
+      <div class="icon-group">
+        <h3>App Icon</h3>
+        <div class="icon-container"><img src="appicon-10.svg" width="96" height="96" alt="96x96"></div>
+        <div class="icon-size">96px</div>
+      </div>
+      <div class="icon-group">
+        <h3>App Icon (lg)</h3>
+        <div class="icon-container"><img src="appicon-10.svg" width="192" height="192" alt="192x192"></div>
+        <div class="icon-size">192px</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Optic Rank &mdash; Brand Identity Concepts &mdash; 2026</p>
+  </div>
+
+</body>
+</html>

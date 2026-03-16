@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120">
+  <!-- Podium blocks -->
+  <rect x="20" y="60" width="22" height="38" fill="#1a1a1a" opacity="0.2" rx="2"/>
+  <rect x="42" y="35" width="26" height="63" fill="#c0392b" rx="2"/>
+  <rect x="68" y="50" width="22" height="48" fill="#1a1a1a" opacity="0.15" rx="2"/>
+  <!-- Ranking numbers -->
+  <text x="29" y="82" font-family="'Playfair Display', Georgia, serif" font-size="14" font-weight="700" fill="#1a1a1a" opacity="0.4">2</text>
+  <text x="77" y="76" font-family="'Playfair Display', Georgia, serif" font-size="14" font-weight="700" fill="#1a1a1a" opacity="0.3">3</text>
+  <!-- Crown/eye on #1 -->
+  <text x="50" y="58" font-family="'Playfair Display', Georgia, serif" font-size="16" font-weight="900" fill="#f5f2ed">1</text>
+  <!-- Eye symbol above podium -->
+  <path d="M40,22 Q55,12 70,22" fill="none" stroke="#1a1a1a" stroke-width="1.5"/>
+  <path d="M40,22 Q55,32 70,22" fill="none" stroke="#1a1a1a" stroke-width="1.5"/>
+  <circle cx="55" cy="22" r="4" fill="#c0392b"/>
+  <circle cx="53" cy="21" r="1.2" fill="#f5f2ed" opacity="0.4"/>
+  <!-- Text -->
+  <text x="110" y="48" font-family="'Playfair Display', Georgia, serif" font-size="36" font-weight="900" fill="#1a1a1a">OPTIC</text>
+  <rect x="110" y="56" width="60" height="3" fill="#c0392b"/>
+  <text x="110" y="85" font-family="'Playfair Display', Georgia, serif" font-size="36" font-weight="400" fill="#1a1a1a">RANK</text>
+</svg>

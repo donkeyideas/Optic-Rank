@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120">
+  <!-- Radar circle -->
+  <circle cx="55" cy="60" r="35" fill="none" stroke="#1a1a1a" stroke-width="2"/>
+  <circle cx="55" cy="60" r="23" fill="none" stroke="#1a1a1a" stroke-width="1" opacity="0.4"/>
+  <circle cx="55" cy="60" r="11" fill="none" stroke="#1a1a1a" stroke-width="1" opacity="0.3"/>
+  <!-- Radar cross lines -->
+  <line x1="55" y1="25" x2="55" y2="95" stroke="#1a1a1a" stroke-width="0.8" opacity="0.2"/>
+  <line x1="20" y1="60" x2="90" y2="60" stroke="#1a1a1a" stroke-width="0.8" opacity="0.2"/>
+  <!-- Radar sweep -->
+  <path d="M55,60 L55,25 A35,35 0 0,1 85,42 Z" fill="#c0392b" opacity="0.2"/>
+  <!-- Sweep line -->
+  <line x1="55" y1="60" x2="85" y2="42" stroke="#c0392b" stroke-width="2"/>
+  <!-- Blips (ranking positions) -->
+  <circle cx="68" cy="45" r="3" fill="#c0392b"/>
+  <circle cx="45" cy="48" r="2.5" fill="#27ae60"/>
+  <circle cx="62" cy="68" r="2" fill="#b8860b"/>
+  <!-- Center dot -->
+  <circle cx="55" cy="60" r="2" fill="#1a1a1a"/>
+  <!-- Text -->
+  <text x="110" y="48" font-family="'IBM Plex Sans', sans-serif" font-size="28" font-weight="600" letter-spacing="4" fill="#1a1a1a">OPTIC</text>
+  <text x="110" y="80" font-family="'IBM Plex Sans', sans-serif" font-size="28" font-weight="300" letter-spacing="4" fill="#c0392b">RANK</text>
+  <!-- Thin divider -->
+  <line x1="110" y1="54" x2="250" y2="54" stroke="#1a1a1a" stroke-width="0.5" opacity="0.3"/>
+</svg>

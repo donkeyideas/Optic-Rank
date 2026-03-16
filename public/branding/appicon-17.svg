@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#1a1a1a"/>
+  <!-- Constellation points -->
+  <circle cx="80" cy="256" r="12" fill="#f5f2ed"/>
+  <circle cx="160" cy="140" r="10" fill="#f5f2ed"/>
+  <circle cx="256" cy="100" r="14" fill="#c0392b"/>
+  <circle cx="352" cy="140" r="10" fill="#f5f2ed"/>
+  <circle cx="432" cy="256" r="12" fill="#f5f2ed"/>
+  <circle cx="352" cy="372" r="10" fill="#f5f2ed"/>
+  <circle cx="256" cy="412" r="8" fill="#f5f2ed"/>
+  <circle cx="160" cy="372" r="10" fill="#f5f2ed"/>
+  <!-- Center star -->
+  <circle cx="256" cy="256" r="24" fill="#c0392b"/>
+  <circle cx="256" cy="256" r="36" fill="#c0392b" opacity="0.15"/>
+  <!-- Constellation lines -->
+  <line x1="80" y1="256" x2="160" y2="140" stroke="#f5f2ed" stroke-width="3" opacity="0.35"/>
+  <line x1="160" y1="140" x2="256" y2="100" stroke="#f5f2ed" stroke-width="3" opacity="0.35"/>
+  <line x1="256" y1="100" x2="352" y2="140" stroke="#f5f2ed" stroke-width="3" opacity="0.35"/>
+  <line x1="352" y1="140" x2="432" y2="256" stroke="#f5f2ed" stroke-width="3" opacity="0.35"/>
+  <line x1="432" y1="256" x2="352" y2="372" stroke="#f5f2ed" stroke-width="3" opacity="0.35"/>
+  <line x1="352" y1="372" x2="256" y2="412" stroke="#f5f2ed" stroke-width="3" opacity="0.35"/>
+  <line x1="256" y1="412" x2="160" y2="372" stroke="#f5f2ed" stroke-width="3" opacity="0.35"/>
+  <line x1="160" y1="372" x2="80" y2="256" stroke="#f5f2ed" stroke-width="3" opacity="0.35"/>
+  <!-- Lines to center -->
+  <line x1="160" y1="140" x2="256" y2="256" stroke="#c0392b" stroke-width="2" opacity="0.25"/>
+  <line x1="352" y1="140" x2="256" y2="256" stroke="#c0392b" stroke-width="2" opacity="0.25"/>
+  <line x1="160" y1="372" x2="256" y2="256" stroke="#c0392b" stroke-width="2" opacity="0.25"/>
+  <line x1="352" y1="372" x2="256" y2="256" stroke="#c0392b" stroke-width="2" opacity="0.25"/>
+  <!-- Sparkle dots -->
+  <circle cx="120" cy="195" r="4" fill="#b8860b" opacity="0.5"/>
+  <circle cx="390" cy="200" r="4" fill="#b8860b" opacity="0.4"/>
+  <circle cx="200" cy="340" r="3" fill="#b8860b" opacity="0.3"/>
+</svg>

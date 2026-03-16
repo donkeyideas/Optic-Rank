@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120">
+  <!-- Left barrel -->
+  <rect x="22" y="30" width="28" height="55" rx="5" fill="none" stroke="#1a1a1a" stroke-width="2.5"/>
+  <!-- Right barrel -->
+  <rect x="58" y="30" width="28" height="55" rx="5" fill="none" stroke="#1a1a1a" stroke-width="2.5"/>
+  <!-- Bridge connecting barrels -->
+  <path d="M50,45 L58,45" fill="none" stroke="#1a1a1a" stroke-width="2.5"/>
+  <path d="M50,55 L58,55" fill="none" stroke="#1a1a1a" stroke-width="2.5"/>
+  <!-- Left lens -->
+  <circle cx="36" cy="82" r="14" fill="none" stroke="#1a1a1a" stroke-width="2.5"/>
+  <circle cx="36" cy="82" r="9" fill="#c0392b" opacity="0.15"/>
+  <circle cx="36" cy="82" r="4" fill="#c0392b"/>
+  <!-- Right lens -->
+  <circle cx="72" cy="82" r="14" fill="none" stroke="#1a1a1a" stroke-width="2.5"/>
+  <circle cx="72" cy="82" r="9" fill="#c0392b" opacity="0.15"/>
+  <circle cx="72" cy="82" r="4" fill="#c0392b"/>
+  <!-- Lens reflections -->
+  <circle cx="32" cy="78" r="2" fill="#f5f2ed" opacity="0.3"/>
+  <circle cx="68" cy="78" r="2" fill="#f5f2ed" opacity="0.3"/>
+  <!-- Focus wheel on top -->
+  <rect x="46" y="28" width="16" height="8" rx="3" fill="#1a1a1a"/>
+  <!-- Text -->
+  <text x="115" y="52" font-family="'Playfair Display', Georgia, serif" font-size="36" font-weight="700" fill="#1a1a1a">OPTIC</text>
+  <text x="115" y="84" font-family="'IBM Plex Sans', sans-serif" font-size="22" font-weight="300" letter-spacing="8" fill="#c0392b">RANK</text>
+  <text x="115" y="100" font-family="'IBM Plex Sans', sans-serif" font-size="8" font-weight="400" letter-spacing="3" fill="#999">FULL VISIBILITY</text>
+</svg>

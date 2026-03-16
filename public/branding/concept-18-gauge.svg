@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120">
+  <!-- Gauge arc (half circle) -->
+  <path d="M18,85 A42,42 0 0,1 92,85" fill="none" stroke="#1a1a1a" stroke-width="3"/>
+  <!-- Gauge tick marks -->
+  <line x1="22" y1="72" x2="28" y2="75" stroke="#1a1a1a" stroke-width="1.5" opacity="0.4"/>
+  <line x1="30" y1="55" x2="35" y2="60" stroke="#1a1a1a" stroke-width="1.5" opacity="0.4"/>
+  <line x1="45" y1="44" x2="48" y2="50" stroke="#b8860b" stroke-width="1.5" opacity="0.5"/>
+  <line x1="62" y1="40" x2="62" y2="47" stroke="#b8860b" stroke-width="1.5" opacity="0.6"/>
+  <line x1="78" y1="44" x2="75" y2="50" stroke="#c0392b" stroke-width="1.5"/>
+  <line x1="88" y1="55" x2="83" y2="60" stroke="#c0392b" stroke-width="1.5"/>
+  <!-- Needle pointing to top right (high rank) -->
+  <line x1="55" y1="85" x2="82" y2="52" stroke="#c0392b" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Needle pivot -->
+  <circle cx="55" cy="85" r="5" fill="#1a1a1a"/>
+  <circle cx="55" cy="85" r="2" fill="#c0392b"/>
+  <!-- Color zones -->
+  <path d="M22,72 A38,38 0 0,1 45,44" fill="none" stroke="#27ae60" stroke-width="4" opacity="0.2"/>
+  <path d="M45,44 A38,38 0 0,1 78,44" fill="none" stroke="#b8860b" stroke-width="4" opacity="0.2"/>
+  <path d="M78,44 A38,38 0 0,1 88,55" fill="none" stroke="#c0392b" stroke-width="4" opacity="0.3"/>
+  <!-- Text -->
+  <text x="115" y="55" font-family="'IBM Plex Sans', sans-serif" font-size="32" font-weight="700" fill="#1a1a1a">optic</text>
+  <text x="115" y="88" font-family="'IBM Plex Sans', sans-serif" font-size="32" font-weight="300" fill="#c0392b">rank</text>
+  <!-- Score label -->
+  <text x="46" y="102" font-family="'IBM Plex Mono', monospace" font-size="8" fill="#999" letter-spacing="1">SCORE</text>
+</svg>

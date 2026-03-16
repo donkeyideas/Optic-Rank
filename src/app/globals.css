@@ -1,26 +1,181 @@
 @import "tailwindcss";
 
+/* ================================================================
+   EDITORIAL DESIGN SYSTEM - Optic Rank
+   Based on Design 6 (Editorial/Newspaper) mockup
+   ================================================================ */
+
+/* --- LIGHT THEME (default) --- */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-surface-cream: #f5f2ed;
+  --color-surface-card: #ffffff;
+  --color-surface-raised: #faf8f5;
+  --color-surface-inset: #f0ede8;
+
+  --color-ink: #1a1a1a;
+  --color-ink-secondary: #555555;
+  --color-ink-muted: #999999;
+  --color-ink-faint: #cccccc;
+
+  --color-editorial-red: #c0392b;
+  --color-editorial-green: #27ae60;
+  --color-editorial-gold: #b8860b;
+  --color-editorial-blue: #2c7be5;
+
+  --color-rule: #dddddd;
+  --color-rule-light: #eeeeee;
+  --color-rule-dark: #1a1a1a;
+
+  --color-background: var(--color-surface-cream);
+  --color-foreground: var(--color-ink);
 }
 
+/* --- DARK THEME --- */
+.dark {
+  --color-surface-cream: #0a0a0b;
+  --color-surface-card: #141416;
+  --color-surface-raised: #1a1a1e;
+  --color-surface-inset: #0e0e10;
+
+  --color-ink: #f0ede8;
+  --color-ink-secondary: #b0aca5;
+  --color-ink-muted: #777370;
+  --color-ink-faint: #444240;
+
+  --color-editorial-red: #e74c3c;
+  --color-editorial-green: #2ecc71;
+  --color-editorial-gold: #d4a017;
+  --color-editorial-blue: #5b9cf5;
+
+  --color-rule: #2a2a2e;
+  --color-rule-light: #1e1e22;
+  --color-rule-dark: #f0ede8;
+
+  --color-background: var(--color-surface-cream);
+  --color-foreground: var(--color-ink);
+}
+
+/* --- TAILWIND V4 THEME --- */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--color-background);
+  --color-foreground: var(--color-foreground);
+
+  --color-surface-cream: var(--color-surface-cream);
+  --color-surface-card: var(--color-surface-card);
+  --color-surface-raised: var(--color-surface-raised);
+  --color-surface-inset: var(--color-surface-inset);
+
+  --color-ink: var(--color-ink);
+  --color-ink-secondary: var(--color-ink-secondary);
+  --color-ink-muted: var(--color-ink-muted);
+  --color-ink-faint: var(--color-ink-faint);
+
+  --color-editorial-red: var(--color-editorial-red);
+  --color-editorial-green: var(--color-editorial-green);
+  --color-editorial-gold: var(--color-editorial-gold);
+  --color-editorial-blue: var(--color-editorial-blue);
+
+  --color-rule: var(--color-rule);
+  --color-rule-light: var(--color-rule-light);
+  --color-rule-dark: var(--color-rule-dark);
+
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Menlo', monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* --- BASE STYLES --- */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-surface-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* --- EDITORIAL TYPOGRAPHY --- */
+.editorial-headline {
+  font-family: var(--font-serif);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.editorial-subhead {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.editorial-label {
+  font-size: 0.5625rem; /* 9px */
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--color-editorial-red);
+}
+
+.editorial-overline {
+  font-size: 0.625rem; /* 10px */
+  font-weight: 600;
+  letter-spacing: 0.125em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.data-value {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-ink-secondary);
+}
+
+/* --- EDITORIAL BORDERS --- */
+.border-double-rule {
+  border-top: 4px double var(--color-rule-dark);
+}
+
+.border-single-rule {
+  border-top: 1px solid var(--color-rule);
+}
+
+/* --- SCROLLBAR STYLING --- */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-ink-faint);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink-muted);
+}
+
+/* --- TRANSITIONS --- */
+* {
+  transition-property: background-color, border-color, color;
+  transition-duration: 150ms;
+  transition-timing-function: ease;
+}
+
+/* Opt out of transition for elements that shouldn't animate theme changes */
+.no-theme-transition,
+.no-theme-transition * {
+  transition: none !important;
+}
+
+/* --- MOBILE: Hidden scrollbar for horizontal-scroll elements --- */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

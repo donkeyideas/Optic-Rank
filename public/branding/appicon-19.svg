@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#1a1a1a"/>
+  <!-- Podium blocks -->
+  <rect x="60" y="250" width="120" height="190" fill="#f5f2ed" opacity="0.2" rx="8"/>
+  <rect x="180" y="160" width="150" height="280" fill="#c0392b" rx="8"/>
+  <rect x="330" y="220" width="120" height="220" fill="#f5f2ed" opacity="0.15" rx="8"/>
+  <!-- Numbers -->
+  <text x="106" y="360" font-family="Georgia, serif" font-size="60" font-weight="700" fill="#f5f2ed" text-anchor="middle" opacity="0.5">2</text>
+  <text x="378" y="340" font-family="Georgia, serif" font-size="60" font-weight="700" fill="#f5f2ed" text-anchor="middle" opacity="0.4">3</text>
+  <text x="255" y="280" font-family="Georgia, serif" font-size="80" font-weight="900" fill="#f5f2ed" text-anchor="middle">1</text>
+  <!-- Eye above podium -->
+  <path d="M180,110 Q255,60 330,110" fill="none" stroke="#f5f2ed" stroke-width="8"/>
+  <path d="M180,110 Q255,160 330,110" fill="none" stroke="#f5f2ed" stroke-width="8"/>
+  <circle cx="255" cy="110" r="20" fill="#c0392b"/>
+  <circle cx="250" cy="106" r="6" fill="#f5f2ed" opacity="0.4"/>
+</svg>

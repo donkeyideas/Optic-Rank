@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#1a1a1a"/>
+  <!-- Left barrel -->
+  <rect x="70" y="100" width="130" height="210" rx="20" fill="none" stroke="#f5f2ed" stroke-width="10"/>
+  <!-- Right barrel -->
+  <rect x="260" y="100" width="130" height="210" rx="20" fill="none" stroke="#f5f2ed" stroke-width="10"/>
+  <!-- Bridge -->
+  <path d="M200,160 L260,160" fill="none" stroke="#f5f2ed" stroke-width="10"/>
+  <path d="M200,190 L260,190" fill="none" stroke="#f5f2ed" stroke-width="10"/>
+  <!-- Focus wheel -->
+  <rect x="210" y="80" width="80" height="36" rx="12" fill="#f5f2ed"/>
+  <!-- Left lens -->
+  <circle cx="135" cy="350" r="70" fill="none" stroke="#f5f2ed" stroke-width="10"/>
+  <circle cx="135" cy="350" r="45" fill="#c0392b" opacity="0.15"/>
+  <circle cx="135" cy="350" r="22" fill="#c0392b"/>
+  <!-- Right lens -->
+  <circle cx="325" cy="350" r="70" fill="none" stroke="#f5f2ed" stroke-width="10"/>
+  <circle cx="325" cy="350" r="45" fill="#c0392b" opacity="0.15"/>
+  <circle cx="325" cy="350" r="22" fill="#c0392b"/>
+  <!-- Lens reflections -->
+  <circle cx="120" cy="335" r="12" fill="#f5f2ed" opacity="0.2"/>
+  <circle cx="310" cy="335" r="12" fill="#f5f2ed" opacity="0.2"/>
+</svg>

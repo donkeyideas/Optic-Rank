@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120">
+  <!-- Geometric eye made of angular shapes -->
+  <path d="M20,60 L45,30 L75,30 L100,60 L75,90 L45,90 Z" fill="none" stroke="#1a1a1a" stroke-width="2.5"/>
+  <!-- Inner hexagon -->
+  <path d="M38,60 L48,42 L68,42 L78,60 L68,78 L48,78 Z" fill="none" stroke="#1a1a1a" stroke-width="2"/>
+  <!-- Center diamond pupil -->
+  <path d="M53,60 L60,50 L67,60 L60,70 Z" fill="#c0392b"/>
+  <!-- Small highlight -->
+  <circle cx="57" cy="55" r="2.5" fill="#f5f2ed"/>
+  <!-- Rank number "1" subtle -->
+  <text x="57" y="64" font-family="'IBM Plex Mono', monospace" font-size="10" font-weight="700" fill="#f5f2ed" text-anchor="middle">#1</text>
+  <!-- Text -->
+  <text x="115" y="55" font-family="'Playfair Display', Georgia, serif" font-size="38" font-weight="700" fill="#1a1a1a">OPTIC</text>
+  <text x="115" y="85" font-family="'IBM Plex Sans', sans-serif" font-size="24" font-weight="300" letter-spacing="8" fill="#c0392b">RANK</text>
+</svg>

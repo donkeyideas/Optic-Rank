@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120">
+  <!-- O letter with crosshair -->
+  <circle cx="45" cy="60" r="30" fill="none" stroke="#1a1a1a" stroke-width="4"/>
+  <!-- Crosshair lines through O -->
+  <line x1="45" y1="25" x2="45" y2="95" stroke="#c0392b" stroke-width="1.5" opacity="0.5"/>
+  <line x1="10" y1="60" x2="80" y2="60" stroke="#c0392b" stroke-width="1.5" opacity="0.5"/>
+  <!-- R letter overlapping -->
+  <text x="60" y="78" font-family="'Playfair Display', Georgia, serif" font-size="52" font-weight="900" fill="#c0392b" opacity="0.85">R</text>
+  <!-- Small dot at center -->
+  <circle cx="45" cy="60" r="4" fill="#c0392b"/>
+  <!-- Text -->
+  <text x="125" y="50" font-family="'Playfair Display', Georgia, serif" font-size="32" font-weight="700" fill="#1a1a1a">OPTIC</text>
+  <text x="125" y="82" font-family="'Playfair Display', Georgia, serif" font-size="32" font-weight="700" fill="#c0392b">RANK</text>
+</svg>

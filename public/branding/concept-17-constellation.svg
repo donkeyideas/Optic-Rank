@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120">
+  <!-- Constellation dots forming abstract eye/lens shape -->
+  <circle cx="20" cy="60" r="3" fill="#1a1a1a"/>
+  <circle cx="38" cy="38" r="2.5" fill="#1a1a1a"/>
+  <circle cx="55" cy="30" r="3.5" fill="#c0392b"/>
+  <circle cx="72" cy="38" r="2.5" fill="#1a1a1a"/>
+  <circle cx="90" cy="60" r="3" fill="#1a1a1a"/>
+  <circle cx="72" cy="82" r="2.5" fill="#1a1a1a"/>
+  <circle cx="55" cy="90" r="2" fill="#1a1a1a"/>
+  <circle cx="38" cy="82" r="2.5" fill="#1a1a1a"/>
+  <!-- Center star (bright) -->
+  <circle cx="55" cy="60" r="5" fill="#c0392b"/>
+  <circle cx="55" cy="60" r="8" fill="#c0392b" opacity="0.15"/>
+  <!-- Constellation lines -->
+  <line x1="20" y1="60" x2="38" y2="38" stroke="#1a1a1a" stroke-width="0.8" opacity="0.4"/>
+  <line x1="38" y1="38" x2="55" y2="30" stroke="#1a1a1a" stroke-width="0.8" opacity="0.4"/>
+  <line x1="55" y1="30" x2="72" y2="38" stroke="#1a1a1a" stroke-width="0.8" opacity="0.4"/>
+  <line x1="72" y1="38" x2="90" y2="60" stroke="#1a1a1a" stroke-width="0.8" opacity="0.4"/>
+  <line x1="90" y1="60" x2="72" y2="82" stroke="#1a1a1a" stroke-width="0.8" opacity="0.4"/>
+  <line x1="72" y1="82" x2="55" y2="90" stroke="#1a1a1a" stroke-width="0.8" opacity="0.4"/>
+  <line x1="55" y1="90" x2="38" y2="82" stroke="#1a1a1a" stroke-width="0.8" opacity="0.4"/>
+  <line x1="38" y1="82" x2="20" y2="60" stroke="#1a1a1a" stroke-width="0.8" opacity="0.4"/>
+  <!-- Lines to center -->
+  <line x1="38" y1="38" x2="55" y2="60" stroke="#c0392b" stroke-width="0.6" opacity="0.3"/>
+  <line x1="72" y1="38" x2="55" y2="60" stroke="#c0392b" stroke-width="0.6" opacity="0.3"/>
+  <line x1="38" y1="82" x2="55" y2="60" stroke="#c0392b" stroke-width="0.6" opacity="0.3"/>
+  <line x1="72" y1="82" x2="55" y2="60" stroke="#c0392b" stroke-width="0.6" opacity="0.3"/>
+  <!-- Small sparkle dots -->
+  <circle cx="30" cy="48" r="1" fill="#b8860b" opacity="0.5"/>
+  <circle cx="78" cy="50" r="1" fill="#b8860b" opacity="0.4"/>
+  <circle cx="48" cy="72" r="0.8" fill="#b8860b" opacity="0.3"/>
+  <!-- Text -->
+  <text x="115" y="52" font-family="'Playfair Display', Georgia, serif" font-size="34" font-weight="700" letter-spacing="3" fill="#1a1a1a">OPTIC</text>
+  <text x="115" y="84" font-family="'Playfair Display', Georgia, serif" font-size="34" font-weight="400" letter-spacing="3" fill="#c0392b">RANK</text>
+</svg>

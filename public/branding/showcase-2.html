@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Optic Rank - Logo Concepts (Batch 2)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'IBM Plex Sans', sans-serif;
+      background: #f5f2ed;
+      color: #1a1a1a;
+      padding: 40px 20px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 60px;
+      border-bottom: 2px solid #1a1a1a;
+      padding-bottom: 30px;
+    }
+    .header h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 48px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+    }
+    .header p {
+      font-size: 14px;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      color: #666;
+    }
+    .concept {
+      max-width: 1200px;
+      margin: 0 auto 80px;
+      border: 1px solid #ddd;
+      background: #fff;
+      padding: 40px;
+    }
+    .concept-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      border-bottom: 1px solid #e0e0e0;
+      padding-bottom: 12px;
+      margin-bottom: 30px;
+    }
+    .concept-header h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .concept-header span {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      color: #999;
+    }
+    .concept-description {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 30px;
+      line-height: 1.6;
+      max-width: 600px;
+    }
+    .logo-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      margin-bottom: 30px;
+    }
+    .logo-variant { text-align: center; }
+    .logo-variant h3 {
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #999;
+      margin-bottom: 16px;
+    }
+    .logo-light {
+      background: #f5f2ed;
+      padding: 30px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 140px;
+      border: 1px solid #e0ddd8;
+    }
+    .logo-dark {
+      background: #1a1a1a;
+      padding: 30px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 140px;
+    }
+    .logo-light img, .logo-dark img { max-width: 100%; max-height: 100px; }
+    .icons-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .icon-group { text-align: center; }
+    .icon-group h3 {
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #999;
+      margin-bottom: 10px;
+    }
+    .icon-container {
+      display: inline-block;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    }
+    .icon-container img { display: block; }
+    .icon-size {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      color: #bbb;
+      margin-top: 6px;
+    }
+    .divider {
+      width: 100%;
+      height: 1px;
+      background: #e0e0e0;
+      margin: 30px 0;
+    }
+    .dark-variant img { filter: brightness(0) invert(1); }
+    .section-label {
+      font-family: 'Playfair Display', serif;
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      color: #1a1a1a;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 60px;
+      padding-top: 30px;
+      border-top: 2px solid #1a1a1a;
+    }
+    .footer p {
+      font-size: 12px;
+      color: #999;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+    .nav {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .nav a {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      color: #c0392b;
+      text-decoration: none;
+      letter-spacing: 2px;
+    }
+    .nav a:hover { text-decoration: underline; }
+    @media (max-width: 768px) {
+      .logo-row { grid-template-columns: 1fr; }
+      .concept { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>OPTIC RANK</h1>
+    <p>Logo Concepts &mdash; Batch 2 (Concepts 11&ndash;20)</p>
+  </div>
+
+  <div class="nav">
+    <a href="showcase.html">&larr; View Batch 1 (Concepts 1&ndash;10)</a>
+  </div>
+
+  <!-- CONCEPT 11 -->
+  <div class="concept">
+    <div class="concept-header">
+      <h2>Concept 11 &mdash; Telescope</h2>
+      <span>EXPLORATION / DISCOVERY</span>
+    </div>
+    <p class="concept-description">
+      A telescope on a tripod pointed upward toward golden stars. Symbolizes the discovery of hidden ranking opportunities and looking ahead at SEO trends. The tripod grounds it with stability while the stars represent top positions to aim for.
+    </p>
+    <div class="logo-row">
+      <div class="logo-variant">
+        <h3>Light Background</h3>
+        <div class="logo-light"><img src="concept-11-telescope.svg" alt="Concept 11 Light"></div>
+      </div>
+      <div class="logo-variant">
+        <h3>Dark Background</h3>
+        <div class="logo-dark dark-variant"><img src="concept-11-telescope.svg" alt="Concept 11 Dark"></div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <p class="section-label">Favicon &amp; App Icon</p>
+    <div class="icons-row">
+      <div class="icon-group"><h3>Favicon</h3><div class="icon-container"><img src="favicon-11-telescope.svg" width="16" height="16"></div><div class="icon-size">16px</div></div>
+      <div class="icon-group"><h3>Favicon 2x</h3><div class="icon-container"><img src="favicon-11-telescope.svg" width="32" height="32"></div><div class="icon-size">32px</div></div>
+      <div class="icon-group"><h3>Favicon 3x</h3><div class="icon-container"><img src="favicon-11-telescope.svg" width="48" height="48"></div><div class="icon-size">48px</div></div>
+      <div class="icon-group"><h3>App Icon</h3><div class="icon-container"><img src="appicon-11.svg" width="96" height="96"></div><div class="icon-size">96px</div></div>
+      <div class="icon-group"><h3>App Icon (lg)</h3><div class="icon-container"><img src="appicon-11.svg" width="192" height="192"></div><div class="icon-size">192px</div></div>
+    </div>
+  </div>
+
+  <!-- CONCEPT 12 -->
+  <div class="concept">
+    <div class="concept-header">
+      <h2>Concept 12 &mdash; Radar Sweep</h2>
+      <span>INTELLIGENCE / MONITORING</span>
+    </div>
+    <p class="concept-description">
+      A radar display with concentric rings and a sweeping beam. Colored blips represent tracked ranking positions &mdash; red for priority keywords, green for stable, gold for opportunity. Communicates real-time monitoring and intelligence gathering.
+    </p>
+    <div class="logo-row">
+      <div class="logo-variant">
+        <h3>Light Background</h3>
+        <div class="logo-light"><img src="concept-12-radar.svg" alt="Concept 12 Light"></div>
+      </div>
+      <div class="logo-variant">
+        <h3>Dark Background</h3>
+        <div class="logo-dark dark-variant"><img src="concept-12-radar.svg" alt="Concept 12 Dark"></div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <p class="section-label">Favicon &amp; App Icon</p>
+    <div class="icons-row">
+      <div class="icon-group"><h3>Favicon</h3><div class="icon-container"><img src="favicon-12-radar.svg" width="16" height="16"></div><div class="icon-size">16px</div></div>
+      <div class="icon-group"><h3>Favicon 2x</h3><div class="icon-container"><img src="favicon-12-radar.svg" width="32" height="32"></div><div class="icon-size">32px</div></div>
+      <div class="icon-group"><h3>Favicon 3x</h3><div class="icon-container"><img src="favicon-12-radar.svg" width="48" height="48"></div><div class="icon-size">48px</div></div>
+      <div class="icon-group"><h3>App Icon</h3><div class="icon-container"><img src="appicon-12.svg" width="96" height="96"></div><div class="icon-size">96px</div></div>
+      <div class="icon-group"><h3>App Icon (lg)</h3><div class="icon-container"><img src="appicon-12.svg" width="192" height="192"></div><div class="icon-size">192px</div></div>
+    </div>
+  </div>
+
+  <!-- CONCEPT 13 -->
+  <div class="concept">
+    <div class="concept-header">
+      <h2>Concept 13 &mdash; Retina Scan</h2>
+      <span>FUTURISTIC / AI-POWERED</span>
+    </div>
+    <p class="concept-description">
+      A biometric retina scan with dashed orbital rings, iris patterns, and scan lines through the pupil. Corner brackets frame the scan. Monospace typography reinforces the tech-forward, AI-powered angle. Perfect for positioning as cutting-edge technology.
+    </p>
+    <div class="logo-row">
+      <div class="logo-variant">
+        <h3>Light Background</h3>
+        <div class="logo-light"><img src="concept-13-retina.svg" alt="Concept 13 Light"></div>
+      </div>
+      <div class="logo-variant">
+        <h3>Dark Background</h3>
+        <div class="logo-dark dark-variant"><img src="concept-13-retina.svg" alt="Concept 13 Dark"></div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <p class="section-label">Favicon &amp; App Icon</p>
+    <div class="icons-row">
+      <div class="icon-group"><h3>Favicon</h3><div class="icon-container"><img src="favicon-13-retina.svg" width="16" height="16"></div><div class="icon-size">16px</div></div>
+      <div class="icon-group"><h3>Favicon 2x</h3><div class="icon-container"><img src="favicon-13-retina.svg" width="32" height="32"></div><div class="icon-size">32px</div></div>
+      <div class="icon-group"><h3>Favicon 3x</h3><div class="icon-container"><img src="favicon-13-retina.svg" width="48" height="48"></div><div class="icon-size">48px</div></div>
+      <div class="icon-group"><h3>App Icon</h3><div class="icon-container"><img src="appicon-13.svg" width="96" height="96"></div><div class="icon-size">96px</div></div>
+      <div class="icon-group"><h3>App Icon (lg)</h3><div class="icon-container"><img src="appicon-13.svg" width="192" height="192"></div><div class="icon-size">192px</div></div>
+    </div>
+  </div>
+
+  <!-- CONCEPT 14 -->
+  <div class="concept">
+    <div class="concept-header">
+      <h2>Concept 14 &mdash; Fiber Optic Trails</h2>
+      <span>SPEED / CONNECTIVITY</span>
+    </div>
+    <p class="concept-description">
+      Multiple fiber optic light trails converging upward to a bright focal point. Each strand is a different brand color, representing different data streams (rankings, backlinks, traffic) converging into unified insight. The glow at top represents clarity achieved.
+    </p>
+    <div class="logo-row">
+      <div class="logo-variant">
+        <h3>Light Background</h3>
+        <div class="logo-light"><img src="concept-14-fiber.svg" alt="Concept 14 Light"></div>
+      </div>
+      <div class="logo-variant">
+        <h3>Dark Background</h3>
+        <div class="logo-dark dark-variant"><img src="concept-14-fiber.svg" alt="Concept 14 Dark"></div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <p class="section-label">Favicon &amp; App Icon</p>
+    <div class="icons-row">
+      <div class="icon-group"><h3>Favicon</h3><div class="icon-container"><img src="favicon-14-fiber.svg" width="16" height="16"></div><div class="icon-size">16px</div></div>
+      <div class="icon-group"><h3>Favicon 2x</h3><div class="icon-container"><img src="favicon-14-fiber.svg" width="32" height="32"></div><div class="icon-size">32px</div></div>
+      <div class="icon-group"><h3>Favicon 3x</h3><div class="icon-container"><img src="favicon-14-fiber.svg" width="48" height="48"></div><div class="icon-size">48px</div></div>
+      <div class="icon-group"><h3>App Icon</h3><div class="icon-container"><img src="appicon-14.svg" width="96" height="96"></div><div class="icon-size">96px</div></div>
+      <div class="icon-group"><h3>App Icon (lg)</h3><div class="icon-container"><img src="appicon-14.svg" width="192" height="192"></div><div class="icon-size">192px</div></div>
+    </div>
+  </div>
+
+  <!-- CONCEPT 15 -->
+  <div class="concept">
+    <div class="concept-header">
+      <h2>Concept 15 &mdash; Periscope</h2>
+      <span>STEALTH / COMPETITIVE EDGE</span>
+    </div>
+    <p class="concept-description">
+      A periscope rising above a waterline, with a red lens at the viewport. Symbolizes seeing what competitors can't &mdash; below the surface intelligence. The dashed waterline divides visible from hidden data. Tagline: "See what others can't."
+    </p>
+    <div class="logo-row">
+      <div class="logo-variant">
+        <h3>Light Background</h3>
+        <div class="logo-light"><img src="concept-15-periscope.svg" alt="Concept 15 Light"></div>
+      </div>
+      <div class="logo-variant">
+        <h3>Dark Background</h3>
+        <div class="logo-dark dark-variant"><img src="concept-15-periscope.svg" alt="Concept 15 Dark"></div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <p class="section-label">Favicon &amp; App Icon</p>
+    <div class="icons-row">
+      <div class="icon-group"><h3>Favicon</h3><div class="icon-container"><img src="favicon-15-periscope.svg" width="16" height="16"></div><div class="icon-size">16px</div></div>
+      <div class="icon-group"><h3>Favicon 2x</h3><div class="icon-container"><img src="favicon-15-periscope.svg" width="32" height="32"></div><div class="icon-size">32px</div></div>
+      <div class="icon-group"><h3>Favicon 3x</h3><div class="icon-container"><img src="favicon-15-periscope.svg" width="48" height="48"></div><div class="icon-size">48px</div></div>
+      <div class="icon-group"><h3>App Icon</h3><div class="icon-container"><img src="appicon-15.svg" width="96" height="96"></div><div class="icon-size">96px</div></div>
+      <div class="icon-group"><h3>App Icon (lg)</h3><div class="icon-container"><img src="appicon-15.svg" width="192" height="192"></div><div class="icon-size">192px</div></div>
+    </div>
+  </div>
+
+  <!-- CONCEPT 16 -->
+  <div class="concept">
+    <div class="concept-header">
+      <h2>Concept 16 &mdash; Monocle</h2>
+      <span>EDITORIAL / DISTINGUISHED</span>
+    </div>
+    <p class="concept-description">
+      An elegant monocle with a gold chain, containing a rising bar chart visible through the lens. The "THE" prefix in the typography gives it a newspaper masthead feel. Highly editorial, sophisticated, and aligns perfectly with the Design 6 aesthetic.
+    </p>
+    <div class="logo-row">
+      <div class="logo-variant">
+        <h3>Light Background</h3>
+        <div class="logo-light"><img src="concept-16-monocle.svg" alt="Concept 16 Light"></div>
+      </div>
+      <div class="logo-variant">
+        <h3>Dark Background</h3>
+        <div class="logo-dark dark-variant"><img src="concept-16-monocle.svg" alt="Concept 16 Dark"></div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <p class="section-label">Favicon &amp; App Icon</p>
+    <div class="icons-row">
+      <div class="icon-group"><h3>Favicon</h3><div class="icon-container"><img src="favicon-16-monocle.svg" width="16" height="16"></div><div class="icon-size">16px</div></div>
+      <div class="icon-group"><h3>Favicon 2x</h3><div class="icon-container"><img src="favicon-16-monocle.svg" width="32" height="32"></div><div class="icon-size">32px</div></div>
+      <div class="icon-group"><h3>Favicon 3x</h3><div class="icon-container"><img src="favicon-16-monocle.svg" width="48" height="48"></div><div class="icon-size">48px</div></div>
+      <div class="icon-group"><h3>App Icon</h3><div class="icon-container"><img src="appicon-16.svg" width="96" height="96"></div><div class="icon-size">96px</div></div>
+      <div class="icon-group"><h3>App Icon (lg)</h3><div class="icon-container"><img src="appicon-16.svg" width="192" height="192"></div><div class="icon-size">192px</div></div>
+    </div>
+  </div>
+
+  <!-- CONCEPT 17 -->
+  <div class="concept">
+    <div class="concept-header">
+      <h2>Concept 17 &mdash; Constellation Map</h2>
+      <span>COSMIC / DATA NETWORK</span>
+    </div>
+    <p class="concept-description">
+      Stars connected by faint lines forming a constellation in an eye-like pattern. The bright center star in red represents #1 ranking. Gold dust dots add depth. Suggests a vast data network mapped into navigable intelligence &mdash; a star map for SEO.
+    </p>
+    <div class="logo-row">
+      <div class="logo-variant">
+        <h3>Light Background</h3>
+        <div class="logo-light"><img src="concept-17-constellation.svg" alt="Concept 17 Light"></div>
+      </div>
+      <div class="logo-variant">
+        <h3>Dark Background</h3>
+        <div class="logo-dark dark-variant"><img src="concept-17-constellation.svg" alt="Concept 17 Dark"></div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <p class="section-label">Favicon &amp; App Icon</p>
+    <div class="icons-row">
+      <div class="icon-group"><h3>Favicon</h3><div class="icon-container"><img src="favicon-17-constellation.svg" width="16" height="16"></div><div class="icon-size">16px</div></div>
+      <div class="icon-group"><h3>Favicon 2x</h3><div class="icon-container"><img src="favicon-17-constellation.svg" width="32" height="32"></div><div class="icon-size">32px</div></div>
+      <div class="icon-group"><h3>Favicon 3x</h3><div class="icon-container"><img src="favicon-17-constellation.svg" width="48" height="48"></div><div class="icon-size">48px</div></div>
+      <div class="icon-group"><h3>App Icon</h3><div class="icon-container"><img src="appicon-17.svg" width="96" height="96"></div><div class="icon-size">96px</div></div>
+      <div class="icon-group"><h3>App Icon (lg)</h3><div class="icon-container"><img src="appicon-17.svg" width="192" height="192"></div><div class="icon-size">192px</div></div>
+    </div>
+  </div>
+
+  <!-- CONCEPT 18 -->
+  <div class="concept">
+    <div class="concept-header">
+      <h2>Concept 18 &mdash; Performance Gauge</h2>
+      <span>PERFORMANCE / METRICS</span>
+    </div>
+    <p class="concept-description">
+      A speedometer/gauge with the needle pinned to the high end (red zone). Color-coded arc zones go from green (low) through gold (mid) to red (high performance). Lowercase modern typography with "SCORE" label. Communicates performance optimization and measurable results.
+    </p>
+    <div class="logo-row">
+      <div class="logo-variant">
+        <h3>Light Background</h3>
+        <div class="logo-light"><img src="concept-18-gauge.svg" alt="Concept 18 Light"></div>
+      </div>
+      <div class="logo-variant">
+        <h3>Dark Background</h3>
+        <div class="logo-dark dark-variant"><img src="concept-18-gauge.svg" alt="Concept 18 Dark"></div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <p class="section-label">Favicon &amp; App Icon</p>
+    <div class="icons-row">
+      <div class="icon-group"><h3>Favicon</h3><div class="icon-container"><img src="favicon-18-gauge.svg" width="16" height="16"></div><div class="icon-size">16px</div></div>
+      <div class="icon-group"><h3>Favicon 2x</h3><div class="icon-container"><img src="favicon-18-gauge.svg" width="32" height="32"></div><div class="icon-size">32px</div></div>
+      <div class="icon-group"><h3>Favicon 3x</h3><div class="icon-container"><img src="favicon-18-gauge.svg" width="48" height="48"></div><div class="icon-size">48px</div></div>
+      <div class="icon-group"><h3>App Icon</h3><div class="icon-container"><img src="appicon-18.svg" width="96" height="96"></div><div class="icon-size">96px</div></div>
+      <div class="icon-group"><h3>App Icon (lg)</h3><div class="icon-container"><img src="appicon-18.svg" width="192" height="192"></div><div class="icon-size">192px</div></div>
+    </div>
+  </div>
+
+  <!-- CONCEPT 19 -->
+  <div class="concept">
+    <div class="concept-header">
+      <h2>Concept 19 &mdash; Podium + Eye</h2>
+      <span>COMPETITION / WINNING</span>
+    </div>
+    <p class="concept-description">
+      A #1 winner's podium in red flanked by #2 and #3 positions, with an eye symbol floating above watching over the rankings. Directly communicates the goal: first place. The bold red accent bar under "OPTIC" adds editorial weight. Strong and competitive.
+    </p>
+    <div class="logo-row">
+      <div class="logo-variant">
+        <h3>Light Background</h3>
+        <div class="logo-light"><img src="concept-19-podium.svg" alt="Concept 19 Light"></div>
+      </div>
+      <div class="logo-variant">
+        <h3>Dark Background</h3>
+        <div class="logo-dark dark-variant"><img src="concept-19-podium.svg" alt="Concept 19 Dark"></div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <p class="section-label">Favicon &amp; App Icon</p>
+    <div class="icons-row">
+      <div class="icon-group"><h3>Favicon</h3><div class="icon-container"><img src="favicon-19-podium.svg" width="16" height="16"></div><div class="icon-size">16px</div></div>
+      <div class="icon-group"><h3>Favicon 2x</h3><div class="icon-container"><img src="favicon-19-podium.svg" width="32" height="32"></div><div class="icon-size">32px</div></div>
+      <div class="icon-group"><h3>Favicon 3x</h3><div class="icon-container"><img src="favicon-19-podium.svg" width="48" height="48"></div><div class="icon-size">48px</div></div>
+      <div class="icon-group"><h3>App Icon</h3><div class="icon-container"><img src="appicon-19.svg" width="96" height="96"></div><div class="icon-size">96px</div></div>
+      <div class="icon-group"><h3>App Icon (lg)</h3><div class="icon-container"><img src="appicon-19.svg" width="192" height="192"></div><div class="icon-size">192px</div></div>
+    </div>
+  </div>
+
+  <!-- CONCEPT 20 -->
+  <div class="concept">
+    <div class="concept-header">
+      <h2>Concept 20 &mdash; Binoculars</h2>
+      <span>COMPREHENSIVE / DUAL-VIEW</span>
+    </div>
+    <p class="concept-description">
+      A pair of binoculars with red-tinted lenses and a focus wheel on top. Represents comprehensive, dual-perspective visibility &mdash; seeing both the big picture and fine details. The "FULL VISIBILITY" tagline reinforces complete SEO coverage. Solid, trustworthy, professional.
+    </p>
+    <div class="logo-row">
+      <div class="logo-variant">
+        <h3>Light Background</h3>
+        <div class="logo-light"><img src="concept-20-binoculars.svg" alt="Concept 20 Light"></div>
+      </div>
+      <div class="logo-variant">
+        <h3>Dark Background</h3>
+        <div class="logo-dark dark-variant"><img src="concept-20-binoculars.svg" alt="Concept 20 Dark"></div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <p class="section-label">Favicon &amp; App Icon</p>
+    <div class="icons-row">
+      <div class="icon-group"><h3>Favicon</h3><div class="icon-container"><img src="favicon-20-binoculars.svg" width="16" height="16"></div><div class="icon-size">16px</div></div>
+      <div class="icon-group"><h3>Favicon 2x</h3><div class="icon-container"><img src="favicon-20-binoculars.svg" width="32" height="32"></div><div class="icon-size">32px</div></div>
+      <div class="icon-group"><h3>Favicon 3x</h3><div class="icon-container"><img src="favicon-20-binoculars.svg" width="48" height="48"></div><div class="icon-size">48px</div></div>
+      <div class="icon-group"><h3>App Icon</h3><div class="icon-container"><img src="appicon-20.svg" width="96" height="96"></div><div class="icon-size">96px</div></div>
+      <div class="icon-group"><h3>App Icon (lg)</h3><div class="icon-container"><img src="appicon-20.svg" width="192" height="192"></div><div class="icon-size">192px</div></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Optic Rank &mdash; Brand Identity Concepts (Batch 2) &mdash; 2026</p>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120">
+  <!-- Abstract "O" with lens flare / aperture blades -->
+  <circle cx="55" cy="60" r="32" fill="none" stroke="#1a1a1a" stroke-width="3"/>
+  <!-- Aperture blades -->
+  <path d="M55,28 L65,45 L45,45 Z" fill="#1a1a1a" opacity="0.15"/>
+  <path d="M83,44 L70,58 L65,38 Z" fill="#1a1a1a" opacity="0.15"/>
+  <path d="M83,76 L65,68 L75,52 Z" fill="#1a1a1a" opacity="0.15"/>
+  <path d="M55,92 L45,75 L65,75 Z" fill="#1a1a1a" opacity="0.15"/>
+  <path d="M27,76 L40,62 L45,82 Z" fill="#1a1a1a" opacity="0.15"/>
+  <path d="M27,44 L45,52 L35,68 Z" fill="#1a1a1a" opacity="0.15"/>
+  <!-- Center aperture opening -->
+  <circle cx="55" cy="60" r="12" fill="#c0392b"/>
+  <!-- Arrow in center -->
+  <polygon points="55,52 59,57 56,57 56,66 54,66 54,57 51,57" fill="#f5f2ed"/>
+  <!-- Text - stacked elegant -->
+  <text x="105" y="45" font-family="'Playfair Display', Georgia, serif" font-size="22" font-weight="700" letter-spacing="6" fill="#1a1a1a">OPTIC</text>
+  <line x1="105" y1="55" x2="220" y2="55" stroke="#c0392b" stroke-width="1"/>
+  <text x="105" y="78" font-family="'Playfair Display', Georgia, serif" font-size="22" font-weight="700" letter-spacing="6" fill="#1a1a1a">RANK</text>
+  <!-- Tagline -->
+  <text x="105" y="95" font-family="'IBM Plex Sans', sans-serif" font-size="9" font-weight="400" letter-spacing="3" fill="#999">SEO INTELLIGENCE</text>
+</svg>

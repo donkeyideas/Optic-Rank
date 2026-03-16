@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120">
+  <!-- Stylized eye -->
+  <path d="M15,60 Q55,20 95,60" fill="none" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M15,60 Q55,100 95,60" fill="none" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Iris -->
+  <circle cx="55" cy="60" r="16" fill="#1a1a1a"/>
+  <!-- Pupil with upward arrow -->
+  <circle cx="55" cy="60" r="10" fill="#c0392b"/>
+  <polygon points="55,52 60,58 57,58 57,65 53,65 53,58 50,58" fill="#f5f2ed"/>
+  <!-- Signal waves emanating from eye -->
+  <path d="M98,60 Q105,50 112,60" fill="none" stroke="#1a1a1a" stroke-width="1.5"/>
+  <path d="M105,60 Q112,48 119,60" fill="none" stroke="#1a1a1a" stroke-width="1.2" opacity="0.7"/>
+  <path d="M112,60 Q119,46 126,60" fill="none" stroke="#1a1a1a" stroke-width="1" opacity="0.4"/>
+  <!-- Text -->
+  <text x="140" y="50" font-family="'Playfair Display', Georgia, serif" font-size="34" font-weight="700" fill="#1a1a1a">OPTIC</text>
+  <text x="140" y="82" font-family="'Playfair Display', Georgia, serif" font-size="34" font-weight="400" fill="#c0392b">RANK</text>
+</svg>
