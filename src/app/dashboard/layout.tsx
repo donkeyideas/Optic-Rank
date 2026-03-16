@@ -15,7 +15,7 @@ const dashboardNavItems = [
   { href: "/dashboard/site-audit",    label: "Site Audit" },
   { href: "/dashboard/app-store",     label: "App Store" },
   { href: "/dashboard/advanced-ai",   label: "Advanced AI", matchPaths: ["/dashboard/ai-visibility", "/dashboard/predictions", "/dashboard/entities", "/dashboard/ai-briefs", "/dashboard/ai-insights"] },
-  { href: "/dashboard/optimization",  label: "Optimization", matchPaths: ["/dashboard/search-ai"] },
+  { href: "/dashboard/search-ai",     label: "SEO & Analytics", matchPaths: ["/dashboard/optimization"] },
   { href: "/dashboard/reports",       label: "Reports" },
   { href: "/dashboard/settings",      label: "Settings" },
 ];

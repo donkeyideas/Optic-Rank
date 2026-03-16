@@ -200,7 +200,7 @@ function predictSingleKeyword(
   const predictedDate = new Date();
   predictedDate.setDate(predictedDate.getDate() + horizonDays);
 
-  // --- AI-estimated path: use AI predictions directly ---
+  // --- AI-estimated path: use AI predictions when insufficient rank history ---
   if (validHistory.length < 3 && aiEstimate) {
     // Use the AI's own direction assessment — it accounts for context beyond raw numbers
     const aiDirection = aiEstimate.direction as "improving" | "declining" | "stable";
@@ -209,11 +209,21 @@ function predictSingleKeyword(
         ? aiDirection
         : "stable";
 
+    // Use real DB position if available, but AI-predicted 7d target
+    const effectiveCurrentPos = currentPos;
+    // Ensure predicted7d reflects the AI direction relative to current position
+    let predicted7d = aiEstimate.predicted7d;
+    if (direction === "improving" && predicted7d >= effectiveCurrentPos) {
+      predicted7d = Math.max(1, effectiveCurrentPos - Math.max(1, Math.round(effectiveCurrentPos * 0.05)));
+    } else if (direction === "declining" && predicted7d <= effectiveCurrentPos) {
+      predicted7d = Math.min(100, effectiveCurrentPos + Math.max(1, Math.round(effectiveCurrentPos * 0.05)));
+    }
+
     return {
       keywordId: input.keywordId,
       keyword: input.keyword,
-      currentPosition: currentPos,
-      predictedPosition: aiEstimate.predicted7d,
+      currentPosition: effectiveCurrentPos,
+      predictedPosition: predicted7d,
       confidence: aiEstimate.confidence,
       direction,
       predictedFor: predictedDate.toISOString(),
@@ -231,15 +241,31 @@ function predictSingleKeyword(
     };
   }
 
-  // --- Fallback heuristic path (no AI, no rank history) ---
+  // --- Fallback heuristic path (no AI available, no rank history) ---
   if (validHistory.length < 3) {
+    // Even without AI, use heuristic direction based on difficulty + position
+    // Keywords positioned worse than difficulty suggests have room to improve
+    const difficultyPos = Math.round(difficultyNorm * 80 + 10); // rough expected position from difficulty
+    let heuristicDirection: "improving" | "declining" | "stable" = "stable";
+    let heuristicPredicted = currentPos;
+
+    if (currentPos > difficultyPos + 10) {
+      // Positioned much worse than difficulty suggests — opportunity
+      heuristicDirection = "improving";
+      heuristicPredicted = Math.max(1, currentPos - Math.max(1, Math.round((currentPos - difficultyPos) * 0.1)));
+    } else if (currentPos < difficultyPos - 15) {
+      // Positioned much better than difficulty suggests — at risk
+      heuristicDirection = "declining";
+      heuristicPredicted = Math.min(100, currentPos + Math.max(1, Math.round((difficultyPos - currentPos) * 0.08)));
+    }
+
     return {
       keywordId: input.keywordId,
       keyword: input.keyword,
       currentPosition: currentPos,
-      predictedPosition: currentPos,
-      confidence: 0.15,
-      direction: "stable",
+      predictedPosition: heuristicPredicted,
+      confidence: 0.25,
+      direction: heuristicDirection,
       predictedFor: predictedDate.toISOString(),
       featuresUsed: {
         velocity_7d: 0,
@@ -338,14 +364,14 @@ export async function predictKeywordRanks(
   horizonDays: number = 7,
   domain?: string
 ): Promise<PredictionResult[]> {
-  // Check if we need AI position estimation (no rank history for most keywords)
+  // Check if we need AI estimation (fewer than 3 rank history data points)
   const needsAIEstimation = inputs.filter(
-    (i) => i.currentPosition == null && i.rankHistory.filter((h) => h.position != null).length < 3
+    (i) => i.rankHistory.filter((h) => h.position != null).length < 3
   );
 
   let aiEstimates = new Map<string, { position: number; predicted7d: number; direction: string; confidence: number }>();
 
-  // Use AI to estimate positions if domain is provided and keywords need estimation
+  // Use AI to estimate direction/predictions if domain is provided and keywords need estimation
   if (domain && needsAIEstimation.length > 0) {
     aiEstimates = await estimatePositionsWithAI(
       domain,

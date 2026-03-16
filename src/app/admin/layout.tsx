@@ -11,6 +11,11 @@ import {
   Tag,
   FileText,
   Search,
+  BookOpen,
+  History,
+  Map,
+  Briefcase,
+  Mail,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +32,11 @@ const adminNavItems = [
   { href: "/admin/api",         label: "API Management", icon: Key },
   { href: "/admin/health",     label: "System Health",  icon: Activity },
   { href: "/admin/analytics",  label: "Analytics",     icon: BarChart3 },
+  { href: "/admin/blog",       label: "Blog",          icon: BookOpen },
+  { href: "/admin/changelog",  label: "Changelog",     icon: History },
+  { href: "/admin/roadmap",    label: "Roadmap",       icon: Map },
+  { href: "/admin/careers",    label: "Careers",       icon: Briefcase },
+  { href: "/admin/contacts",   label: "Contacts",      icon: Mail },
 ];
 
 /**

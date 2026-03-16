@@ -41,6 +41,11 @@ import {
   BarChart,
   Bar,
   CartesianGrid,
+  RadarChart,
+  Radar,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
 } from "recharts";
 import type { GeoStats, GeoPageScore, CitationMatrixEntry, SchemaAuditData, CroStats, KeywordWithRevenue } from "@/lib/dal/optimization";
 import type { SnippetOpportunity, AnswerReadiness, VoiceSearchKeyword } from "@/lib/ai/aeo-analysis";
@@ -91,6 +96,11 @@ interface ContentPage {
   word_count: number | null;
 }
 
+interface PageSignal {
+  url: string;
+  signals: Record<string, unknown>;
+}
+
 interface SearchAIClientProps {
   projectId: string;
   projectDomain: string;
@@ -116,6 +126,9 @@ interface SearchAIClientProps {
   conversionGoals: ConversionGoal[];
   keywordsWithRevenue: KeywordWithRevenue[];
   croStats: CroStats;
+  // Crawl signals
+  aeoSignals?: PageSignal[];
+  geoSignals?: PageSignal[];
 }
 
 /* ── Circular Score Gauge ──────────────────────────────────────── */
@@ -245,15 +258,58 @@ export function SearchAIClient(props: SearchAIClientProps) {
     return Math.round(((published + withContent) / (props.contentPages.length * 2)) * 100);
   }, [props.contentPages]);
 
-  const geoScore = props.geoStats.avgGeoScore;
+  // GEO score: use DB value if available, then signals, then audit pages fallback
+  const geoScore = useMemo(() => {
+    if (props.geoStats.avgGeoScore > 0) return props.geoStats.avgGeoScore;
+    if (props.geoSignals && props.geoSignals.length > 0) {
+      const n = props.geoSignals.length || 1;
+      const dims = [
+        80, // crawler access
+        Math.round((props.geoSignals.filter((s) => s.signals.hasSchema === true).length / n) * 100),
+        Math.round((props.geoSignals.filter((s) => (s.signals.wordCount as number ?? 0) > 300).length / n) * 100),
+        Math.round((props.geoSignals.filter((s) => s.signals.hasOgTags === true).length / n) * 100),
+        Math.round((props.geoSignals.filter((s) => s.signals.hasBreadcrumbs === true).length / n) * 100),
+        Math.round((props.geoSignals.filter((s) => !!s.signals.lang).length / n) * 100),
+      ];
+      return Math.round(dims.reduce((s, d) => s + d, 0) / dims.length);
+    }
+    if (props.auditPages.length === 0) return 0;
+    const total = props.auditPages.length || 1;
+    const schemaPages = props.auditPages.filter((p) => p.has_schema).length;
+    const schemaPct = Math.round((schemaPages / total) * 100);
+    const contentPct = Math.round((props.auditPages.filter((p) => (p.word_count ?? 0) > 300).length / total) * 100);
+    const navPct = Math.round((props.auditPages.filter((p) => p.title && p.title.length > 0).length / total) * 100);
+    const crawlerPct = 80;
+    return Math.round((crawlerPct + schemaPct + contentPct + navPct) / 4);
+  }, [props.geoStats.avgGeoScore, props.geoSignals, props.auditPages]);
 
-  // AEO score
+  // AEO score - always computed from page dimensions for consistency
   const aeoScore = useMemo(() => {
-    if (props.answerReadiness.length === 0) return 0;
-    return Math.round(
-      props.answerReadiness.reduce((s, a) => s + a.score, 0) / props.answerReadiness.length
-    );
-  }, [props.answerReadiness]);
+    if (props.aeoSignals && props.aeoSignals.length > 0) {
+      const n = props.aeoSignals.length || 1;
+      const dims = [
+        Math.round((props.aeoSignals.filter((s) => (s.signals.schemaRichness as number ?? 0) >= 2).length / n) * 100),
+        Math.round((props.aeoSignals.filter((s) => s.signals.hasFaqSchema === true).length / n) * 100),
+        Math.round((props.aeoSignals.filter((s) => (s.signals.questionCount as number ?? 0) >= 2).length / n) * 100),
+        Math.round((props.aeoSignals.filter((s) => s.signals.hasSpeakableSchema === true).length / n) * 100),
+        Math.round((props.aeoSignals.filter((s) => (s.signals.listCount as number ?? 0) >= 2).length / n) * 100),
+        Math.round((props.aeoSignals.filter((s) => s.signals.hasHowToSchema === true).length / n) * 100),
+      ];
+      return Math.round(dims.reduce((s, d) => s + d, 0) / dims.length);
+    }
+    // Fallback: compute from audit_pages (same logic as AEO tab dimensions fallback)
+    if (props.auditPages.length === 0) return 0;
+    const n = props.auditPages.length || 1;
+    const dims = [
+      Math.round((props.auditPages.filter((p) => p.has_schema).length / n) * 100),
+      Math.round((props.auditPages.filter((p) => p.has_schema).length / n) * 50),
+      0,
+      0,
+      Math.round((props.auditPages.filter((p) => (p.word_count ?? 0) > 300).length / n) * 100),
+      0,
+    ];
+    return Math.round(dims.reduce((s, d) => s + d, 0) / dims.length);
+  }, [props.aeoSignals, props.auditPages]);
 
   const croScore = useMemo(() => {
     // Simple CRO score based on goals and revenue
@@ -298,6 +354,16 @@ export function SearchAIClient(props: SearchAIClientProps) {
         })}
       </div>
 
+      {/* ── Data Coverage Notice ── */}
+      {props.auditPages.length > 0 && props.auditPages.length < 5 && (
+        <div className="flex items-center gap-3 border border-editorial-gold/30 bg-editorial-gold/5 px-4 py-2.5">
+          <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-editorial-gold">Limited Data</span>
+          <span className="text-xs text-ink-secondary">
+            Scores based on {props.auditPages.length} crawled page{props.auditPages.length !== 1 ? "s" : ""}. Run a new site audit to crawl more pages for accurate scores.
+          </span>
+        </div>
+      )}
+
       {/* ── Tab Content ── */}
       {activeTab === "seo" && (
         <SeoTab
@@ -324,6 +390,7 @@ export function SearchAIClient(props: SearchAIClientProps) {
           schemaAudit={props.schemaAudit}
           totalKeywords={props.totalKeywords}
           auditPages={props.auditPages}
+          aeoSignals={props.aeoSignals ?? []}
         />
       )}
       {activeTab === "geo" && (
@@ -334,6 +401,7 @@ export function SearchAIClient(props: SearchAIClientProps) {
           visibilityStats={props.visibilityStats}
           visibilityChecks={props.visibilityChecks}
           auditPages={props.auditPages}
+          geoSignals={props.geoSignals ?? []}
         />
       )}
       {activeTab === "cro" && (
@@ -558,6 +626,7 @@ function AeoTab({
   schemaAudit,
   totalKeywords,
   auditPages,
+  aeoSignals,
 }: {
   aeoScore: number;
   snippetOpportunities: SnippetOpportunity[];
@@ -566,83 +635,168 @@ function AeoTab({
   schemaAudit: SchemaAuditData;
   totalKeywords: number;
   auditPages: AuditPage[];
+  aeoSignals: PageSignal[];
 }) {
+  const n = auditPages.length || 1;
+
+  // Build per-page AEO signal lookup
+  const signalMap = useMemo(() => {
+    const m = new Map<string, Record<string, unknown>>();
+    for (const s of aeoSignals) {
+      m.set(s.url.replace(/\/$/, ""), s.signals);
+    }
+    return m;
+  }, [aeoSignals]);
+
+  // Compute 6 AEO dimensions from crawl signals (matching admin)
+  const dimensions = useMemo(() => {
+    if (aeoSignals.length > 0) {
+      const total = aeoSignals.length || 1;
+      return [
+        { label: "Schema Richness", value: Math.round((aeoSignals.filter((s) => (s.signals.schemaRichness as number ?? 0) >= 2).length / total) * 100) },
+        { label: "FAQ Schema", value: Math.round((aeoSignals.filter((s) => s.signals.hasFaqSchema === true).length / total) * 100) },
+        { label: "Question Headings", value: Math.round((aeoSignals.filter((s) => (s.signals.questionCount as number ?? 0) >= 2).length / total) * 100) },
+        { label: "Speakable Content", value: Math.round((aeoSignals.filter((s) => s.signals.hasSpeakableSchema === true).length / total) * 100) },
+        { label: "Lists Present", value: Math.round((aeoSignals.filter((s) => (s.signals.listCount as number ?? 0) >= 2).length / total) * 100) },
+        { label: "HowTo Schema", value: Math.round((aeoSignals.filter((s) => s.signals.hasHowToSchema === true).length / total) * 100) },
+      ];
+    }
+    // Fallback from audit_pages when no signals available
+    return [
+      { label: "Schema Richness", value: Math.round((auditPages.filter((p) => p.has_schema).length / n) * 100) },
+      { label: "FAQ Schema", value: Math.round((auditPages.filter((p) => p.has_schema).length / n) * 50) },
+      { label: "Question Headings", value: 0 },
+      { label: "Speakable Content", value: 0 },
+      { label: "Lists Present", value: Math.round((auditPages.filter((p) => (p.word_count ?? 0) > 300).length / n) * 100) },
+      { label: "HowTo Schema", value: 0 },
+    ];
+  }, [aeoSignals, auditPages, n]);
+
+  const radarData = dimensions.map((d) => ({ subject: d.label, value: d.value }));
+
+  // AEO score gauge should always match the dimension data for consistency
+  const dimensionAvg = Math.round(dimensions.reduce((s, d) => s + d.value, 0) / dimensions.length);
+  const computedAeoScore = dimensionAvg;
+
   const voiceReadyPct = totalKeywords > 0
     ? Math.round((voiceSearchKeywords.length / totalKeywords) * 100)
     : 0;
-
-  // Pages with Q&A/FAQ content (pages with schema)
-  const faqPages = auditPages.filter((p) => p.has_schema).length;
-  const totalQuestions = snippetOpportunities.length + voiceSearchKeywords.length;
+  const faqPages = aeoSignals.length > 0
+    ? aeoSignals.filter((s) => s.signals.hasFaqSchema === true).length
+    : auditPages.filter((p) => p.has_schema).length;
 
   return (
     <div className="space-y-6">
-      {/* AEO Score + Stats */}
+      {/* AEO Score + Description */}
       <Card>
         <CardContent className="flex flex-col items-center gap-8 py-6 md:flex-row">
-          <ScoreGauge score={aeoScore} label="AEO Score" size={140} strokeWidth={10} color="var(--color-editorial-gold)" />
-          <div className="grid flex-1 grid-cols-2 gap-px border border-rule bg-rule md:grid-cols-4">
-            <StatMini label="Voice Search Ready" value={`${voiceReadyPct}%`} color="border-editorial-gold" />
-            <StatMini label="Snippet Eligible" value={snippetOpportunities.length} color="border-editorial-green" />
-            <StatMini label="FAQ Pages" value={faqPages} color="border-[#8b5cf6]" />
-            <StatMini label="Total Questions" value={totalQuestions} color="border-editorial-red" />
+          <ScoreGauge score={computedAeoScore} label="AEO Score" size={140} strokeWidth={10} color="var(--color-editorial-gold)" />
+          <div className="flex-1 space-y-3">
+            <p className="text-sm text-ink-secondary">
+              AEO measures how well your content is optimized for featured snippets, People Also Ask,
+              knowledge panels, and voice search results.
+            </p>
+            <div className="grid grid-cols-2 gap-px border border-rule bg-rule md:grid-cols-4">
+              <StatMini label="Voice Search Ready" value={`${voiceReadyPct}%`} color="border-editorial-gold" />
+              <StatMini label="Snippet Eligible" value={snippetOpportunities.length} color="border-editorial-green" />
+              <StatMini label="FAQ Pages" value={faqPages} color="border-[#8b5cf6]" />
+              <StatMini label="Pages Analyzed" value={aeoSignals.length || auditPages.length} color="border-editorial-red" />
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Voice Search Readiness Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-serif text-lg">Voice Search Readiness</CardTitle>
-          <p className="text-xs text-ink-muted">
-            Pages optimized for voice assistants with concise answers, question headings, and speakable data.
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[600px] text-sm">
-              <thead className="border-b-2 border-rule-dark">
-                <tr>
-                  <th className="py-2 pr-4 text-left text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Page</th>
-                  <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Concise Answer</th>
-                  <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Q&A Headings</th>
-                  <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Speakable</th>
-                  <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Score</th>
-                </tr>
-              </thead>
-              <tbody>
-                {auditPages.slice(0, 12).map((page) => {
-                  const hasSchema = page.has_schema;
-                  const hasGoodContent = (page.word_count ?? 0) > 300;
-                  const hasGoodTitle = !!page.title && page.title.length > 10;
-                  const pageScore = [hasSchema, hasGoodContent, hasGoodTitle].filter(Boolean).length;
-                  const scorePct = Math.round((pageScore / 3) * 100);
+      {/* Radar Chart + Dimension Breakdown */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Radar */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif text-lg">AEO Dimensions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={280}>
+              <RadarChart data={radarData}>
+                <PolarGrid strokeDasharray="3 3" stroke="var(--color-rule)" />
+                <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10, fill: "var(--color-ink-muted)" }} />
+                <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "var(--color-ink-muted)" }} />
+                <Radar dataKey="value" stroke="#d35400" fill="#d35400" fillOpacity={0.2} strokeWidth={2} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
 
-                  return (
-                    <tr key={page.id} className="border-b border-rule transition-colors hover:bg-surface-raised">
-                      <td className="py-2.5 pr-4">
-                        <p className="max-w-xs truncate text-sm font-medium text-ink">{page.title ?? page.url}</p>
-                      </td>
-                      <td className="px-3 py-2.5 text-center">
-                        <BoolIcon value={hasGoodContent} />
-                      </td>
-                      <td className="px-3 py-2.5 text-center">
-                        <BoolIcon value={hasSchema} />
-                      </td>
-                      <td className="px-3 py-2.5 text-center">
-                        <BoolIcon value={hasSchema && hasGoodContent} />
-                      </td>
-                      <td className="px-3 py-2.5 text-center">
-                        <ScorePill score={scorePct} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+        {/* Dimension Bars */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif text-lg">Dimension Breakdown</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {dimensions.map((d) => {
+              const color = d.value >= 80 ? "bg-editorial-green" : d.value >= 50 ? "bg-editorial-gold" : "bg-editorial-red";
+              return (
+                <div key={d.label} className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-ink">{d.label}</span>
+                    <span className="font-mono text-ink-muted">{d.value}%</span>
+                  </div>
+                  <div className="h-2.5 w-full bg-surface-raised">
+                    <div className={`h-full transition-all duration-500 ${color}`} style={{ width: `${Math.min(d.value, 100)}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Page AEO Signals Table */}
+      {(aeoSignals.length > 0 || auditPages.length > 0) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif text-lg">Page AEO Signals</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[700px] text-sm">
+                <thead className="border-b-2 border-rule-dark">
+                  <tr>
+                    <th className="py-2 pr-4 text-left text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Page</th>
+                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">FAQ Schema</th>
+                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">HowTo Schema</th>
+                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Questions</th>
+                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Lists</th>
+                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Speakable</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditPages.slice(0, 15).map((page) => {
+                    const sig = signalMap.get(page.url.replace(/\/$/, ""));
+                    const hasFaq = sig ? sig.hasFaqSchema === true : page.has_schema;
+                    const hasHowTo = sig ? sig.hasHowToSchema === true : false;
+                    const questions = sig ? (sig.questionCount as number ?? 0) : 0;
+                    const lists = sig ? (sig.listCount as number ?? 0) : 0;
+                    const speakable = sig ? sig.hasSpeakableSchema === true : false;
+
+                    return (
+                      <tr key={page.id} className="border-b border-rule transition-colors hover:bg-surface-raised">
+                        <td className="py-2.5 pr-4">
+                          <p className="max-w-xs truncate text-sm font-medium text-ink">{page.title ?? page.url}</p>
+                          <p className="max-w-xs truncate text-[10px] text-ink-muted">{new URL(page.url).pathname}</p>
+                        </td>
+                        <td className="px-3 py-2.5 text-center"><BoolIcon value={hasFaq} /></td>
+                        <td className="px-3 py-2.5 text-center"><BoolIcon value={hasHowTo} /></td>
+                        <td className="px-3 py-2.5 text-center font-mono text-xs text-ink-muted">{questions}</td>
+                        <td className="px-3 py-2.5 text-center font-mono text-xs text-ink-muted">{lists}</td>
+                        <td className="px-3 py-2.5 text-center"><BoolIcon value={speakable} /></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Snippet Opportunities */}
       {snippetOpportunities.length > 0 && (
@@ -691,6 +845,7 @@ function GeoTab({
   visibilityStats,
   visibilityChecks,
   auditPages,
+  geoSignals,
 }: {
   geoStats: GeoStats;
   geoPages: GeoPageScore[];
@@ -698,8 +853,8 @@ function GeoTab({
   visibilityStats: VisibilityStats;
   visibilityChecks: AIVisibilityCheck[];
   auditPages: AuditPage[];
+  geoSignals: PageSignal[];
 }) {
-  // AI Crawler bots
   const AI_BOTS = [
     { name: "GPTBot", provider: "OpenAI" },
     { name: "ChatGPT-User", provider: "OpenAI" },
@@ -712,37 +867,316 @@ function GeoTab({
     { name: "Bytespider", provider: "ByteDance" },
   ];
 
-  // Schema and content coverage percentages
-  const totalPages = auditPages.length || 1;
-  const schemaPages = auditPages.filter((p) => p.has_schema).length;
-  const schemaPct = Math.round((schemaPages / totalPages) * 100);
-  const contentPct = auditPages.length > 0
-    ? Math.round((auditPages.filter((p) => (p.word_count ?? 0) > 300).length / totalPages) * 100)
-    : 0;
-  const faqPct = Math.round((schemaPages / totalPages) * 50); // approximation
-  const navPct = auditPages.length > 0 ? Math.round((auditPages.filter((p) => p.title && p.title.length > 0).length / totalPages) * 100) : 0;
+  // Build per-page GEO signal lookup
+  const signalMap = useMemo(() => {
+    const m = new Map<string, Record<string, unknown>>();
+    for (const s of geoSignals) {
+      m.set(s.url.replace(/\/$/, ""), s.signals);
+    }
+    return m;
+  }, [geoSignals]);
+
+  const n = geoSignals.length || auditPages.length || 1;
+
+  // GEO dimensions with descriptions (matching admin pattern)
+  const dimensions = useMemo(() => {
+    if (geoSignals.length > 0) {
+      const total = geoSignals.length || 1;
+      return [
+        { label: "Schema Markup", value: Math.round((geoSignals.filter((s) => s.signals.hasSchema === true).length / total) * 100), desc: "Pages with JSON-LD structured data" },
+        { label: "OG Tags Present", value: Math.round((geoSignals.filter((s) => s.signals.hasOgTags === true).length / total) * 100), desc: "Pages with Open Graph metadata" },
+        { label: "Rich Content (300+ words)", value: Math.round((geoSignals.filter((s) => (s.signals.wordCount as number ?? 0) > 300).length / total) * 100), desc: "Pages with substantial, well-structured content" },
+        { label: "Breadcrumbs", value: Math.round((geoSignals.filter((s) => s.signals.hasBreadcrumbs === true).length / total) * 100), desc: "Pages with breadcrumb navigation" },
+        { label: "Language Set", value: Math.round((geoSignals.filter((s) => !!s.signals.lang).length / total) * 100), desc: "Pages with lang attribute" },
+        { label: "Organization Schema", value: Math.round((geoSignals.filter((s) => s.signals.hasOrganizationSchema === true || s.signals.hasArticleSchema === true).length / total) * 100), desc: "Pages with Organization/Article schema" },
+      ];
+    }
+    // Fallback from audit_pages
+    const total = auditPages.length || 1;
+    return [
+      { label: "Schema Markup", value: Math.round((auditPages.filter((p) => p.has_schema).length / total) * 100), desc: "Pages with JSON-LD structured data" },
+      { label: "OG Tags Present", value: 0, desc: "Pages with Open Graph metadata" },
+      { label: "Rich Content (300+ words)", value: Math.round((auditPages.filter((p) => (p.word_count ?? 0) > 300).length / total) * 100), desc: "Pages with substantial, well-structured content" },
+      { label: "Breadcrumbs", value: 0, desc: "Pages with breadcrumb navigation" },
+      { label: "Language Set", value: 0, desc: "Pages with lang attribute" },
+      { label: "Organization Schema", value: 0, desc: "Pages with Organization/Article schema" },
+    ];
+  }, [geoSignals, auditPages]);
+
+  const computedGeoScore = geoStats.avgGeoScore > 0
+    ? geoStats.avgGeoScore
+    : dimensions.length > 0
+      ? Math.round(dimensions.reduce((s, d) => s + d.value, 0) / dimensions.length)
+      : 0;
+
+  // Compute crawlability stats
+  const crawlStats = useMemo(() => {
+    if (geoSignals.length > 0) {
+      const total = geoSignals.length || 1;
+      const schemaCount = geoSignals.filter((s) => s.signals.hasSchema === true).length;
+      const avgWordCount = Math.round(geoSignals.reduce((s, g) => s + ((g.signals.wordCount as number) ?? 0), 0) / total);
+      const contentClarity = Math.min(100, Math.round((avgWordCount / 500) * 100));
+      const answerability = Math.round(
+        (geoSignals.filter((s) => (s.signals.wordCount as number ?? 0) > 300 && s.signals.hasSchema === true).length / total) * 100
+      );
+      const citation = Math.round(
+        (geoSignals.filter((s) => s.signals.hasSchema === true && s.signals.hasCanonical === true).length / total) * 100
+      );
+      return {
+        structuredData: schemaCount === total ? "100%" : `${Math.round((schemaCount / total) * 100)}%`,
+        contentClarity,
+        answerability,
+        citation,
+      };
+    }
+    // Fallback
+    const total = auditPages.length || 1;
+    const schemaCount = auditPages.filter((p) => p.has_schema).length;
+    const avgWordCount = Math.round(auditPages.reduce((s, p) => s + (p.word_count ?? 0), 0) / total);
+    return {
+      structuredData: `${Math.round((schemaCount / total) * 100)}%`,
+      contentClarity: Math.min(100, Math.round((avgWordCount / 500) * 100)),
+      answerability: Math.round((auditPages.filter((p) => (p.word_count ?? 0) > 300 && p.has_schema).length / total) * 100),
+      citation: Math.round((schemaCount / total) * 100),
+    };
+  }, [geoSignals, auditPages]);
+
+  // Per-page GEO scores
+  const pageGeoScores = useMemo(() => {
+    return auditPages.slice(0, 15).map((page) => {
+      const sig = signalMap.get(page.url.replace(/\/$/, ""));
+      const wordCount = sig ? (sig.wordCount as number ?? 0) : (page.word_count ?? 0);
+      const hasSchema = sig ? sig.hasSchema === true : page.has_schema;
+      const hasOg = sig ? sig.hasOgTags === true : false;
+      const hasBread = sig ? sig.hasBreadcrumbs === true : false;
+      const hasCan = sig ? sig.hasCanonical === true : false;
+      const hasLang = sig ? !!sig.lang : false;
+      const hasOrgSchema = sig ? (sig.hasOrganizationSchema === true || sig.hasArticleSchema === true) : false;
+
+      // Clarity: content quality (word count, title, headings)
+      const clarity = Math.min(100, Math.round(
+        (wordCount > 300 ? 40 : (wordCount / 300) * 40) +
+        (page.title ? 30 : 0) +
+        (hasSchema ? 30 : 0)
+      ));
+      // Answerability: FAQ, questions, structured content
+      const answerability = Math.min(100, Math.round(
+        (wordCount > 300 ? 30 : 0) +
+        (hasSchema ? 35 : 0) +
+        (hasBread ? 15 : 0) +
+        (hasOg ? 20 : 0)
+      ));
+      // Citation: how likely AI will cite this page
+      const citation = Math.min(100, Math.round(
+        (hasSchema ? 30 : 0) +
+        (hasCan ? 20 : 0) +
+        (hasOg ? 20 : 0) +
+        (hasLang ? 15 : 0) +
+        (hasOrgSchema ? 15 : 0)
+      ));
+
+      // Schema types
+      const schemaTypes = sig ? (sig.schemaTypes as string[] ?? []) : (hasSchema ? ["Schema"] : []);
+
+      let path: string;
+      try { path = new URL(page.url).pathname; } catch { path = page.url; }
+
+      return {
+        id: page.id,
+        path,
+        title: page.title,
+        url: page.url,
+        clarity,
+        answerability,
+        citation,
+        schemaTypes,
+        hasSchema,
+        hasOg,
+        hasBread,
+        hasCan,
+        hasLang,
+        hasOrgSchema,
+      };
+    });
+  }, [auditPages, signalMap]);
+
+  // GEO Improvement Suggestions
+  const suggestions = useMemo(() => {
+    const items: Array<{ title: string; desc: string }> = [];
+    for (const pg of pageGeoScores) {
+      if (pg.clarity < 50) {
+        items.push({
+          title: `Low content clarity for AI`,
+          desc: `${pg.path} has a content clarity score of ${pg.clarity}/100. Improve by using clear headings, shorter sentences, and structured lists.`,
+        });
+      }
+      if (pg.answerability < 30) {
+        items.push({
+          title: `Low answerability score`,
+          desc: `${pg.path} scores ${pg.answerability}/100 for answerability. Add FAQ sections, question-style headings, and direct answer patterns to improve AI citation potential.`,
+        });
+      }
+      if (!pg.hasSchema) {
+        items.push({
+          title: `Missing structured data`,
+          desc: `${pg.path} has no JSON-LD schema markup. Add Organization, Article, or FAQ schema to improve AI discoverability.`,
+        });
+      }
+    }
+    // Site-wide
+    const schemaDim = dimensions.find((d) => d.label === "Schema Markup");
+    if (schemaDim && schemaDim.value < 50) {
+      items.push({
+        title: `Low structured data coverage (${schemaDim.value}%)`,
+        desc: `Only ${schemaDim.value}% of pages have JSON-LD structured data. AI search engines heavily rely on structured data for citations.`,
+      });
+    }
+    const ogDim = dimensions.find((d) => d.label === "OG Tags Present");
+    if (ogDim && ogDim.value < 50) {
+      items.push({
+        title: `Low Open Graph coverage (${ogDim.value}%)`,
+        desc: `Only ${ogDim.value}% of pages have OG tags. Add og:title, og:description, og:image to all pages for better AI and social visibility.`,
+      });
+    }
+    return items.slice(0, 6);
+  }, [pageGeoScores, dimensions]);
 
   return (
     <div className="space-y-6">
-      {/* GEO Score + Breakdown */}
+      {/* GEO Score + Description */}
       <Card>
-        <CardHeader>
-          <CardTitle className="font-serif text-lg">Score Breakdown</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-8 md:flex-row md:items-center">
-            <ScoreGauge score={geoStats.avgGeoScore} label="GEO Readiness" size={150} strokeWidth={10} color="var(--color-editorial-green)" />
-            <div className="flex-1 space-y-4">
-              <ProgressBar label="AI Crawler Access" value={80} color="bg-editorial-green" />
-              <ProgressBar label="Page-Specific Schema" value={schemaPct} color="bg-editorial-green" />
-              <ProgressBar label="Content Clarity" value={contentPct} color="bg-editorial-green" />
-              <ProgressBar label="FAQ & HowTo Coverage" value={faqPct} color={faqPct < 60 ? "bg-editorial-red" : "bg-editorial-green"} />
-              <ProgressBar label="Site Navigation (Breadcrumbs)" value={navPct} color="bg-editorial-green" />
-              <ProgressBar label="OG Tags & Attribution" value={100} color="bg-editorial-green" />
-            </div>
+        <CardContent className="flex flex-col items-center gap-6 py-6 md:flex-row">
+          <ScoreGauge score={computedGeoScore} label="GEO Score" size={150} strokeWidth={10} color="var(--color-editorial-green)" />
+          <div className="flex-1 space-y-3">
+            <p className="text-sm text-ink-secondary">
+              GEO measures how well your pages are optimized for AI-powered search engines like ChatGPT,
+              Gemini, and Perplexity. Higher scores mean better citability and AI discoverability.
+            </p>
+            {auditPages.length > 0 && (
+              <p className="text-[10px] text-ink-muted">Based on {n} crawled page{n !== 1 ? "s" : ""}. Run a new site audit to refresh data.</p>
+            )}
           </div>
         </CardContent>
       </Card>
+
+      {/* AI Crawlability Assessment */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-serif text-lg">AI Crawlability Assessment</CardTitle>
+          <p className="text-xs text-ink-muted">How well your site is optimized for AI/LLM citation and generative search engines.</p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-px border border-rule bg-rule md:grid-cols-4">
+            <StatMini label="Structured Data Coverage" value={crawlStats.structuredData} color="border-editorial-green" />
+            <StatMini label="Avg Content Clarity" value={crawlStats.contentClarity} color="border-editorial-gold" />
+            <StatMini label="Avg Answerability" value={crawlStats.answerability} color="border-[#8b5cf6]" />
+            <StatMini label="Avg Citation Worthiness" value={crawlStats.citation} color="border-editorial-red" />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* GEO Dimensions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-serif text-lg">GEO Dimensions</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {dimensions.map((d) => {
+            const color = d.value >= 80 ? "bg-editorial-green" : d.value >= 50 ? "bg-editorial-gold" : "bg-editorial-red";
+            return (
+              <div key={d.label} className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-medium text-ink">{d.label}</span>
+                    <span className="ml-2 text-xs text-ink-muted">{d.desc}</span>
+                  </div>
+                  <span className="font-mono text-sm text-ink">{d.value}%</span>
+                </div>
+                <div className="h-2.5 w-full bg-surface-raised">
+                  <div className={`h-full transition-all duration-500 ${color}`} style={{ width: `${Math.min(d.value, 100)}%` }} />
+                </div>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+
+      {/* Page GEO Scores */}
+      {pageGeoScores.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif text-lg">Page GEO Scores</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {pageGeoScores.map((pg) => (
+                <div key={pg.id} className="border border-rule bg-surface-raised p-4">
+                  <p className="font-mono text-sm font-bold text-ink">{pg.path}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-6">
+                    <span className="text-xs text-ink-muted">
+                      Clarity: <span className={cn("font-mono font-bold", pg.clarity >= 80 ? "text-editorial-green" : pg.clarity >= 50 ? "text-editorial-gold" : "text-editorial-red")}>{pg.clarity}</span>
+                    </span>
+                    <span className="text-xs text-ink-muted">
+                      Answer: <span className={cn("font-mono font-bold", pg.answerability >= 80 ? "text-editorial-green" : pg.answerability >= 50 ? "text-editorial-gold" : "text-editorial-red")}>{pg.answerability}</span>
+                    </span>
+                    <span className="text-xs text-ink-muted">
+                      Citation: <span className={cn("font-mono font-bold", pg.citation >= 80 ? "text-editorial-green" : pg.citation >= 50 ? "text-editorial-gold" : "text-editorial-red")}>{pg.citation}</span>
+                    </span>
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px] text-ink-muted">
+                    {pg.schemaTypes.length > 0 && (
+                      <span>Schema: {pg.schemaTypes.join(", ")}</span>
+                    )}
+                    {pg.schemaTypes.length > 0 && <span>|</span>}
+                    <span>OG: {pg.hasOg ? "Yes" : "No"}</span>
+                    <span>|</span>
+                    <span>Breadcrumbs: {pg.hasBread ? "Yes" : "No"}</span>
+                    <span>|</span>
+                    <span>Lang: {pg.hasLang ? "Yes" : "No"}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Page GEO Signals Table */}
+      {auditPages.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif text-lg">Page GEO Signals</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[700px] text-sm">
+                <thead className="border-b-2 border-rule-dark">
+                  <tr>
+                    <th className="py-2 pr-4 text-left text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Path</th>
+                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Schema</th>
+                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">OG Tags</th>
+                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Breadcrumbs</th>
+                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Org Schema</th>
+                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Lang</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageGeoScores.map((pg) => (
+                    <tr key={pg.id} className="border-b border-rule transition-colors hover:bg-surface-raised">
+                      <td className="py-2 pr-4 font-mono text-xs text-ink">{pg.path}</td>
+                      <td className="px-3 py-2 text-center"><BoolIcon value={pg.hasSchema} /></td>
+                      <td className="px-3 py-2 text-center"><BoolIcon value={pg.hasOg} /></td>
+                      <td className="px-3 py-2 text-center"><BoolIcon value={pg.hasBread} /></td>
+                      <td className="px-3 py-2 text-center"><BoolIcon value={pg.hasOrgSchema} /></td>
+                      <td className="px-3 py-2 text-center"><BoolIcon value={pg.hasLang} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* AI Crawler Monitor */}
       <Card>
@@ -764,87 +1198,22 @@ function GeoTab({
         </CardContent>
       </Card>
 
-      {/* Page AI-Readiness Scores */}
-      {geoPages.length > 0 ? (
+      {/* GEO Improvement Suggestions */}
+      {suggestions.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="font-serif text-lg">Page AI-Readiness Scores</CardTitle>
+            <CardTitle className="font-serif text-lg">GEO Improvement Suggestions</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[700px] text-sm">
-                <thead className="border-b-2 border-rule-dark">
-                  <tr>
-                    <th className="py-2 pr-4 text-left text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Page</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Entity</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Structure</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Schema</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Citation</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Overall</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {geoPages.slice(0, 15).map((page) => (
-                    <tr key={page.id} className="border-b border-rule transition-colors hover:bg-surface-raised">
-                      <td className="py-2.5 pr-4">
-                        <p className="max-w-xs truncate text-sm font-medium text-ink">{page.title ?? page.url}</p>
-                      </td>
-                      <td className="px-3 py-2.5 text-center"><ScoreCell value={page.entityScore} /></td>
-                      <td className="px-3 py-2.5 text-center"><ScoreCell value={page.structureScore} /></td>
-                      <td className="px-3 py-2.5 text-center"><ScoreCell value={page.schemaScore} /></td>
-                      <td className="px-3 py-2.5 text-center"><ScoreCell value={page.aiCitationScore} /></td>
-                      <td className="px-3 py-2.5 text-center"><ScorePill score={page.geoScore} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-serif text-lg">Page AI-Readiness Scores</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[700px] text-sm">
-                <thead className="border-b-2 border-rule-dark">
-                  <tr>
-                    <th className="py-2 pr-4 text-left text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Page</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Clarity</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Factual</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Structure</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Citation</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Freshness</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Overall</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {auditPages.slice(0, 12).map((page) => {
-                    const clarity = page.word_count && page.word_count > 300 ? 100 : Math.min((page.word_count ?? 0) / 3, 100);
-                    const factual = page.has_schema ? 100 : 60;
-                    const structure = page.title ? 75 : 40;
-                    const citation = page.has_schema ? 80 : 30;
-                    const freshness = 100;
-                    const overall = Math.round((clarity + factual + structure + citation + freshness) / 5);
-                    return (
-                      <tr key={page.id} className="border-b border-rule transition-colors hover:bg-surface-raised">
-                        <td className="py-2.5 pr-4">
-                          <p className="max-w-xs truncate text-sm font-medium text-ink">{page.title ?? page.url}</p>
-                        </td>
-                        <td className="px-3 py-2.5 text-center"><ScoreCell value={Math.round(clarity)} /></td>
-                        <td className="px-3 py-2.5 text-center"><ScoreCell value={Math.round(factual)} /></td>
-                        <td className="px-3 py-2.5 text-center"><ScoreCell value={Math.round(structure)} /></td>
-                        <td className="px-3 py-2.5 text-center"><ScoreCell value={Math.round(citation)} /></td>
-                        <td className="px-3 py-2.5 text-center"><ScoreCell value={freshness} /></td>
-                        <td className="px-3 py-2.5 text-center"><ScorePill score={overall} /></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+          <CardContent className="space-y-3">
+            {suggestions.map((s, i) => (
+              <div key={i} className="flex items-start gap-3 border border-rule bg-surface-raised p-4">
+                <Badge className="mt-0.5 shrink-0 bg-editorial-gold/20 text-editorial-gold">GEO</Badge>
+                <div>
+                  <p className="text-sm font-bold text-ink">{s.title}</p>
+                  <p className="mt-0.5 text-xs text-ink-muted">{s.desc}</p>
+                </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
       )}

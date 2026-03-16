@@ -1,6 +1,24 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { Check, X, Zap } from "lucide-react";
 import { getPricingPlans } from "@/lib/dal/admin";
+import {
+  JsonLd,
+  breadcrumbJsonLd,
+  faqJsonLd,
+} from "@/components/seo/json-ld";
+
+export const metadata: Metadata = {
+  title: "Plans & Pricing for Every Team",
+  description:
+    "Choose the right Optic Rank plan for your team. From free starter accounts to enterprise-grade SEO intelligence, find pricing that scales with your growth.",
+  alternates: { canonical: "/pricing" },
+  openGraph: {
+    title: "Plans & Pricing for Every Team",
+    description:
+      "From free starter to enterprise SEO intelligence. Find pricing that scales with your growth.",
+  },
+};
 
 /* ── Helpers ───────────────────────────────────────────────────── */
 
@@ -69,6 +87,9 @@ export default async function PricingPage() {
 
   return (
     <>
+      <JsonLd data={breadcrumbJsonLd([{ name: "Pricing", path: "/pricing" }])} />
+      <JsonLd data={faqJsonLd(faqs)} />
+
       {/* ==== HEADER SECTION ==== */}
       <section className="border-b border-rule">
         <div className="mx-auto max-w-7xl px-6 pb-16 pt-20 text-center md:pb-20 md:pt-28">

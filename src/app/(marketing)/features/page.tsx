@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import {
   Search,
   Link2,
@@ -14,6 +15,19 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getSiteContent } from "@/lib/dal/admin";
+import { JsonLd, breadcrumbJsonLd } from "@/components/seo/json-ld";
+
+export const metadata: Metadata = {
+  title: "All SEO Features & Capabilities",
+  description:
+    "Explore Optic Rank's complete feature set: keyword tracking, site audits, backlink monitoring, competitor analysis, AI visibility tracking, and actionable insights.",
+  alternates: { canonical: "/features" },
+  openGraph: {
+    title: "All SEO Features & Capabilities",
+    description:
+      "Explore Optic Rank's complete feature set for modern SEO intelligence.",
+  },
+};
 
 /* ── Icon Map ──────────────────────────────────────────────────── */
 
@@ -62,6 +76,8 @@ export default async function FeaturesPage() {
 
   return (
     <>
+      <JsonLd data={breadcrumbJsonLd([{ name: "Features", path: "/features" }])} />
+
       {/* ==== HERO SECTION ==== */}
       <section className="relative overflow-hidden border-b-4 border-double border-rule-dark">
         <div className="absolute inset-0 bg-[linear-gradient(to_right,var(--color-rule-light)_1px,transparent_1px),linear-gradient(to_bottom,var(--color-rule-light)_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-40" />

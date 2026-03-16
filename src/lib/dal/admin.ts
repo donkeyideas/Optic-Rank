@@ -413,3 +413,131 @@ export async function getAllSiteContent() {
 
   return data ?? [];
 }
+
+// ─── Posts (blog + guides) ────────────────────────────────────
+
+export async function getPublishedPosts(
+  type: "blog" | "guide",
+  limit = 20,
+  offset = 0
+) {
+  const admin = createAdminClient();
+  const { data, count } = await admin
+    .from("posts")
+    .select("*", { count: "exact" })
+    .eq("type", type)
+    .eq("status", "published")
+    .order("published_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  return { data: data ?? [], count: count ?? 0 };
+}
+
+export async function getPostBySlug(slug: string) {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("posts")
+    .select("*")
+    .eq("slug", slug)
+    .eq("status", "published")
+    .single();
+
+  return data;
+}
+
+export async function getAllPosts(
+  type: "blog" | "guide",
+  limit = 50,
+  offset = 0
+) {
+  const admin = createAdminClient();
+  const { data, count } = await admin
+    .from("posts")
+    .select("*", { count: "exact" })
+    .eq("type", type)
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  return { data: data ?? [], count: count ?? 0 };
+}
+
+// ─── Changelog ────────────────────────────────────────────────
+
+export async function getPublishedChangelog(limit = 50, offset = 0) {
+  const admin = createAdminClient();
+  const { data, count } = await admin
+    .from("changelog_entries")
+    .select("*", { count: "exact" })
+    .order("published_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  return { data: data ?? [], count: count ?? 0 };
+}
+
+export async function getAllChangelog() {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("changelog_entries")
+    .select("*")
+    .order("published_at", { ascending: false });
+
+  return data ?? [];
+}
+
+// ─── Roadmap ──────────────────────────────────────────────────
+
+export async function getPublishedRoadmap() {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("roadmap_items")
+    .select("*")
+    .order("sort_order", { ascending: true });
+
+  return data ?? [];
+}
+
+export async function getAllRoadmap() {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("roadmap_items")
+    .select("*")
+    .order("sort_order", { ascending: true });
+
+  return data ?? [];
+}
+
+// ─── Jobs ─────────────────────────────────────────────────────
+
+export async function getActiveJobs() {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("job_listings")
+    .select("*")
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
+
+  return data ?? [];
+}
+
+export async function getAllJobs() {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("job_listings")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  return data ?? [];
+}
+
+// ─── Contact submissions ──────────────────────────────────────
+
+export async function getAllContacts(limit = 50, offset = 0) {
+  const admin = createAdminClient();
+  const { data, count } = await admin
+    .from("contact_submissions")
+    .select("*", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  return { data: data ?? [], count: count ?? 0 };
+}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import {
   Search,
   BarChart3,
@@ -10,6 +11,23 @@ import {
   Zap,
 } from "lucide-react";
 import { getSiteContent } from "@/lib/dal/admin";
+import {
+  JsonLd,
+  organizationJsonLd,
+  webSiteJsonLd,
+} from "@/components/seo/json-ld";
+
+export const metadata: Metadata = {
+  title: "AI-Powered SEO Intelligence Platform",
+  description:
+    "Track keyword rankings, monitor competitors, audit your site, and unlock AI-driven insights. The all-in-one SEO platform for modern marketing teams.",
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: "AI-Powered SEO Intelligence Platform",
+    description:
+      "Track keyword rankings, monitor competitors, audit your site, and unlock AI-driven SEO insights.",
+  },
+};
 
 /* ── Icon Map ──────────────────────────────────────────────────── */
 
@@ -82,6 +100,9 @@ export default async function MarketingHomePage() {
 
   return (
     <>
+      <JsonLd data={organizationJsonLd()} />
+      <JsonLd data={webSiteJsonLd()} />
+
       {/* ==== HERO SECTION ==== */}
       <section className="relative overflow-hidden border-b-4 border-double border-rule-dark">
         <div className="absolute inset-0 bg-[linear-gradient(to_right,var(--color-rule-light)_1px,transparent_1px),linear-gradient(to_bottom,var(--color-rule-light)_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-40" />

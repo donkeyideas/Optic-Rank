@@ -94,6 +94,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Fix native <dialog> text color in dark mode (UA stylesheet sets color: CanvasText) */
+dialog {
+  color: var(--color-ink);
+}
+
 /* --- EDITORIAL TYPOGRAPHY --- */
 .editorial-headline {
   font-family: var(--font-serif);

@@ -214,6 +214,7 @@ export function SettingsClient({
   const [projectError, setProjectError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -535,18 +536,7 @@ export function SettingsClient({
                               size="sm"
                               className="h-7 w-7 p-0 text-ink-muted hover:text-editorial-red"
                               disabled={deletingId === (project.id as string)}
-                              onClick={() => {
-                                if (!confirm("Delete this project? This cannot be undone.")) return;
-                                const id = project.id as string;
-                                setDeletingId(id);
-                                startTransition(async () => {
-                                  const result = await deleteProject(id);
-                                  setDeletingId(null);
-                                  if (result && "error" in result) {
-                                    setProjectError(result.error);
-                                  }
-                                });
-                              }}
+                              onClick={() => setDeleteConfirmId(project.id as string)}
                             >
                               {deletingId === (project.id as string) ? (
                                 <span className="h-3 w-3 animate-spin rounded-full border-2 border-ink-muted border-t-transparent" />
@@ -563,6 +553,53 @@ export function SettingsClient({
               </div>
             </>
           )}
+
+          {/* Delete Project Confirmation Modal */}
+          <Dialog open={!!deleteConfirmId} onOpenChange={(open) => { if (!open) setDeleteConfirmId(null); }}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Delete Project</DialogTitle>
+                <DialogDescription>
+                  Are you sure you want to delete this project? All associated data including keywords,
+                  audits, and analytics will be permanently removed. This action cannot be undone.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDeleteConfirmId(null)}
+                  disabled={!!deletingId}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={!!deletingId}
+                  onClick={() => {
+                    if (!deleteConfirmId) return;
+                    setDeletingId(deleteConfirmId);
+                    startTransition(async () => {
+                      const result = await deleteProject(deleteConfirmId);
+                      setDeletingId(null);
+                      setDeleteConfirmId(null);
+                      if (result && "error" in result) {
+                        setProjectError(result.error);
+                      }
+                    });
+                  }}
+                >
+                  {deletingId ? (
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  ) : (
+                    <Trash2 size={13} />
+                  )}
+                  Delete Project
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* ============================================================

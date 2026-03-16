@@ -165,6 +165,7 @@ const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
         className={cn(
           // Reset native dialog styles
           "p-0 m-auto bg-transparent border-none",
+          "[color-scheme:normal] text-ink",
           "backdrop:bg-ink/60 backdrop:backdrop-blur-sm",
           // Overlay + centering via grid on the ::backdrop handled by the dialog
           "open:flex open:items-center open:justify-center",
@@ -175,7 +176,7 @@ const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
           ref={ref}
           className={cn(
             "relative w-full",
-            "bg-surface-card border border-rule rounded-none",
+            "bg-surface-card text-ink border border-rule rounded-none",
             "shadow-xl",
             className
           )}

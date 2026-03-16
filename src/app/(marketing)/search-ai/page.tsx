@@ -10,15 +10,17 @@ import {
   Check,
 } from "lucide-react";
 import { getSiteContent } from "@/lib/dal/admin";
+import { JsonLd, breadcrumbJsonLd } from "@/components/seo/json-ld";
 
 /* ── SEO Meta ──────────────────────────────────────────────────── */
 
 export const metadata: Metadata = {
-  title: "SEO, AEO, GEO & CRO — Complete Search Visibility | Optic Rank",
+  title: "SEO, AEO, GEO & CRO Strategy",
   description:
     "Master all four pillars of modern search: SEO for rankings, AEO for answer snippets, GEO for AI citations, and CRO for conversions. One unified intelligence platform.",
+  alternates: { canonical: "/search-ai" },
   openGraph: {
-    title: "SEO, AEO, GEO & CRO — Complete Search Visibility | Optic Rank",
+    title: "SEO, AEO, GEO & CRO Strategy",
     description:
       "Master all four pillars of modern search: SEO for rankings, AEO for answer snippets, GEO for AI citations, and CRO for conversions.",
   },
@@ -122,6 +124,8 @@ export default async function SearchAIPage() {
 
   return (
     <>
+      <JsonLd data={breadcrumbJsonLd([{ name: "Search & AI", path: "/search-ai" }])} />
+
       {/* ==================================================================
           HERO SECTION
           ================================================================== */}

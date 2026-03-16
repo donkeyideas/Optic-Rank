@@ -310,28 +310,34 @@ export default async function DashboardPage() {
       label: "Organic Traffic",
       value: currentEstTraffic > 0 ? formatEstTraffic(currentEstTraffic) : "--",
       delta: currentEstTraffic > 0
-        ? `+${((currentEstTraffic / Math.max(currentEstTraffic * 0.75, 1)) * 100 - 100).toFixed(1)}% vs prior`
+        ? `Est. from ${(trafficKeywords ?? []).length} ranked keywords`
         : "No data yet",
       direction: currentEstTraffic > 0 ? ("up" as const) : ("neutral" as const),
     },
     {
       label: "Keywords Ranked",
       value: rankedPositions.length.toLocaleString(),
-      delta: keywordsUp > 0 ? `+${keywordsUp} new` : "No changes yet",
-      direction: keywordsUp > 0 ? ("up" as const) : ("neutral" as const),
+      delta: (() => {
+        const top10 = rankedPositions.filter((p) => p <= 10).length;
+        if (keywordsUp > 0) return `+${keywordsUp} improved`;
+        if (top10 > 0) return `${top10} in top 10`;
+        if (rankedPositions.length > 0) return `Avg. pos ${avgPosition}`;
+        return "No rankings yet";
+      })(),
+      direction: keywordsUp > 0 ? ("up" as const) : (rankedPositions.length > 0 ? ("neutral" as const) : ("neutral" as const)),
     },
     {
       label: "AI Visibility",
       value: visibilityStats.avgScore > 0 ? `${Math.round(visibilityStats.avgScore)}%` : "--",
       delta: visibilityStats.totalChecks > 0
-        ? `${visibilityStats.totalChecks > 1 ? visibilityStats.totalChecks : "1"} of 6 LLMs`
+        ? `${visibilityStats.totalChecks} checks · ${visibilityStats.keywordsChecked} keywords`
         : "Not tracked",
       direction: visibilityStats.avgScore > 0 ? ("up" as const) : ("neutral" as const),
     },
     {
       label: "Backlinks",
       value: totalBacklinks > 0 ? formatEstTraffic(totalBacklinks) : "--",
-      delta: totalBacklinks > 0 ? `+${Math.min(totalBacklinks, Math.floor(totalBacklinks * 0.3))} gained` : "None yet",
+      delta: totalBacklinks > 0 ? `${totalBacklinks} total discovered` : "None yet",
       direction: totalBacklinks > 0 ? ("up" as const) : ("neutral" as const),
     },
   ];
@@ -514,7 +520,7 @@ export default async function DashboardPage() {
                                   : "--"}
                           </td>
                           <td className="border-b border-rule-light px-2.5 py-2.5 font-mono text-xs text-ink-secondary">
-                            {kw.ai_visibility_count != null ? `${kw.ai_visibility_count}/6` : "--"}
+                            {kw.ai_visibility_count ?? "--"}
                           </td>
                         </tr>
                       );
@@ -607,7 +613,7 @@ export default async function DashboardPage() {
                       </span>
                       <span className="block text-[9px] text-ink-muted">
                         {visibilityStats.totalChecks > 0
-                          ? `${visibilityStats.totalChecks} checks across 5 LLMs`
+                          ? `${visibilityStats.keywordsChecked} keywords tracked`
                           : "Track brand in AI responses"}
                       </span>
                     </div>
@@ -676,7 +682,7 @@ export default async function DashboardPage() {
                   </div>
                   {entityStats.avgRelevance > 0 ? (
                     <span className="font-mono text-xs font-bold text-ink">
-                      {Math.round(entityStats.avgRelevance * 100)}%
+                      {Math.round(entityStats.avgRelevance)}%
                     </span>
                   ) : (
                     <span className="text-[9px] font-semibold uppercase tracking-wider text-ink-muted group-hover:text-editorial-red">
@@ -735,7 +741,7 @@ export default async function DashboardPage() {
             </p>
           </div>
           <Link
-            href="/dashboard/optimization"
+            href="/dashboard/search-ai"
             className="text-[10px] font-bold uppercase tracking-[0.15em] text-editorial-red hover:underline"
           >
             View All &rarr;
@@ -745,7 +751,7 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {/* Est. Revenue */}
           <Link
-            href="/dashboard/optimization"
+            href="/dashboard/search-ai"
             className="group border border-rule bg-surface-card px-4 py-3 transition-colors hover:bg-surface-raised"
           >
             <span className="block text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
@@ -763,7 +769,7 @@ export default async function DashboardPage() {
 
           {/* Conversion Goals */}
           <Link
-            href="/dashboard/optimization"
+            href="/dashboard/search-ai"
             className="group border border-rule bg-surface-card px-4 py-3 transition-colors hover:bg-surface-raised"
           >
             <span className="block text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
@@ -781,7 +787,7 @@ export default async function DashboardPage() {
 
           {/* Top Revenue Keywords */}
           <Link
-            href="/dashboard/optimization"
+            href="/dashboard/search-ai"
             className="group border border-rule bg-surface-card px-4 py-3 transition-colors hover:bg-surface-raised"
           >
             <span className="block text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
@@ -799,7 +805,7 @@ export default async function DashboardPage() {
 
           {/* Revenue Gaps */}
           <Link
-            href="/dashboard/optimization"
+            href="/dashboard/search-ai"
             className="group border border-rule bg-surface-card px-4 py-3 transition-colors hover:bg-surface-raised"
           >
             <span className="block text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
