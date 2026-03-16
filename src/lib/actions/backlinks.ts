@@ -11,6 +11,7 @@ import {
 } from "@/lib/backlinks/crawler";
 import { fetchSiteContext } from "@/lib/ai/fetch-site-context";
 import { aiChat } from "@/lib/ai/ai-provider";
+import { dispatchNotification } from "@/lib/notifications/dispatch";
 
 /**
  * Disavow a toxic backlink by marking it as disavowed.
@@ -132,12 +133,51 @@ export async function detectNewLostLinks(
     .neq("status", "lost")
     .select("id");
 
+  const newCount = newLinks?.length ?? 0;
+  const lostCount = lostLinks?.length ?? 0;
+
+  // Dispatch notifications for new/lost backlinks
+  if (newCount > 0 || lostCount > 0) {
+    try {
+      const { data: projOrg } = await supabase
+        .from("projects")
+        .select("organization_id, name, domain")
+        .eq("id", projectId)
+        .single();
+
+      if (projOrg?.organization_id) {
+        if (newCount > 0) {
+          await dispatchNotification(projOrg.organization_id, {
+            type: "backlink.new",
+            title: `${newCount} New Backlink${newCount > 1 ? "s" : ""} Detected`,
+            message: `${newCount} new backlinks found for ${projOrg.domain ?? "your site"} in the last 7 days.`,
+            details: { "New Backlinks": newCount },
+            projectId,
+            projectName: projOrg.name ?? undefined,
+            userId: user.id,
+            actionUrl: "/dashboard/backlinks",
+          });
+        }
+        if (lostCount > 0) {
+          await dispatchNotification(projOrg.organization_id, {
+            type: "backlink.lost",
+            title: `${lostCount} Backlink${lostCount > 1 ? "s" : ""} Lost`,
+            message: `${lostCount} backlinks to ${projOrg.domain ?? "your site"} haven't been seen in 30+ days.`,
+            details: { "Lost Backlinks": lostCount },
+            projectId,
+            projectName: projOrg.name ?? undefined,
+            userId: user.id,
+            actionUrl: "/dashboard/backlinks",
+          });
+        }
+      }
+    } catch (notifErr) {
+      console.error("[detectNewLostLinks] Notification error:", notifErr);
+    }
+  }
+
   revalidatePath("/dashboard/backlinks");
-  return {
-    success: true,
-    newLinks: newLinks?.length ?? 0,
-    lostLinks: lostLinks?.length ?? 0,
-  };
+  return { success: true, newLinks: newCount, lostLinks: lostCount };
 }
 
 // ─── Toxic Score Calculation ──────────────────────────────────────────────
@@ -346,6 +386,37 @@ export async function discoverBacklinks(
         avg_domain_authority: avgDA,
         snapshot_date: now,
       });
+    }
+
+    // Dispatch notifications for newly discovered backlinks
+    if (discoveredCount > 0) {
+      try {
+        // Get org ID from project
+        const { data: projOrg } = await supabase
+          .from("projects")
+          .select("organization_id, name")
+          .eq("id", projectId)
+          .single();
+
+        if (projOrg?.organization_id) {
+          await dispatchNotification(projOrg.organization_id, {
+            type: "backlink.new",
+            title: `${discoveredCount} New Backlink${discoveredCount > 1 ? "s" : ""} Discovered`,
+            message: `Found ${discoveredCount} new backlinks pointing to ${domain} from ${crawledCount} crawled pages.`,
+            details: {
+              "New Backlinks": discoveredCount,
+              "Pages Crawled": crawledCount,
+              Domain: domain,
+            },
+            projectId,
+            projectName: projOrg.name ?? domain,
+            userId: user.id,
+            actionUrl: "/dashboard/backlinks",
+          });
+        }
+      } catch (notifErr) {
+        console.error("[discoverBacklinks] Notification error:", notifErr);
+      }
     }
 
     revalidatePath("/dashboard/backlinks");

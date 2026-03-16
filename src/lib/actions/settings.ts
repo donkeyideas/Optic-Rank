@@ -60,3 +60,72 @@ export async function updateOrganizationSettings(
   revalidatePath("/dashboard/settings");
   return { success: true };
 }
+
+/**
+ * Create an organization for the current user (if they don't have one).
+ * Starts a 14-day free trial.
+ */
+export async function createOrganization(
+  formData: FormData
+): Promise<{ error: string } | { success: true }> {
+  const userClient = await createClient();
+  const {
+    data: { user },
+  } = await userClient.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
+  const orgName = (formData.get("org_name") as string)?.trim();
+  if (!orgName) return { error: "Organization name is required." };
+
+  const supabase = createAdminClient();
+
+  // Check if user already has an org
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("id", user.id)
+    .single();
+
+  if (profile?.organization_id) {
+    return { error: "You already belong to an organization." };
+  }
+
+  const slug = orgName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  // 14-day trial
+  const trialEndsAt = new Date();
+  trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+
+  const { data: org, error: orgError } = await supabase
+    .from("organizations")
+    .insert({
+      name: orgName,
+      slug: `${slug}-${Date.now().toString(36)}`,
+      plan: "free",
+      subscription_status: "trialing",
+      trial_ends_at: trialEndsAt.toISOString(),
+    })
+    .select("id")
+    .single();
+
+  if (orgError || !org) {
+    return { error: orgError?.message ?? "Failed to create organization." };
+  }
+
+  // Link profile to the new org as owner
+  const { error: linkError } = await supabase
+    .from("profiles")
+    .update({ organization_id: org.id, role: "owner" })
+    .eq("id", user.id);
+
+  if (linkError) {
+    return { error: linkError.message };
+  }
+
+  revalidatePath("/dashboard", "layout");
+  revalidatePath("/dashboard/settings");
+  return { success: true };
+}

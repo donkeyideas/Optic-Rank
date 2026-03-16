@@ -7,7 +7,7 @@
 
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { checkSERP } from "@/lib/api/dataforseo";
+import { checkSERP, hasDataForSEOCredentials } from "@/lib/api/dataforseo";
 import { logAPICall } from "@/lib/api/api-logger";
 
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -24,6 +24,33 @@ export async function GET(request: Request) {
 
   const supabase = createAdminClient();
 
+  // Create a pending job record
+  const { data: job } = await supabase
+    .from("job_queue")
+    .insert({ job_type: "rank_check", status: "pending", payload: {} })
+    .select("id")
+    .single();
+  const jobId = job?.id;
+
+  // Pre-flight: check if DataForSEO credentials are available
+  const hasCredentials = await hasDataForSEOCredentials();
+  if (!hasCredentials) {
+    if (jobId) {
+      await supabase.from("job_queue").update({
+        status: "completed",
+        completed_at: new Date().toISOString(),
+        payload: { totalChecked: 0, totalErrors: 0, skipped: true },
+        last_error: null,
+      }).eq("id", jobId);
+    }
+    return NextResponse.json({
+      message: "Skipped — DataForSEO not configured. Add credentials in Admin → API Management to enable rank tracking.",
+      checked: 0,
+      errors: 0,
+      skipped: true,
+    });
+  }
+
   // Get all active projects with their domains
   const { data: projects } = await supabase
     .from("projects")
@@ -32,11 +59,27 @@ export async function GET(request: Request) {
     .not("domain", "is", null);
 
   if (!projects || projects.length === 0) {
+    if (jobId) {
+      await supabase.from("job_queue").update({
+        status: "completed",
+        completed_at: new Date().toISOString(),
+        payload: { totalChecked: 0, totalErrors: 0, message: "No active projects" },
+      }).eq("id", jobId);
+    }
     return NextResponse.json({ message: "No active projects found.", checked: 0 });
+  }
+
+  // Mark as processing
+  if (jobId) {
+    await supabase.from("job_queue").update({
+      status: "processing",
+      locked_at: new Date().toISOString(),
+    }).eq("id", jobId);
   }
 
   let totalChecked = 0;
   let totalErrors = 0;
+  let firstError = "";
 
   for (const project of projects) {
     if (!project.domain) continue;
@@ -58,6 +101,9 @@ export async function GET(request: Request) {
           try {
             const result = await checkSERP(kw.keyword, project.domain!, {
               device: kw.device as "desktop" | "mobile",
+              // Only pass location if it's a non-default value (not "US" country code)
+              // checkSERP defaults to "United States" which is the correct DataForSEO location_name
+              location: kw.location && kw.location !== "US" ? kw.location : undefined,
             });
 
             if (result.data) {
@@ -101,29 +147,42 @@ export async function GET(request: Request) {
               totalChecked++;
             } else if (result.error) {
               totalErrors++;
+              if (!firstError) firstError = result.error;
+              console.error(`[rank-check] Keyword "${kw.keyword}" error: ${result.error}`);
               // If API key missing, stop processing this project
               if (result.error.includes("not configured")) {
                 return;
               }
             }
-          } catch {
+          } catch (err) {
             totalErrors++;
+            const msg = err instanceof Error ? err.message : "Unknown error";
+            if (!firstError) firstError = msg;
+            console.error(`[rank-check] Keyword "${kw.keyword}" exception: ${msg}`);
           }
         })
       );
     }
   }
 
-  // Log the cron job execution
-  await supabase.from("job_queue").insert({
-    job_type: "rank_check",
-    status: totalErrors === 0 ? "completed" : "completed",
-    payload: { totalChecked, totalErrors },
-  });
+  // Mark job as completed
+  const errorDetail = firstError
+    ? `${totalErrors} keyword(s) failed. First error: ${firstError.slice(0, 400)}`
+    : null;
+
+  if (jobId) {
+    await supabase.from("job_queue").update({
+      status: totalErrors > 0 && totalChecked === 0 ? "failed" : "completed",
+      completed_at: new Date().toISOString(),
+      payload: { totalChecked, totalErrors, firstError: firstError?.slice(0, 300) || null },
+      last_error: errorDetail,
+    }).eq("id", jobId);
+  }
 
   return NextResponse.json({
     message: "Rank check complete.",
     checked: totalChecked,
     errors: totalErrors,
+    firstError: firstError || undefined,
   });
 }

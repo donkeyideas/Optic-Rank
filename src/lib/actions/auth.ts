@@ -46,11 +46,18 @@ export async function signUp(
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
+  // 14-day trial for all new organizations
+  const trialEndsAt = new Date();
+  trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+
   const { data: org, error: orgError } = await admin
     .from("organizations")
     .insert({
       name: orgName || `${fullName || email.split("@")[0]}'s Organization`,
       slug: `${slug}-${Date.now().toString(36)}`,
+      plan: "free",
+      subscription_status: "trialing",
+      trial_ends_at: trialEndsAt.toISOString(),
     })
     .select("id")
     .single();
@@ -83,13 +90,18 @@ export async function signUp(
 export async function signIn(
   formData: FormData
 ): Promise<{ error: string } | { success: true }> {
-  const supabase = await createClient();
-
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
   if (!email || !password) {
     return { error: "Email and password are required." };
+  }
+
+  let supabase;
+  try {
+    supabase = await createClient();
+  } catch (err) {
+    return { error: "Server configuration error. Please contact support." };
   }
 
   const { data, error } = await supabase.auth.signInWithPassword({
@@ -98,6 +110,9 @@ export async function signIn(
   });
 
   if (error) {
+    if (error.message === "fetch failed" || error.message === "Failed to fetch") {
+      return { error: "Unable to reach authentication service. Please try again in a moment." };
+    }
     return { error: error.message };
   }
 
@@ -178,5 +193,65 @@ export async function resetPassword(
     return { error: error.message };
   }
 
+  return { success: true };
+}
+
+/**
+ * Delete a user account (admin only).
+ * Deletes from auth.users which cascades to profiles table.
+ */
+export async function deleteUserAccount(
+  userId: string
+): Promise<{ error: string } | { success: true }> {
+  // Verify caller is admin
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const admin = createAdminClient();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("system_role")
+    .eq("id", user.id)
+    .single();
+
+  if (profile?.system_role !== "superadmin" && profile?.system_role !== "admin") {
+    return { error: "Unauthorized" };
+  }
+
+  // Prevent deleting yourself
+  if (userId === user.id) {
+    return { error: "Cannot delete your own account" };
+  }
+
+  // Get the user's org before deleting, to clean up orphaned orgs
+  const { data: targetProfile } = await admin
+    .from("profiles")
+    .select("organization_id")
+    .eq("id", userId)
+    .single();
+
+  const { error } = await admin.auth.admin.deleteUser(userId);
+  if (error) {
+    return { error: error.message };
+  }
+
+  // Clean up orphaned org (if no other members remain)
+  if (targetProfile?.organization_id) {
+    const { count } = await admin
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", targetProfile.organization_id);
+
+    if (count === 0) {
+      await admin
+        .from("organizations")
+        .delete()
+        .eq("id", targetProfile.organization_id);
+    }
+  }
+
+  revalidatePath("/admin/users");
+  revalidatePath("/admin/orgs");
   return { success: true };
 }

@@ -117,6 +117,7 @@ export function AppStoreClient({
   const [actionId, setActionId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState<Record<string, string>>({});
   const [asoResults, setAsoResults] = useState<Record<string, { score: number; recs: string[] }>>({});
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   function handleAddListing(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -130,10 +131,16 @@ export function AppStoreClient({
   }
 
   function handleDelete(id: string) {
-    if (!confirm("Delete this app listing?")) return;
-    setActionId(id);
+    const listing = listings.find((l) => l.id === id);
+    setDeleteTarget({ id, name: listing?.app_name ?? "this app" });
+  }
+
+  function confirmDelete() {
+    if (!deleteTarget) return;
+    setActionId(deleteTarget.id);
+    setDeleteTarget(null);
     startTransition(async () => {
-      await deleteAppListing(id);
+      await deleteAppListing(deleteTarget.id);
       setActionId(null);
     });
   }
@@ -514,6 +521,22 @@ export function AppStoreClient({
       </Tabs>
 
       {renderAddDialog()}
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete App Listing</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>{deleteTarget?.name}</strong>? This will remove all tracked keywords, reviews, and rankings for this app. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="secondary" size="md" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button type="button" variant="danger" size="md" onClick={confirmDelete} loading={isPending}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

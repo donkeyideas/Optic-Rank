@@ -216,32 +216,45 @@ async function crawlPage(
     let hasArticleSchema = false;
     let hasOrganizationSchema = false;
     let hasSpeakableSchema = false;
+    let hasBreadcrumbs = false;
 
     schemaScripts.each((_, el) => {
       try {
         const json = JSON.parse($(el).html() ?? "{}");
-        const types = Array.isArray(json) ? json.map((j) => j["@type"]) : [json["@type"]];
-        for (const t of types) {
-          if (t) {
-            schemaTypes.push(t);
-            if (t === "FAQPage" || t === "Question") hasFaqSchema = true;
-            if (t === "HowTo") hasHowToSchema = true;
-            if (t === "Article" || t === "BlogPosting" || t === "NewsArticle") hasArticleSchema = true;
-            if (t === "Organization" || t === "LocalBusiness") hasOrganizationSchema = true;
+        // Handle @graph arrays (common in Yoast, RankMath, etc.)
+        const items: Record<string, unknown>[] = json["@graph"]
+          ? (json["@graph"] as Record<string, unknown>[])
+          : Array.isArray(json)
+            ? json
+            : [json];
+        for (const item of items) {
+          const type = item["@type"];
+          if (type) {
+            const typeArr = Array.isArray(type) ? type : [type];
+            for (const t of typeArr) {
+              if (t) {
+                schemaTypes.push(t as string);
+                if (t === "FAQPage" || t === "Question") hasFaqSchema = true;
+                if (t === "HowTo") hasHowToSchema = true;
+                if (t === "Article" || t === "BlogPosting" || t === "NewsArticle") hasArticleSchema = true;
+                if (t === "Organization" || t === "LocalBusiness") hasOrganizationSchema = true;
+                if (t === "BreadcrumbList") hasBreadcrumbs = true;
+              }
+            }
           }
-          // Check for speakable
-          if (json.speakable) hasSpeakableSchema = true;
+          if (item.speakable) hasSpeakableSchema = true;
         }
       } catch {
         // Invalid JSON-LD
       }
     });
 
-    // Breadcrumbs
-    const hasBreadcrumbs =
-      schemaTypes.includes("BreadcrumbList") ||
-      $('[itemtype*="BreadcrumbList"]').length > 0 ||
-      $(".breadcrumb, .breadcrumbs, [aria-label='breadcrumb']").length > 0;
+    // Also detect breadcrumbs via HTML patterns
+    if (!hasBreadcrumbs) {
+      hasBreadcrumbs =
+        $('[itemtype*="BreadcrumbList"]').length > 0 ||
+        $(".breadcrumb, .breadcrumbs, [aria-label='breadcrumb']").length > 0;
+    }
 
     return {
       url,

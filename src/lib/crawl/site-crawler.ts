@@ -3,9 +3,18 @@
  *
  * Discovers pages via sitemap.xml and link extraction,
  * then fetches each page to extract on-page SEO signals.
+ *
+ * Strategy:
+ * 1. Try fast plain fetch() first with a realistic User-Agent
+ * 2. Detect SPA/JS-heavy pages (low content despite 200 status)
+ * 3. Re-fetch sparse pages through ScrapingBee with JS rendering
  */
 
 import * as cheerio from "cheerio";
+import {
+  fetchWithScrapingBee,
+  isScrapingBeeConfigured,
+} from "@/lib/api/scrapingbee";
 
 // ================================================================
 // Types
@@ -39,12 +48,84 @@ export interface CrawledPage {
   imageCount: number;
   imagesWithoutAlt: number;
   loadTimeMs: number;
+  /** Whether this page was rendered via ScrapingBee JS rendering */
+  jsRendered?: boolean;
 }
 
 interface CrawlOptions {
   maxPages: number;
   timeoutMs?: number;
   concurrency?: number;
+}
+
+// Realistic browser User-Agent to avoid basic bot blocks
+const BROWSER_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+const BOT_UA = "OpticRank-Bot/1.0 (SEO Audit)";
+
+// ================================================================
+// SPA / JS-Heavy Detection
+// ================================================================
+
+/**
+ * Heuristic to detect if a page is JS-heavy and needs rendering.
+ * Returns true if the HTML appears to be a mostly-empty shell.
+ */
+function isLikelySPA(html: string, $: cheerio.CheerioAPI): boolean {
+  // Check for common SPA root containers with no content
+  const rootDiv = $("#root, #app, #__next, #__nuxt, #__vue-root");
+  if (rootDiv.length > 0) {
+    // If root container exists but has very little text, likely SPA
+    const rootText = rootDiv.text().replace(/\s+/g, " ").trim();
+    if (rootText.length < 50) return true;
+  }
+
+  // Very low body text despite having a title (JS renders the real content)
+  const bodyText = $("body").text().replace(/\s+/g, " ").trim();
+  const wordCount = bodyText ? bodyText.split(/\s+/).length : 0;
+  const title = $("title").text().trim();
+
+  // Has a title but almost no body text = SPA shell
+  if (title && wordCount < 30) return true;
+
+  // Large amount of JS bundles relative to content
+  const scriptTags = $("script[src]").length;
+  if (scriptTags > 5 && wordCount < 50) return true;
+
+  // Noscript tag telling user to enable JS
+  const noscript = $("noscript").text().toLowerCase();
+  if (
+    noscript.includes("javascript") ||
+    noscript.includes("enable javascript") ||
+    noscript.includes("need to enable")
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Check if the initial fetch returned very sparse content that
+ * would benefit from JS rendering (even for non-SPA sites that
+ * block bots or return login walls).
+ */
+function isSparseResult(page: CrawledPage): boolean {
+  // No title and no content = likely blocked or empty shell
+  if (!page.title && page.wordCount < 20) return true;
+
+  // Has title but almost no content, OG tags, or schema
+  if (
+    page.wordCount < 50 &&
+    !page.hasOgTags &&
+    !page.hasSchema &&
+    page.statusCode === 200
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 // ================================================================
@@ -65,7 +146,7 @@ async function fetchSitemapUrls(domain: string): Promise<string[]> {
       const timeout = setTimeout(() => controller.abort(), 10000);
       const resp = await fetch(sitemapUrl, {
         signal: controller.signal,
-        headers: { "User-Agent": "OpticRank-Bot/1.0 (SEO Audit)" },
+        headers: { "User-Agent": BROWSER_UA },
         redirect: "follow",
       });
       clearTimeout(timeout);
@@ -73,12 +154,15 @@ async function fetchSitemapUrls(domain: string): Promise<string[]> {
       if (!resp.ok) continue;
 
       const text = await resp.text();
-      if (!text.includes("<urlset") && !text.includes("<sitemapindex")) continue;
+      if (!text.includes("<urlset") && !text.includes("<sitemapindex"))
+        continue;
 
       const $ = cheerio.load(text, { xmlMode: true });
 
       // Handle sitemap index (references other sitemaps)
-      const sitemapRefs = $("sitemap > loc").map((_, el) => $(el).text().trim()).get();
+      const sitemapRefs = $("sitemap > loc")
+        .map((_, el) => $(el).text().trim())
+        .get();
       if (sitemapRefs.length > 0) {
         // Fetch first 3 sub-sitemaps
         for (const subUrl of sitemapRefs.slice(0, 3)) {
@@ -87,7 +171,7 @@ async function fetchSitemapUrls(domain: string): Promise<string[]> {
             const subTimeout = setTimeout(() => subCtrl.abort(), 10000);
             const subResp = await fetch(subUrl, {
               signal: subCtrl.signal,
-              headers: { "User-Agent": "OpticRank-Bot/1.0 (SEO Audit)" },
+              headers: { "User-Agent": BROWSER_UA },
               redirect: "follow",
             });
             clearTimeout(subTimeout);
@@ -110,7 +194,7 @@ async function fetchSitemapUrls(domain: string): Promise<string[]> {
         urls.push($(el).text().trim());
       });
 
-      if (urls.length > 0) break; // Found URLs, stop trying other sitemap locations
+      if (urls.length > 0) break;
     } catch {
       // Continue to next sitemap location
     }
@@ -134,13 +218,18 @@ function extractLinksFromHtml(html: string, baseUrl: string): string[] {
 
     try {
       const resolved = new URL(href, baseUrl);
-      // Only include same-domain links
-      if (resolved.hostname === base.hostname || resolved.hostname === `www.${base.hostname}` || `www.${resolved.hostname}` === base.hostname) {
-        // Clean up: remove hash, normalize
+      if (
+        resolved.hostname === base.hostname ||
+        resolved.hostname === `www.${base.hostname}` ||
+        `www.${resolved.hostname}` === base.hostname
+      ) {
         resolved.hash = "";
         const clean = resolved.toString();
-        // Skip non-HTML resources
-        if (!/\.(jpg|jpeg|png|gif|svg|css|js|pdf|zip|mp4|mp3|woff|woff2|ttf|ico)$/i.test(clean)) {
+        if (
+          !/\.(jpg|jpeg|png|gif|svg|css|js|pdf|zip|mp4|mp3|woff|woff2|ttf|ico)$/i.test(
+            clean
+          )
+        ) {
           links.add(clean);
         }
       }
@@ -153,20 +242,202 @@ function extractLinksFromHtml(html: string, baseUrl: string): string[] {
 }
 
 // ================================================================
-// Single Page Analysis
+// HTML → CrawledPage extraction (shared by both fetch strategies)
 // ================================================================
 
-async function analyzePage(url: string, timeoutMs: number = 15000): Promise<CrawledPage | null> {
-  const start = Date.now();
+function extractPageSignals(
+  url: string,
+  html: string,
+  statusCode: number,
+  loadTimeMs: number,
+  jsRendered: boolean = false
+): CrawledPage {
+  const $ = cheerio.load(html);
 
+  // Title
+  const title = $("title").first().text().trim() || null;
+
+  // Meta description
+  const metaDescription =
+    $('meta[name="description"]').attr("content")?.trim() || null;
+
+  // H1
+  const h1 = $("h1").first().text().trim() || null;
+
+  // Word count (body text only, strip scripts/styles)
+  $("script, style, noscript").remove();
+  const bodyText = $("body").text().replace(/\s+/g, " ").trim();
+  const wordCount = bodyText ? bodyText.split(/\s+/).length : 0;
+
+  // Schema markup
+  // Re-load the original HTML for schema extraction since we removed script tags above
+  const $full = cheerio.load(html);
+  const schemaScripts = $full('script[type="application/ld+json"]');
+  const schemaTypes: string[] = [];
+  let hasFaqSchema = false;
+  let hasHowToSchema = false;
+  let hasSpeakableSchema = false;
+  let hasArticleSchema = false;
+  let hasOrganizationSchema = false;
+  let hasBreadcrumbs = false;
+
+  schemaScripts.each((_, el) => {
+    try {
+      const raw = $full(el).html() || "{}";
+      const json = JSON.parse(raw);
+      // Handle @graph arrays (common in Yoast, RankMath, etc.)
+      const items = json["@graph"]
+        ? (json["@graph"] as Record<string, unknown>[])
+        : [json];
+      for (const item of items) {
+        const type = item["@type"];
+        if (type) {
+          const types = Array.isArray(type) ? type : [type];
+          schemaTypes.push(...(types as string[]));
+          if (types.some((t: string) => t === "FAQPage" || t === "Question"))
+            hasFaqSchema = true;
+          if (types.some((t: string) => t === "HowTo")) hasHowToSchema = true;
+          if (
+            types.some(
+              (t: string) =>
+                t === "Article" || t === "NewsArticle" || t === "BlogPosting"
+            )
+          )
+            hasArticleSchema = true;
+          if (
+            types.some(
+              (t: string) => t === "Organization" || t === "LocalBusiness"
+            )
+          )
+            hasOrganizationSchema = true;
+          if (types.some((t: string) => t === "BreadcrumbList"))
+            hasBreadcrumbs = true;
+        }
+        if (item.speakable) hasSpeakableSchema = true;
+      }
+    } catch {
+      // Invalid JSON-LD
+    }
+  });
+  const hasSchema = schemaTypes.length > 0;
+
+  // Also detect breadcrumbs via nav[aria-label] or .breadcrumb
+  if (!hasBreadcrumbs) {
+    hasBreadcrumbs =
+      $full(
+        'nav[aria-label*="breadcrumb"], nav[aria-label*="Breadcrumb"], .breadcrumb, .breadcrumbs, [itemtype*="BreadcrumbList"]'
+      ).length > 0;
+  }
+
+  // Language
+  const lang = $full("html").attr("lang")?.trim() || null;
+
+  // Question headings (H2/H3 that start with question words or contain ?)
+  const questionPattern =
+    /^(what|how|why|when|where|who|which|can|do|does|is|are|should|will|would)\b/i;
+  let questionCount = 0;
+  $full("h2, h3").each((_, el) => {
+    const text = $full(el).text().trim();
+    if (text.includes("?") || questionPattern.test(text)) questionCount++;
+  });
+
+  // Lists (ol, ul with at least 2 items)
+  let listCount = 0;
+  $full("ol, ul").each((_, el) => {
+    if ($full(el).children("li").length >= 2) listCount++;
+  });
+
+  // Heading counts
+  const h2Count = $full("h2").length;
+  const h3Count = $full("h3").length;
+
+  // OG tags
+  const hasOgTags = $full('meta[property^="og:"]').length > 0;
+
+  // Canonical
+  const canonicalUrl = $full('link[rel="canonical"]').attr("href") || null;
+  const hasCanonical = !!canonicalUrl;
+
+  // Links
+  const baseHost = new URL(url).hostname;
+  let internalLinks = 0;
+  let externalLinks = 0;
+  $full("a[href]").each((_, el) => {
+    const href = $full(el).attr("href");
+    if (!href) return;
+    try {
+      const linkUrl = new URL(href, url);
+      if (
+        linkUrl.hostname === baseHost ||
+        linkUrl.hostname === `www.${baseHost}` ||
+        `www.${linkUrl.hostname}` === baseHost
+      ) {
+        internalLinks++;
+      } else if (linkUrl.protocol.startsWith("http")) {
+        externalLinks++;
+      }
+    } catch {
+      internalLinks++;
+    }
+  });
+
+  // Images
+  const imageCount = $full("img").length;
+  const imagesWithoutAlt = $full("img:not([alt]), img[alt='']").length;
+
+  return {
+    url,
+    statusCode,
+    title,
+    metaDescription,
+    h1,
+    wordCount,
+    hasSchema,
+    schemaTypes,
+    hasOgTags,
+    hasFaqSchema,
+    hasHowToSchema,
+    hasSpeakableSchema,
+    hasArticleSchema,
+    hasOrganizationSchema,
+    hasCanonical,
+    canonicalUrl,
+    hasBreadcrumbs,
+    lang,
+    questionCount,
+    listCount,
+    h2Count,
+    h3Count,
+    internalLinks,
+    externalLinks,
+    imageCount,
+    imagesWithoutAlt,
+    loadTimeMs,
+    jsRendered,
+  };
+}
+
+// ================================================================
+// Single Page Fetch (plain fetch)
+// ================================================================
+
+async function fetchPageHtml(
+  url: string,
+  timeoutMs: number
+): Promise<{ html: string; statusCode: number; loadTimeMs: number } | null> {
+  const start = Date.now();
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     const resp = await fetch(url, {
       signal: controller.signal,
       headers: {
-        "User-Agent": "OpticRank-Bot/1.0 (SEO Audit)",
-        "Accept": "text/html,application/xhtml+xml",
+        "User-Agent": BROWSER_UA,
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Cache-Control": "no-cache",
       },
       redirect: "follow",
     });
@@ -174,175 +445,111 @@ async function analyzePage(url: string, timeoutMs: number = 15000): Promise<Craw
     const loadTimeMs = Date.now() - start;
 
     if (!resp.ok) {
-      return {
-        url,
-        statusCode: resp.status,
-        title: null,
-        metaDescription: null,
-        h1: null,
-        wordCount: 0,
-        hasSchema: false,
-        schemaTypes: [],
-        hasOgTags: false,
-        hasFaqSchema: false,
-        hasHowToSchema: false,
-        hasSpeakableSchema: false,
-        hasArticleSchema: false,
-        hasOrganizationSchema: false,
-        hasCanonical: false,
-        canonicalUrl: null,
-        hasBreadcrumbs: false,
-        lang: null,
-        questionCount: 0,
-        listCount: 0,
-        h2Count: 0,
-        h3Count: 0,
-        internalLinks: 0,
-        externalLinks: 0,
-        imageCount: 0,
-        imagesWithoutAlt: 0,
-        loadTimeMs,
-      };
+      return { html: "", statusCode: resp.status, loadTimeMs };
     }
 
     const contentType = resp.headers.get("content-type") ?? "";
-    if (!contentType.includes("text/html") && !contentType.includes("application/xhtml")) {
-      return null; // Skip non-HTML
+    if (
+      !contentType.includes("text/html") &&
+      !contentType.includes("application/xhtml")
+    ) {
+      return null;
     }
 
     const html = await resp.text();
-    const $ = cheerio.load(html);
-
-    // Title
-    const title = $("title").first().text().trim() || null;
-
-    // Meta description
-    const metaDescription = $('meta[name="description"]').attr("content")?.trim() || null;
-
-    // H1
-    const h1 = $("h1").first().text().trim() || null;
-
-    // Word count (body text only)
-    const bodyText = $("body").text().replace(/\s+/g, " ").trim();
-    const wordCount = bodyText ? bodyText.split(/\s+/).length : 0;
-
-    // Schema markup
-    const schemaScripts = $('script[type="application/ld+json"]');
-    const schemaTypes: string[] = [];
-    let hasFaqSchema = false;
-    let hasHowToSchema = false;
-    let hasSpeakableSchema = false;
-    let hasArticleSchema = false;
-    let hasOrganizationSchema = false;
-    let hasBreadcrumbs = false;
-    schemaScripts.each((_, el) => {
-      try {
-        const json = JSON.parse($(el).html() || "{}");
-        const type = json["@type"];
-        if (type) {
-          const types = Array.isArray(type) ? type : [type];
-          schemaTypes.push(...types);
-          if (types.some((t: string) => t === "FAQPage")) hasFaqSchema = true;
-          if (types.some((t: string) => t === "HowTo")) hasHowToSchema = true;
-          if (types.some((t: string) => t === "Article" || t === "NewsArticle" || t === "BlogPosting")) hasArticleSchema = true;
-          if (types.some((t: string) => t === "Organization" || t === "LocalBusiness")) hasOrganizationSchema = true;
-          if (types.some((t: string) => t === "BreadcrumbList")) hasBreadcrumbs = true;
-        }
-        if (json.speakable) hasSpeakableSchema = true;
-      } catch {
-        // Invalid JSON-LD
-      }
-    });
-    const hasSchema = schemaTypes.length > 0;
-    // Also detect breadcrumbs via nav[aria-label] or .breadcrumb
-    if (!hasBreadcrumbs) {
-      hasBreadcrumbs = $('nav[aria-label*="breadcrumb"], nav[aria-label*="Breadcrumb"], .breadcrumb, .breadcrumbs, [itemtype*="BreadcrumbList"]').length > 0;
-    }
-
-    // Language
-    const lang = $("html").attr("lang")?.trim() || null;
-
-    // Question headings (H2/H3 that start with question words or contain ?)
-    const questionPattern = /^(what|how|why|when|where|who|which|can|do|does|is|are|should|will|would)\b/i;
-    let questionCount = 0;
-    $("h2, h3").each((_, el) => {
-      const text = $(el).text().trim();
-      if (text.includes("?") || questionPattern.test(text)) questionCount++;
-    });
-
-    // Lists (ol, ul with at least 2 items)
-    let listCount = 0;
-    $("ol, ul").each((_, el) => {
-      if ($(el).children("li").length >= 2) listCount++;
-    });
-
-    // Heading counts
-    const h2Count = $("h2").length;
-    const h3Count = $("h3").length;
-
-    // OG tags
-    const hasOgTags = $('meta[property^="og:"]').length > 0;
-
-    // Canonical
-    const canonicalUrl = $('link[rel="canonical"]').attr("href") || null;
-    const hasCanonical = !!canonicalUrl;
-
-    // Links
-    const baseHost = new URL(url).hostname;
-    let internalLinks = 0;
-    let externalLinks = 0;
-    $("a[href]").each((_, el) => {
-      const href = $(el).attr("href");
-      if (!href) return;
-      try {
-        const linkUrl = new URL(href, url);
-        if (linkUrl.hostname === baseHost || linkUrl.hostname === `www.${baseHost}` || `www.${linkUrl.hostname}` === baseHost) {
-          internalLinks++;
-        } else if (linkUrl.protocol.startsWith("http")) {
-          externalLinks++;
-        }
-      } catch {
-        // Relative or malformed
-        internalLinks++;
-      }
-    });
-
-    // Images
-    const imageCount = $("img").length;
-    const imagesWithoutAlt = $("img:not([alt]), img[alt='']").length;
-
-    return {
-      url,
-      statusCode: resp.status,
-      title,
-      metaDescription,
-      h1,
-      wordCount,
-      hasSchema,
-      schemaTypes,
-      hasOgTags,
-      hasFaqSchema,
-      hasHowToSchema,
-      hasSpeakableSchema,
-      hasArticleSchema,
-      hasOrganizationSchema,
-      hasCanonical,
-      canonicalUrl,
-      hasBreadcrumbs,
-      lang,
-      questionCount,
-      listCount,
-      h2Count,
-      h3Count,
-      internalLinks,
-      externalLinks,
-      imageCount,
-      imagesWithoutAlt,
-      loadTimeMs,
-    };
+    return { html, statusCode: resp.status, loadTimeMs };
   } catch {
     return null;
   }
+}
+
+// ================================================================
+// Single Page Fetch via ScrapingBee (JS rendering)
+// ================================================================
+
+async function fetchPageWithJsRendering(
+  url: string
+): Promise<{ html: string; statusCode: number; loadTimeMs: number } | null> {
+  try {
+    const start = Date.now();
+    const result = await fetchWithScrapingBee(url, {
+      renderJs: true,
+      waitMs: 5000,
+      premiumProxy: false,
+      timeoutMs: 30000,
+      blockAds: true,
+    });
+    const loadTimeMs = Date.now() - start;
+    return {
+      html: result.html,
+      statusCode: result.statusCode,
+      loadTimeMs,
+    };
+  } catch (err) {
+    console.warn(`ScrapingBee JS rendering failed for ${url}:`, err);
+    return null;
+  }
+}
+
+// ================================================================
+// Single Page Analysis (with SPA fallback)
+// ================================================================
+
+async function analyzePage(
+  url: string,
+  timeoutMs: number = 15000,
+  useScrapingBee: boolean = false
+): Promise<CrawledPage | null> {
+  // Step 1: Try plain fetch first
+  const plainResult = await fetchPageHtml(url, timeoutMs);
+
+  if (!plainResult) return null;
+
+  if (plainResult.statusCode !== 200 || !plainResult.html) {
+    return extractPageSignals(
+      url,
+      plainResult.html || "",
+      plainResult.statusCode,
+      plainResult.loadTimeMs
+    );
+  }
+
+  // Step 2: Parse and check if it's a JS-heavy page
+  const $ = cheerio.load(plainResult.html);
+  const page = extractPageSignals(
+    url,
+    plainResult.html,
+    plainResult.statusCode,
+    plainResult.loadTimeMs
+  );
+
+  const needsJsRendering =
+    isLikelySPA(plainResult.html, $) || isSparseResult(page);
+
+  // Step 3: If sparse/SPA and ScrapingBee is available, re-fetch with JS rendering
+  if (needsJsRendering && useScrapingBee) {
+    const jsResult = await fetchPageWithJsRendering(url);
+    if (jsResult && jsResult.html) {
+      const jsPage = extractPageSignals(
+        url,
+        jsResult.html,
+        jsResult.statusCode,
+        jsResult.loadTimeMs,
+        true
+      );
+
+      // Only use JS-rendered result if it's actually richer
+      if (
+        jsPage.wordCount > page.wordCount ||
+        (jsPage.hasOgTags && !page.hasOgTags) ||
+        (jsPage.hasSchema && !page.hasSchema)
+      ) {
+        return jsPage;
+      }
+    }
+  }
+
+  return page;
 }
 
 // ================================================================
@@ -357,21 +564,26 @@ export async function crawlSite(
   const results: CrawledPage[] = [];
   const visited = new Set<string>();
   const queue: string[] = [];
+  const useScrapingBee = isScrapingBeeConfigured();
 
   // Normalize domain
-  const cleanDomain = domain.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  const cleanDomain = domain
+    .replace(/^https?:\/\//, "")
+    .replace(/\/$/, "");
   const rootUrl = `https://${cleanDomain}`;
 
   // 1. Try sitemap discovery first
   const sitemapUrls = await fetchSitemapUrls(cleanDomain);
 
   if (sitemapUrls.length > 0) {
-    // Add sitemap URLs to queue (prioritize unique paths)
     const seen = new Set<string>();
     for (const u of sitemapUrls) {
       try {
         const parsed = new URL(u);
-        const normalized = `${parsed.origin}${parsed.pathname}`.replace(/\/$/, "");
+        const normalized = `${parsed.origin}${parsed.pathname}`.replace(
+          /\/$/,
+          ""
+        );
         if (!seen.has(normalized)) {
           seen.add(normalized);
           queue.push(u);
@@ -387,50 +599,68 @@ export async function crawlSite(
     queue.unshift(rootUrl);
   }
 
-  // 2. Crawl pages with concurrency control
-  while (queue.length > 0 && results.length < maxPages) {
-    const batch = queue.splice(0, concurrency);
+  // 2. Crawl the homepage first to detect if the site needs JS rendering
+  let siteNeedsJsRendering = false;
+  const rootNormalized = rootUrl.replace(/\/$/, "");
+  visited.add(rootNormalized);
+
+  const rootPage = await analyzePage(rootUrl, timeoutMs, useScrapingBee);
+  if (rootPage) {
+    results.push(rootPage);
+    siteNeedsJsRendering = rootPage.jsRendered === true;
+
+    // Extract links for discovery if no sitemap
+    if (sitemapUrls.length === 0) {
+      const rootHtml = await fetchPageHtml(rootPage.url, timeoutMs);
+      if (rootHtml?.html) {
+        const links = extractLinksFromHtml(rootHtml.html, rootPage.url);
+        for (const link of links) {
+          const norm = link.replace(/\/$/, "");
+          if (!visited.has(norm)) {
+            queue.push(link);
+          }
+        }
+      }
+    }
+  }
+
+  // Remove root from queue since we already crawled it
+  const rootIdx = queue.findIndex(
+    (u) => u.replace(/\/$/, "") === rootNormalized
+  );
+  if (rootIdx !== -1) queue.splice(rootIdx, 1);
+
+  // 3. Crawl remaining pages with concurrency control
+  // If root needed JS rendering, use ScrapingBee for all pages on this site
+  // but limit to fewer pages to conserve credits
+  const effectiveMax = siteNeedsJsRendering
+    ? Math.min(maxPages, 10)
+    : maxPages;
+  // Lower concurrency for ScrapingBee to avoid rate limits
+  const effectiveConcurrency = siteNeedsJsRendering
+    ? Math.min(concurrency, 2)
+    : concurrency;
+
+  while (queue.length > 0 && results.length < effectiveMax) {
+    const batch = queue.splice(0, effectiveConcurrency);
     const promises = batch.map(async (url) => {
-      // Normalize for dedup
       const normalized = url.replace(/\/$/, "");
       if (visited.has(normalized)) return null;
       visited.add(normalized);
 
-      return analyzePage(url, timeoutMs);
+      // If the site was detected as SPA, use ScrapingBee for all pages
+      return analyzePage(
+        url,
+        timeoutMs,
+        siteNeedsJsRendering && useScrapingBee
+      );
     });
 
     const batchResults = await Promise.all(promises);
 
     for (const page of batchResults) {
-      if (!page || results.length >= maxPages) continue;
+      if (!page || results.length >= effectiveMax) continue;
       results.push(page);
-
-      // If we got the root page and no sitemap URLs, extract links for discovery
-      if (sitemapUrls.length === 0 && results.length === 1) {
-        try {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 10000);
-          const resp = await fetch(page.url, {
-            signal: controller.signal,
-            headers: { "User-Agent": "OpticRank-Bot/1.0 (SEO Audit)" },
-            redirect: "follow",
-          });
-          clearTimeout(timeout);
-
-          if (resp.ok) {
-            const html = await resp.text();
-            const links = extractLinksFromHtml(html, page.url);
-            for (const link of links) {
-              const norm = link.replace(/\/$/, "");
-              if (!visited.has(norm)) {
-                queue.push(link);
-              }
-            }
-          }
-        } catch {
-          // Continue with what we have
-        }
-      }
     }
   }
 

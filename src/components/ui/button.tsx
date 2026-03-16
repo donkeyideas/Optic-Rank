@@ -39,6 +39,11 @@ const buttonVariants = cva(
           "hover:bg-surface-raised",
           "active:bg-surface-inset",
         ].join(" "),
+        danger: [
+          "bg-editorial-red text-white",
+          "hover:bg-editorial-red/80",
+          "active:bg-editorial-red/70",
+        ].join(" "),
       },
       size: {
         sm: "h-10 sm:h-8 px-3 text-[10px]",

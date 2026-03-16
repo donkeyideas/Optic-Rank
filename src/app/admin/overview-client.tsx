@@ -5,10 +5,8 @@ import {
   Users,
   Building2,
   FolderKanban,
-  ListTodo,
   Zap,
   DollarSign,
-  Activity,
   CreditCard,
   AlertTriangle,
   CheckCircle2,
@@ -19,6 +17,8 @@ import {
   FileSearch,
   Loader2,
   XCircle,
+  TrendingUp,
+  TrendingDown,
 } from "lucide-react";
 import {
   AreaChart,
@@ -82,6 +82,20 @@ interface AdminOverviewClientProps {
     paidOrgs: number;
     planCounts: Record<string, number>;
   };
+  revenue: {
+    mrr: number;
+    arr: number;
+    arpu: number;
+    totalRevenue: number;
+    activeSubscriptions: number;
+    trialingOrgs: number;
+    canceledOrgs: number;
+    pastDueOrgs: number;
+    churnRate: number;
+    trialConversion: number;
+    revenueByPlan: Record<string, { count: number; mrr: number }>;
+    monthlyRevenue: Record<string, number>;
+  };
   usage: {
     totalKeywords: number;
     totalBacklinks: number;
@@ -99,16 +113,23 @@ interface AdminOverviewClientProps {
    Helpers
    ------------------------------------------------------------------ */
 
-function formatCost(cost: number): string {
-  if (cost >= 100) return `$${cost.toFixed(0)}`;
-  if (cost >= 1) return `$${cost.toFixed(2)}`;
-  return `$${cost.toFixed(4)}`;
-}
-
 function formatCompact(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
   return value.toLocaleString();
+}
+
+function formatDollars(amount: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+function formatCurrency(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
 }
 
 function planBadgeVariant(plan: string) {
@@ -193,6 +214,7 @@ export function AdminOverviewClient({
   recentAuditLog,
   apiUsage,
   billing,
+  revenue,
   usage,
   health,
 }: AdminOverviewClientProps) {
@@ -205,37 +227,11 @@ export function AdminOverviewClient({
       calls,
     }));
 
-  const dailyCostData = Object.entries(apiUsage.dailyCosts)
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .slice(-30)
-    .map(([date, cost]) => ({
-      date: new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      cost: parseFloat(cost.toFixed(4)),
-    }));
-
-  // Provider data for bar chart
-  const providerData = Object.entries(apiUsage.byProvider)
-    .sort((a, b) => b[1].calls - a[1].calls)
-    .map(([provider, data]) => ({
-      provider: provider.charAt(0).toUpperCase() + provider.slice(1),
-      providerKey: provider,
-      calls: data.calls,
-      cost: data.cost,
-      errors: data.errors,
-      errorRate: data.calls > 0 ? ((data.errors / data.calls) * 100).toFixed(1) : "0",
-    }));
-
   // Plan distribution
   const planOrder = ["free", "starter", "pro", "business"];
   const planEntries = planOrder
     .map((plan) => ({ plan, count: billing.planCounts[plan] ?? 0 }))
     .filter((p) => p.count > 0 || planOrder.includes(p.plan));
-
-  // Success rate
-  const successRate =
-    apiUsage.totalCalls > 0
-      ? ((apiUsage.successfulCalls / apiUsage.totalCalls) * 100).toFixed(1)
-      : "100";
 
   // Conversion rate
   const conversionRate =
@@ -243,16 +239,32 @@ export function AdminOverviewClient({
       ? ((billing.paidOrgs / billing.totalOrgs) * 100).toFixed(1)
       : "0";
 
-  // Stats cards data
+  // Monthly revenue chart data
+  const monthlyRevenueData = Object.entries(revenue.monthlyRevenue)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-6)
+    .map(([month, cents]) => ({
+      month: new Date(month + "-01").toLocaleDateString("en-US", { month: "short" }),
+      revenue: cents / 100,
+    }));
+
+  // Revenue by plan data
+  const revenueByPlanEntries = Object.entries(revenue.revenueByPlan)
+    .sort(([, a], [, b]) => b.mrr - a.mrr);
+  const maxPlanMrr = revenueByPlanEntries.length > 0
+    ? Math.max(...revenueByPlanEntries.map(([, v]) => v.mrr))
+    : 0;
+
+  // Stats cards data — swapped API Cost / Success Rate / Pending Jobs for revenue metrics
   const overviewStats = [
     { label: "Total Users", value: stats.totalUsers.toLocaleString(), icon: Users },
     { label: "Active Orgs", value: stats.totalOrgs.toLocaleString(), icon: Building2 },
     { label: "Active Projects", value: stats.activeProjects.toLocaleString(), icon: FolderKanban },
     { label: "Paid Orgs", value: billing.paidOrgs.toLocaleString(), icon: CreditCard },
+    { label: "MRR", value: formatDollars(revenue.mrr), icon: DollarSign, color: "text-editorial-green" },
+    { label: "Total Revenue", value: formatCurrency(revenue.totalRevenue), icon: TrendingUp, color: "text-editorial-green" },
+    { label: "Churn Rate", value: `${revenue.churnRate}%`, icon: TrendingDown, color: revenue.churnRate > 10 ? "text-editorial-red" : "text-ink" },
     { label: "API Calls (30d)", value: formatCompact(apiUsage.totalCalls), icon: Zap },
-    { label: "API Cost (30d)", value: formatCost(apiUsage.totalCost), icon: DollarSign },
-    { label: "Success Rate", value: `${successRate}%`, icon: Activity },
-    { label: "Pending Jobs", value: stats.pendingJobs.toLocaleString(), icon: ListTodo },
   ];
 
   return (
@@ -271,6 +283,7 @@ export function AdminOverviewClient({
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {overviewStats.map((stat) => {
           const Icon = stat.icon;
+          const valueColor = "color" in stat && stat.color ? stat.color : "text-ink";
           return (
             <Card key={stat.label}>
               <CardContent className="flex items-start justify-between p-5">
@@ -278,7 +291,7 @@ export function AdminOverviewClient({
                   <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
                     {stat.label}
                   </p>
-                  <p className="mt-1 font-serif text-2xl font-bold tracking-tight text-ink">
+                  <p className={`mt-1 font-serif text-2xl font-bold tracking-tight ${valueColor}`}>
                     {stat.value}
                   </p>
                 </div>
@@ -373,11 +386,11 @@ export function AdminOverviewClient({
           </CardContent>
         </Card>
 
-        {/* Daily API Cost */}
+        {/* Monthly Revenue */}
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm">API Spend — Last 30 Days</CardTitle>
+              <CardTitle className="text-sm">Monthly Revenue</CardTitle>
               <Link
                 href="/admin/billing"
                 className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.15em] text-editorial-red transition-colors hover:text-editorial-red/80"
@@ -388,40 +401,34 @@ export function AdminOverviewClient({
             </div>
           </CardHeader>
           <CardContent>
-            {dailyCostData.length === 0 ? (
+            {monthlyRevenueData.length === 0 ? (
               <div className="flex h-[200px] items-center justify-center border border-dashed border-rule bg-surface-raised">
                 <span className="text-xs font-medium uppercase tracking-widest text-ink-muted">
-                  No cost data yet
+                  No revenue data yet
                 </span>
               </div>
             ) : (
               <>
                 <div className="mb-3 flex items-baseline gap-2">
-                  <span className="font-serif text-2xl font-bold text-ink">
-                    {formatCost(apiUsage.totalCost)}
+                  <span className="font-serif text-2xl font-bold text-editorial-green">
+                    {formatDollars(revenue.mrr)}
                   </span>
                   <span className="font-mono text-[9px] uppercase tracking-wider text-ink-muted">
-                    total spend
+                    MRR · {formatDollars(revenue.arr)} ARR
                   </span>
                 </div>
                 <ResponsiveContainer width="100%" height={180}>
-                  <AreaChart data={dailyCostData} margin={{ top: 5, right: 5, left: -10, bottom: 5 }}>
-                    <defs>
-                      <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="var(--color-editorial-gold, #b8860b)" stopOpacity={0.2} />
-                        <stop offset="95%" stopColor="var(--color-editorial-gold, #b8860b)" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
+                  <BarChart data={monthlyRevenueData} margin={{ top: 5, right: 5, left: -10, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--color-rule, #ddd)" vertical={false} />
                     <XAxis
-                      dataKey="date"
+                      dataKey="month"
                       tick={axisTick}
                       stroke="var(--color-ink-muted, #999)"
                       tickLine={false}
                       axisLine={false}
                     />
                     <YAxis
-                      tickFormatter={(v) => `$${Number(v).toFixed(2)}`}
+                      tickFormatter={(v) => `$${Number(v).toFixed(0)}`}
                       tick={axisTick}
                       stroke="var(--color-ink-muted, #999)"
                       tickLine={false}
@@ -429,23 +436,14 @@ export function AdminOverviewClient({
                     />
                     <Tooltip
                       contentStyle={tooltipStyle}
-                      formatter={(value) => [`$${Number(value).toFixed(4)}`, "Cost"]}
+                      formatter={(value) => [`$${Number(value).toFixed(2)}`, "Revenue"]}
                     />
-                    <Area
-                      type="monotone"
-                      dataKey="cost"
-                      stroke="var(--color-editorial-gold, #b8860b)"
-                      strokeWidth={2}
-                      fill="url(#costGradient)"
-                      dot={false}
-                      activeDot={{
-                        r: 4,
-                        fill: "var(--color-editorial-gold, #b8860b)",
-                        stroke: "var(--color-surface-card, #fff)",
-                        strokeWidth: 2,
-                      }}
+                    <Bar
+                      dataKey="revenue"
+                      fill="var(--color-editorial-green, #27ae60)"
+                      radius={[2, 2, 0, 0]}
                     />
-                  </AreaChart>
+                  </BarChart>
                 </ResponsiveContainer>
               </>
             )}
@@ -457,68 +455,70 @@ export function AdminOverviewClient({
           PROVIDER BREAKDOWN + PLAN DISTRIBUTION
           ================================================================ */}
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
-        {/* Provider Usage */}
+        {/* Revenue by Plan */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Usage by Provider</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm">Revenue by Plan</CardTitle>
+              <Link
+                href="/admin/billing"
+                className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.15em] text-editorial-red transition-colors hover:text-editorial-red/80"
+              >
+                Details
+                <ArrowUpRight size={12} strokeWidth={2} />
+              </Link>
+            </div>
           </CardHeader>
           <CardContent>
-            {providerData.length === 0 ? (
+            {revenueByPlanEntries.length === 0 ? (
               <div className="flex h-[220px] items-center justify-center border border-dashed border-rule bg-surface-raised">
                 <span className="text-xs font-medium uppercase tracking-widest text-ink-muted">
-                  No provider data yet
+                  No paid subscriptions yet
                 </span>
               </div>
             ) : (
               <>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={providerData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-rule, #ddd)" vertical={false} />
-                    <XAxis
-                      dataKey="provider"
-                      tick={axisTick}
-                      stroke="var(--color-ink-muted, #999)"
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      tick={axisTick}
-                      stroke="var(--color-ink-muted, #999)"
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <Tooltip
-                      contentStyle={tooltipStyle}
-                      formatter={(value, name) => [
-                        name === "calls" ? Number(value).toLocaleString() : `$${Number(value).toFixed(4)}`,
-                        name === "calls" ? "Calls" : "Cost",
-                      ]}
-                    />
-                    <Bar dataKey="calls" fill="var(--color-editorial-red, #c0392b)" radius={[2, 2, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="space-y-4">
+                  {revenueByPlanEntries.map(([plan, data]) => {
+                    const pct = maxPlanMrr > 0 ? (data.mrr / maxPlanMrr) * 100 : 0;
+                    return (
+                      <div key={plan}>
+                        <div className="mb-1.5 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Badge variant={planBadgeVariant(plan)}>{plan}</Badge>
+                            <span className="font-mono text-xs text-ink-secondary">
+                              {data.count} {data.count === 1 ? "sub" : "subs"}
+                            </span>
+                          </div>
+                          <span className="font-mono text-sm font-semibold tabular-nums text-ink">
+                            {formatDollars(data.mrr)}/mo
+                          </span>
+                        </div>
+                        <div className="h-2 w-full bg-surface-raised">
+                          <div
+                            className={`h-full ${planBarColor(plan)} transition-all`}
+                            style={{ width: `${Math.max(pct, 2)}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
 
-                {/* Provider stats table */}
-                <div className="mt-4 divide-y divide-rule border-t border-rule">
-                  {providerData.map((p) => (
-                    <div key={p.providerKey} className="flex items-center justify-between py-2 text-xs">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`inline-block h-2 w-2 ${
-                            p.errors === 0 ? "bg-editorial-green" : "bg-editorial-gold"
-                          }`}
-                        />
-                        <span className="font-medium text-ink">{p.provider}</span>
-                      </div>
-                      <div className="flex items-center gap-4 font-mono text-ink-secondary">
-                        <span>{p.calls.toLocaleString()} calls</span>
-                        <span>{formatCost(p.cost)}</span>
-                        {Number(p.errorRate) > 0 && (
-                          <span className="text-editorial-red">{p.errorRate}% err</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                {/* Revenue summary stats */}
+                <div className="mt-6 grid grid-cols-3 divide-x divide-rule border-t border-rule pt-4">
+                  <div className="text-center">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">ARPU</p>
+                    <p className="mt-1 font-serif text-xl font-bold text-ink">{formatDollars(revenue.arpu)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Trial Conv.</p>
+                    <p className="mt-1 font-serif text-xl font-bold text-editorial-green">{revenue.trialConversion}%</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Past Due</p>
+                    <p className={`mt-1 font-serif text-xl font-bold ${revenue.pastDueOrgs > 0 ? "text-editorial-red" : "text-ink"}`}>{revenue.pastDueOrgs}</p>
+                  </div>
                 </div>
               </>
             )}

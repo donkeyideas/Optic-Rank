@@ -1,56 +1,22 @@
 import Link from "next/link";
-import {
-  Users,
-  Building2,
-  CreditCard,
-  Activity,
-  BarChart3,
-  Shield,
-  LogOut,
-  Key,
-  Tag,
-  FileText,
-  Search,
-  BookOpen,
-  History,
-  Map,
-  Briefcase,
-  Mail,
-} from "lucide-react";
+import { Shield, LogOut } from "lucide-react";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { signOut } from "@/lib/actions/auth";
+import { AdminNav } from "./admin-nav";
+import { getUnreadContactCount } from "@/lib/dal/admin";
 
-const adminNavItems = [
-  { href: "/admin",            label: "Overview",      icon: BarChart3 },
-  { href: "/admin/users",      label: "Users",         icon: Users },
-  { href: "/admin/orgs",       label: "Organizations", icon: Building2 },
-  { href: "/admin/billing",    label: "Billing",       icon: CreditCard },
-  { href: "/admin/subscriptions", label: "Subscriptions", icon: Tag },
-  { href: "/admin/content",    label: "Content",       icon: FileText },
-  { href: "/admin/search-ai",  label: "Search & AI",   icon: Search },
-  { href: "/admin/api",         label: "API Management", icon: Key },
-  { href: "/admin/health",     label: "System Health",  icon: Activity },
-  { href: "/admin/analytics",  label: "Analytics",     icon: BarChart3 },
-  { href: "/admin/blog",       label: "Blog",          icon: BookOpen },
-  { href: "/admin/changelog",  label: "Changelog",     icon: History },
-  { href: "/admin/roadmap",    label: "Roadmap",       icon: Map },
-  { href: "/admin/careers",    label: "Careers",       icon: Briefcase },
-  { href: "/admin/contacts",   label: "Contacts",      icon: Mail },
-];
-
-/**
- * Admin Layout
- *
- * Simple sidebar navigation layout for internal admin pages.
- * Protected by admin-only role check (to be added later).
- */
-// TODO: Add admin-only role check using Supabase auth + RLS
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  let unreadCount = 0;
+  try {
+    unreadCount = await getUnreadContactCount();
+  } catch {
+    // Silently fail — layout should always render
+  }
   return (
     <div className="flex min-h-screen bg-surface-cream">
       {/* ---- Sidebar ---- */}
@@ -67,22 +33,7 @@ export default function AdminLayout({
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-3 py-4">
-          <ul className="flex flex-col gap-1">
-            {adminNavItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className="flex items-center gap-3 rounded-none px-3 py-2.5 text-sm font-medium text-ink-secondary transition-colors hover:bg-surface-raised hover:text-ink"
-                  >
-                    <Icon size={16} strokeWidth={1.5} className="shrink-0" />
-                    {item.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+          <AdminNav unreadCount={unreadCount} />
         </nav>
 
         {/* Sidebar Footer */}

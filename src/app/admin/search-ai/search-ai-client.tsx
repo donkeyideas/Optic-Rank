@@ -45,6 +45,14 @@ import type {
   GA4TrafficSource,
   GA4DailyData,
 } from "@/lib/google/analytics";
+import type {
+  GSCOverview,
+  GSCQuery,
+  GSCPage,
+  GSCDailyData,
+  GSCDevice,
+  GSCCountry,
+} from "@/lib/google/search-console";
 
 /* ── Tabs ──────────────────────────────────────────────────────── */
 
@@ -73,6 +81,15 @@ interface Props {
     pages: GA4PageData[];
     sources: GA4TrafficSource[];
     daily: GA4DailyData[];
+  };
+  gsc: {
+    siteUrl: string | null;
+    overview: GSCOverview | null;
+    queries: GSCQuery[];
+    pages: GSCPage[];
+    daily: GSCDailyData[];
+    devices: GSCDevice[];
+    countries: GSCCountry[];
   };
 }
 
@@ -135,7 +152,7 @@ function EmptyState({ title, description }: { title: string; description: string
 
 /* ── Main Component ────────────────────────────────────────────── */
 
-export function SearchAIAdminClient({ audit, ga4 }: Props) {
+export function SearchAIAdminClient({ audit, ga4, gsc }: Props) {
   const [tab, setTab] = useState<TabId>("overview");
   const [severityFilter, setSeverityFilter] = useState<"all" | "critical" | "warning" | "info">("all");
 
@@ -153,12 +170,18 @@ export function SearchAIAdminClient({ audit, ga4 }: Props) {
             {new Date(audit.crawledAt).toLocaleString()}
           </p>
         </div>
-        {ga4.propertyId && (
-          <Badge variant="success">GA4 Connected</Badge>
-        )}
-        {!ga4.propertyId && (
-          <Badge variant="muted">GA4 Not Connected</Badge>
-        )}
+        <div className="flex gap-2">
+          {ga4.propertyId ? (
+            <Badge variant="success">GA4 Connected</Badge>
+          ) : (
+            <Badge variant="muted">GA4 Not Connected</Badge>
+          )}
+          {gsc.siteUrl ? (
+            <Badge variant="success">GSC Connected</Badge>
+          ) : (
+            <Badge variant="muted">GSC Not Connected</Badge>
+          )}
+        </div>
       </div>
 
       {/* Tab Bar */}
@@ -190,7 +213,7 @@ export function SearchAIAdminClient({ audit, ga4 }: Props) {
       {tab === "content" && <ContentTab pages={pages} />}
       {tab === "traffic" && <TrafficTab ga4={ga4} />}
       {tab === "geo" && <GeoTab pages={pages} geoScore={audit.geoScore} />}
-      {tab === "search-console" && <SearchConsoleTab />}
+      {tab === "search-console" && <SearchConsoleTab gsc={gsc} />}
       {tab === "aeo" && <AeoTab pages={pages} aeoScore={audit.aeoScore} />}
       {tab === "cro" && <CroTab pages={pages} croScore={audit.croScore} />}
       {tab === "recommendations" && (
@@ -691,15 +714,214 @@ function GeoTab({ pages, geoScore }: { pages: CrawledPage[]; geoScore: number })
 }
 
 /* ================================================================
-   TAB 7: Search Console (placeholder)
+   TAB 7: Search Console
    ================================================================ */
 
-function SearchConsoleTab() {
+function SearchConsoleTab({ gsc }: { gsc: Props["gsc"] }) {
+  if (!gsc.siteUrl) {
+    return (
+      <EmptyState
+        title="Google Search Console Not Connected"
+        description="Add your site to Search Console and grant Full access to the service account (optic-rank-seo@optic-rank.iam.gserviceaccount.com). Then set GSC_SITE_URL in .env.local (e.g., sc-domain:opticrank.com or https://opticrank.com/)."
+      />
+    );
+  }
+
+  const overview = gsc.overview;
+
+  const DEVICE_LABELS: Record<string, string> = {
+    DESKTOP: "Desktop",
+    MOBILE: "Mobile",
+    TABLET: "Tablet",
+  };
+
   return (
-    <EmptyState
-      title="Google Search Console — Coming Soon"
-      description="Once you add your site to Search Console and grant access to the service account (optic-rank-seo@optic-rank.iam.gserviceaccount.com), we'll show real search queries, impressions, CTR, and average position data here."
-    />
+    <div className="space-y-6">
+      {/* Overview Stats */}
+      {overview && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: "Total Clicks", value: overview.totalClicks.toLocaleString() },
+            { label: "Total Impressions", value: overview.totalImpressions.toLocaleString() },
+            { label: "Avg CTR", value: `${(overview.avgCTR * 100).toFixed(2)}%` },
+            { label: "Avg Position", value: overview.avgPosition.toFixed(1) },
+          ].map((s) => (
+            <Card key={s.label}>
+              <CardContent className="py-4 text-center">
+                <p className="font-mono text-xl font-bold text-ink">{s.value}</p>
+                <p className="text-[10px] uppercase tracking-widest text-ink-muted mt-1">{s.label}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Daily Performance Chart */}
+      {gsc.daily.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif text-lg">Search Performance (Last 28 Days)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={gsc.daily}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 10, fill: "#999" }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                  tickFormatter={(v: string) => v.slice(5)}
+                />
+                <YAxis yAxisId="left" tick={{ fontSize: 10, fill: "#999" }} />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: "#999" }} />
+                <Tooltip contentStyle={{ backgroundColor: "#1a1a1a", border: "1px solid #444", color: "#eee" }} />
+                <Line yAxisId="left" type="monotone" dataKey="clicks" stroke="#27ae60" strokeWidth={2} name="Clicks" dot={false} />
+                <Line yAxisId="right" type="monotone" dataKey="impressions" stroke="#2980b9" strokeWidth={1.5} name="Impressions" dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Top Queries */}
+      {gsc.queries.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif text-lg">Top Search Queries</CardTitle>
+          </CardHeader>
+          <CardContent className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-rule text-left">
+                  <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium">Query</th>
+                  <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Clicks</th>
+                  <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Impressions</th>
+                  <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">CTR</th>
+                  <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Avg Position</th>
+                </tr>
+              </thead>
+              <tbody>
+                {gsc.queries.map((q, i) => (
+                  <tr key={i} className="border-b border-rule/50">
+                    <td className="py-2 text-xs text-ink font-medium">{q.query}</td>
+                    <td className="py-2 font-mono text-xs text-ink-muted text-right">{q.clicks.toLocaleString()}</td>
+                    <td className="py-2 font-mono text-xs text-ink-muted text-right">{q.impressions.toLocaleString()}</td>
+                    <td className="py-2 font-mono text-xs text-ink-muted text-right">{(q.ctr * 100).toFixed(1)}%</td>
+                    <td className="py-2 font-mono text-xs text-right">
+                      <span className={q.position <= 10 ? "text-editorial-green" : q.position <= 20 ? "text-editorial-gold" : "text-ink-muted"}>
+                        {q.position.toFixed(1)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Top Pages */}
+        {gsc.pages.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-serif text-lg">Top Pages</CardTitle>
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-rule text-left">
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium">Page</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Clicks</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Impr.</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Pos.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {gsc.pages.slice(0, 15).map((p, i) => (
+                    <tr key={i} className="border-b border-rule/50">
+                      <td className="py-2 font-mono text-xs text-ink max-w-[200px] truncate">{p.page}</td>
+                      <td className="py-2 font-mono text-xs text-ink-muted text-right">{p.clicks.toLocaleString()}</td>
+                      <td className="py-2 font-mono text-xs text-ink-muted text-right">{p.impressions.toLocaleString()}</td>
+                      <td className="py-2 font-mono text-xs text-right">
+                        <span className={p.position <= 10 ? "text-editorial-green" : p.position <= 20 ? "text-editorial-gold" : "text-ink-muted"}>
+                          {p.position.toFixed(1)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Devices + Countries */}
+        <div className="space-y-6">
+          {gsc.devices.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-serif text-lg">By Device</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={gsc.devices.map(d => ({ ...d, device: DEVICE_LABELS[d.device] ?? d.device }))} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+                    <XAxis type="number" tick={{ fontSize: 10, fill: "#999" }} />
+                    <YAxis dataKey="device" type="category" width={70} tick={{ fontSize: 11, fill: "#ccc" }} />
+                    <Tooltip contentStyle={{ backgroundColor: "#1a1a1a", border: "1px solid #444", color: "#eee" }} />
+                    <Bar dataKey="clicks" fill="#27ae60" name="Clicks" radius={[0, 4, 4, 0]}>
+                      {gsc.devices.map((_, i) => (
+                        <Cell key={i} fill={["#27ae60", "#2980b9", "#8e44ad"][i % 3]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+
+          {gsc.countries.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-serif text-lg">Top Countries</CardTitle>
+              </CardHeader>
+              <CardContent className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-rule text-left">
+                      <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium">Country</th>
+                      <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Clicks</th>
+                      <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Impressions</th>
+                      <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">CTR</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {gsc.countries.map((c, i) => (
+                      <tr key={i} className="border-b border-rule/50">
+                        <td className="py-2 text-xs text-ink font-medium uppercase">{c.country}</td>
+                        <td className="py-2 font-mono text-xs text-ink-muted text-right">{c.clicks.toLocaleString()}</td>
+                        <td className="py-2 font-mono text-xs text-ink-muted text-right">{c.impressions.toLocaleString()}</td>
+                        <td className="py-2 font-mono text-xs text-ink-muted text-right">{(c.ctr * 100).toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+
+      {!overview && gsc.queries.length === 0 && gsc.daily.length === 0 && (
+        <EmptyState
+          title="No Search Console Data Yet"
+          description="Search Console is connected but no data is available yet. It can take a few days for Google to start reporting data for new properties."
+        />
+      )}
+    </div>
   );
 }
 

@@ -2,14 +2,17 @@
  * Google Service Account Auth
  *
  * Creates authenticated clients for GA4 and Search Console APIs.
+ * Caches auth instances per scope-set to support multiple APIs.
  */
 
 import { GoogleAuth } from "google-auth-library";
 
-let _auth: GoogleAuth | null = null;
+const _authCache = new Map<string, GoogleAuth>();
 
 export function getGoogleAuth(scopes: string[]): GoogleAuth {
-  if (_auth) return _auth;
+  const cacheKey = scopes.sort().join(",");
+  const cached = _authCache.get(cacheKey);
+  if (cached) return cached;
 
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const key = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
@@ -21,7 +24,7 @@ export function getGoogleAuth(scopes: string[]): GoogleAuth {
     );
   }
 
-  _auth = new GoogleAuth({
+  const auth = new GoogleAuth({
     credentials: {
       client_email: email,
       private_key: key,
@@ -30,5 +33,6 @@ export function getGoogleAuth(scopes: string[]): GoogleAuth {
     scopes,
   });
 
-  return _auth;
+  _authCache.set(cacheKey, auth);
+  return auth;
 }

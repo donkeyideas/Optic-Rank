@@ -2,20 +2,86 @@
  * DataForSEO API Client
  * Primary provider for SERP tracking, keyword data, and traffic analytics.
  * Docs: https://docs.dataforseo.com/
+ *
+ * Credential resolution:
+ *   1. platform_api_configs (admin panel) — api_key = login, api_secret = password
+ *   2. Environment variables — DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD
  */
 
-import { requireEnv, safeAPICall, type APIResponse } from "./base";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { safeAPICall, type APIResponse } from "./base";
 
-function getCredentials() {
-  const login = requireEnv("DATAFORSEO_LOGIN", "DataForSEO");
-  const password = requireEnv("DATAFORSEO_PASSWORD", "DataForSEO");
-  return Buffer.from(`${login}:${password}`).toString("base64");
+// Cache DB credentials for 60 seconds
+let credCache: { value: string; ts: number } | null = null;
+const CRED_TTL = 60_000;
+
+async function getCredentials(): Promise<string> {
+  // 1. Try cached value
+  if (credCache && Date.now() - credCache.ts < CRED_TTL) {
+    return credCache.value;
+  }
+
+  // 2. Try platform_api_configs (DB) — check both active and inactive rows
+  try {
+    const supabase = createAdminClient();
+
+    // First try active config
+    const { data, error } = await supabase
+      .from("platform_api_configs")
+      .select("api_key, api_secret, is_active")
+      .eq("provider", "dataforseo")
+      .single();
+
+    if (error) {
+      console.warn("[DataForSEO] DB lookup error:", error.message);
+    } else if (data) {
+      if (!data.is_active) {
+        console.warn("[DataForSEO] Config exists but is_active=false. Enable it in Admin → API Management.");
+      } else if (!data.api_key) {
+        console.warn("[DataForSEO] Config exists but api_key (login) is empty.");
+      } else if (!data.api_secret) {
+        console.warn("[DataForSEO] Config exists but api_secret (password) is empty.");
+      } else {
+        const encoded = Buffer.from(`${data.api_key}:${data.api_secret}`).toString("base64");
+        credCache = { value: encoded, ts: Date.now() };
+        return encoded;
+      }
+    }
+  } catch (err) {
+    console.error("[DataForSEO] DB lookup exception:", err instanceof Error ? err.message : err);
+  }
+
+  // 3. Fall back to environment variables
+  const login = process.env.DATAFORSEO_LOGIN;
+  const password = process.env.DATAFORSEO_PASSWORD;
+
+  if (login && password) {
+    const encoded = Buffer.from(`${login}:${password}`).toString("base64");
+    credCache = { value: encoded, ts: Date.now() };
+    return encoded;
+  }
+
+  throw new Error(
+    "DataForSEO credentials not configured. Add your login (api_key) and password (api_secret) in Admin → API Management, or set DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD env vars."
+  );
+}
+
+/**
+ * Check if DataForSEO credentials are available (DB or env) without throwing.
+ */
+export async function hasDataForSEOCredentials(): Promise<boolean> {
+  try {
+    await getCredentials();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 const BASE_URL = "https://api.dataforseo.com/v3";
 
 async function request<T>(endpoint: string, body?: unknown): Promise<T> {
-  const auth = getCredentials();
+  const auth = await getCredentials();
   const response = await fetch(`${BASE_URL}${endpoint}`, {
     method: body ? "POST" : "GET",
     headers: {

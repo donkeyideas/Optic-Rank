@@ -121,6 +121,7 @@ export default async function SettingsPage() {
 
       integrationSettings = {
         slackWebhookUrl: (features.slack_webhook_url as string) ?? null,
+        teamsWebhookUrl: (features.teams_webhook_url as string) ?? null,
         slackEvents: (features.slack_events as string[]) ?? [
           "rank_change", "audit_alert", "prediction_update", "new_backlink",
         ],

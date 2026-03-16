@@ -41,7 +41,7 @@ import {
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { createProject, deleteProject } from "@/lib/actions/projects";
-import { updateProfileSettings, updateOrganizationSettings } from "@/lib/actions/settings";
+import { updateProfileSettings, updateOrganizationSettings, createOrganization } from "@/lib/actions/settings";
 import {
   saveUserApiKey,
   deleteUserApiKey,
@@ -109,7 +109,7 @@ const AI_PROVIDERS = [
   {
     id: "gemini",
     name: "Google Gemini",
-    description: "Gemini 2.0 Flash. For fast AI analysis.",
+    description: "Gemini 2.5 Flash. For fast AI analysis.",
     placeholder: "AIza...",
     docsUrl: "https://aistudio.google.com/apikey",
   },
@@ -427,13 +427,46 @@ export function SettingsClient({
               {!organization && (
                 <>
                   <div className="border-t border-rule" />
-                  <EmptyState
-                    icon={Shield}
-                    title="No Organization"
-                    description="You are not part of an organization yet. Create one to start using Optic Rank."
-                    actionLabel="Create Organization"
-                    actionHref="/dashboard/settings"
-                  />
+                  <div className="flex flex-col gap-4">
+                    <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+                      Organization
+                    </span>
+                    <div className="border border-editorial-gold/30 bg-editorial-gold/5 px-4 py-3 text-sm text-ink">
+                      <strong>No organization yet.</strong> Create one to start using Optic Rank.
+                      You&apos;ll get a <strong>14-day free trial</strong> with full access.
+                    </div>
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        setSaveStatus("saving");
+                        setSaveError(null);
+                        const formData = new FormData(e.currentTarget);
+                        startTransition(async () => {
+                          const result = await createOrganization(formData);
+                          if ("error" in result) {
+                            setSaveStatus("error");
+                            setSaveError(result.error);
+                          } else {
+                            setSaveStatus("saved");
+                          }
+                        });
+                      }}
+                      className="flex items-end gap-3"
+                    >
+                      <div className="flex-1">
+                        <Input
+                          name="org_name"
+                          label="Organization Name"
+                          placeholder="My Company"
+                          required
+                        />
+                      </div>
+                      <Button type="submit" variant="primary" size="md" loading={isPending}>
+                        <Plus size={14} />
+                        Create Organization
+                      </Button>
+                    </form>
+                  </div>
                 </>
               )}
 

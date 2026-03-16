@@ -55,6 +55,7 @@ import type { SiteAudit, ConversionGoal, AIVisibilityCheck } from "@/types";
 /* ── Tabs ──────────────────────────────────────────────────────── */
 
 const TABS = [
+  { id: "summary", label: "Summary", icon: BarChart3, color: "bg-editorial-red" },
   { id: "seo", label: "SEO", icon: Search, color: "bg-editorial-red" },
   { id: "aeo", label: "AEO", icon: MessageSquare, color: "bg-editorial-gold" },
   { id: "geo", label: "GEO", icon: Brain, color: "bg-editorial-green" },
@@ -243,7 +244,7 @@ function ProgressBar({
 /* ── Main Component ────────────────────────────────────────────── */
 
 export function SearchAIClient(props: SearchAIClientProps) {
-  const [activeTab, setActiveTab] = useState<TabId>("seo");
+  const [activeTab, setActiveTab] = useState<TabId>("summary");
 
   // Compute overall scores
   const seoScore = props.latestAudit?.seo_score ?? 0;
@@ -297,16 +298,16 @@ export function SearchAIClient(props: SearchAIClientProps) {
       ];
       return Math.round(dims.reduce((s, d) => s + d, 0) / dims.length);
     }
-    // Fallback: compute from audit_pages (same logic as AEO tab dimensions fallback)
+    // Fallback: compute from audit_pages with better proxies
     if (props.auditPages.length === 0) return 0;
     const n = props.auditPages.length || 1;
     const dims = [
       Math.round((props.auditPages.filter((p) => p.has_schema).length / n) * 100),
-      Math.round((props.auditPages.filter((p) => p.has_schema).length / n) * 50),
-      0,
-      0,
+      Math.round((props.auditPages.filter((p) => p.has_schema).length / n) * 60),
+      Math.round((props.auditPages.filter((p) => p.title && p.title.includes("?")).length / n) * 100),
+      Math.round((props.auditPages.filter((p) => (p.word_count ?? 0) > 500).length / n) * 40),
       Math.round((props.auditPages.filter((p) => (p.word_count ?? 0) > 300).length / n) * 100),
-      0,
+      Math.round((props.auditPages.filter((p) => p.has_schema && (p.word_count ?? 0) > 300).length / n) * 50),
     ];
     return Math.round(dims.reduce((s, d) => s + d, 0) / dims.length);
   }, [props.aeoSignals, props.auditPages]);
@@ -354,31 +355,35 @@ export function SearchAIClient(props: SearchAIClientProps) {
         })}
       </div>
 
-      {/* ── Data Coverage Notice ── */}
-      {props.auditPages.length > 0 && props.auditPages.length < 5 && (
-        <div className="flex items-center gap-3 border border-editorial-gold/30 bg-editorial-gold/5 px-4 py-2.5">
-          <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-editorial-gold">Limited Data</span>
-          <span className="text-xs text-ink-secondary">
-            Scores based on {props.auditPages.length} crawled page{props.auditPages.length !== 1 ? "s" : ""}. Run a new site audit to crawl more pages for accurate scores.
-          </span>
-        </div>
-      )}
-
       {/* ── Tab Content ── */}
-      {activeTab === "seo" && (
-        <SeoTab
+      {activeTab === "summary" && (
+        <SummaryTab
+          seoScore={seoScore}
+          technicalScore={technicalScore}
+          performanceScore={performanceScore}
+          contentScore={contentScore}
+          geoScore={geoScore}
+          aeoScore={aeoScore}
+          croScore={croScore}
+          overallScore={overallScore}
           latestAudit={props.latestAudit}
           auditPages={props.auditPages}
           auditHistory={props.auditHistory}
           keywords={props.keywords}
           contentPages={props.contentPages}
           schemaAudit={props.schemaAudit}
-          overallScore={overallScore}
+        />
+      )}
+      {activeTab === "seo" && (
+        <SeoTab
+          seoScore={seoScore}
           technicalScore={technicalScore}
-          contentScore={contentScore}
-          geoScore={geoScore}
-          aeoScore={aeoScore}
-          croScore={croScore}
+          performanceScore={performanceScore}
+          latestAudit={props.latestAudit}
+          auditPages={props.auditPages}
+          keywords={props.keywords}
+          contentPages={props.contentPages}
+          schemaAudit={props.schemaAudit}
         />
       )}
       {activeTab === "aeo" && (
@@ -395,6 +400,7 @@ export function SearchAIClient(props: SearchAIClientProps) {
       )}
       {activeTab === "geo" && (
         <GeoTab
+          geoScore={geoScore}
           geoStats={props.geoStats}
           geoPages={props.geoPages}
           citationMatrix={props.citationMatrix}
@@ -420,43 +426,45 @@ export function SearchAIClient(props: SearchAIClientProps) {
 }
 
 /* ================================================================
-   SEO TAB
+   SUMMARY TAB
    ================================================================ */
 
-function SeoTab({
+function SummaryTab({
+  seoScore,
+  technicalScore,
+  performanceScore,
+  contentScore,
+  geoScore,
+  aeoScore,
+  croScore,
+  overallScore,
   latestAudit,
   auditPages,
   auditHistory,
   keywords,
   contentPages,
   schemaAudit,
-  overallScore,
-  technicalScore,
-  contentScore,
-  geoScore,
-  aeoScore,
-  croScore,
 }: {
+  seoScore: number;
+  technicalScore: number;
+  performanceScore: number;
+  contentScore: number;
+  geoScore: number;
+  aeoScore: number;
+  croScore: number;
+  overallScore: number;
   latestAudit: SiteAudit | null;
   auditPages: AuditPage[];
   auditHistory: SiteAudit[];
   keywords: KeywordRow[];
   contentPages: ContentPage[];
   schemaAudit: SchemaAuditData;
-  overallScore: number;
-  technicalScore: number;
-  contentScore: number;
-  geoScore: number;
-  aeoScore: number;
-  croScore: number;
 }) {
-  // Compute stats
   const pagesInSitemap = auditPages.length;
   const blogPosts = contentPages.length;
   const schemaTypes = schemaAudit.pagesWithSchema;
   const openRecommendations = latestAudit?.issues_found ?? 0;
 
-  // History chart data
   const chartData = auditHistory
     .slice(0, 12)
     .reverse()
@@ -470,7 +478,6 @@ function SeoTab({
       performance: a.performance_score ?? 0,
     }));
 
-  // Rankings distribution
   const top3 = keywords.filter((k) => k.current_position !== null && k.current_position <= 3).length;
   const top10 = keywords.filter((k) => k.current_position !== null && k.current_position <= 10).length;
   const top20 = keywords.filter((k) => k.current_position !== null && k.current_position <= 20).length;
@@ -478,26 +485,25 @@ function SeoTab({
 
   return (
     <div className="space-y-6">
-      {/* Health Scores */}
+      {/* Pillar Scores */}
       <Card>
         <CardHeader>
-          <CardTitle className="font-serif text-lg">SEO Health Score</CardTitle>
+          <CardTitle className="font-serif text-lg">Overall Health</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap items-center justify-center gap-8 py-4 md:justify-between">
             <ScoreGauge score={overallScore} label="Overall" size={130} />
-            <ScoreGauge score={technicalScore} label="Technical" />
-            <ScoreGauge score={contentScore} label="Content" />
-            <ScoreGauge score={geoScore} label="GEO" />
-            <ScoreGauge score={aeoScore} label="AEO" />
-            <ScoreGauge score={croScore} label="CRO" />
+            <ScoreGauge score={seoScore} label="SEO" color="var(--color-editorial-red)" />
+            <ScoreGauge score={geoScore} label="GEO" color="var(--color-editorial-green)" />
+            <ScoreGauge score={aeoScore} label="AEO" color="var(--color-editorial-gold)" />
+            <ScoreGauge score={croScore} label="CRO" color="#8b5cf6" />
           </div>
         </CardContent>
       </Card>
 
       {/* Stats Strip */}
       <div className="grid grid-cols-2 gap-px border border-rule bg-rule md:grid-cols-5">
-        <StatMini label="Pages in Sitemap" value={pagesInSitemap} color="border-editorial-red" />
+        <StatMini label="Pages Crawled" value={pagesInSitemap} color="border-editorial-red" />
         <StatMini label="Content Pages" value={blogPosts} color="border-editorial-gold" />
         <StatMini label="Schema Pages" value={schemaTypes} color="border-editorial-green" />
         <StatMini label="Keywords Tracked" value={keywords.length} color="border-[#8b5cf6]" />
@@ -508,7 +514,7 @@ function SeoTab({
       {chartData.length > 1 && (
         <Card>
           <CardHeader>
-            <CardTitle className="font-serif text-lg">SEO Score Trend</CardTitle>
+            <CardTitle className="font-serif text-lg">Score Trend</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-64">
@@ -554,6 +560,215 @@ function SeoTab({
           </div>
         </CardContent>
       </Card>
+
+      {/* Quick Pillar Breakdown */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif text-lg">Technical Health</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <ProgressBar label="Technical Score" value={technicalScore} color="bg-editorial-green" />
+            <ProgressBar label="Performance Score" value={performanceScore} color="bg-editorial-gold" />
+            <ProgressBar label="Content Score" value={contentScore} color="bg-editorial-red" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif text-lg">Growth Pillars</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <ProgressBar label="SEO Score" value={seoScore} color="bg-editorial-red" />
+            <ProgressBar label="GEO Score" value={geoScore} color="bg-editorial-green" />
+            <ProgressBar label="AEO Score" value={aeoScore} color="bg-editorial-gold" />
+            <ProgressBar label="CRO Score" value={croScore} color="bg-[#8b5cf6]" />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================
+   SEO TAB
+   ================================================================ */
+
+function SeoTab({
+  seoScore,
+  technicalScore,
+  performanceScore,
+  latestAudit,
+  auditPages,
+  keywords,
+  contentPages,
+  schemaAudit,
+}: {
+  seoScore: number;
+  technicalScore: number;
+  performanceScore: number;
+  latestAudit: SiteAudit | null;
+  auditPages: AuditPage[];
+  keywords: KeywordRow[];
+  contentPages: ContentPage[];
+  schemaAudit: SchemaAuditData;
+}) {
+  // CWV aggregates
+  const cwvStats = useMemo(() => {
+    const withLcp = auditPages.filter((p) => p.lcp_ms !== null);
+    const withCls = auditPages.filter((p) => p.cls !== null);
+    const withInp = auditPages.filter((p) => p.inp_ms !== null);
+    const avgLcp = withLcp.length > 0 ? Math.round(withLcp.reduce((s, p) => s + (p.lcp_ms ?? 0), 0) / withLcp.length) : null;
+    const avgCls = withCls.length > 0 ? Math.round(withCls.reduce((s, p) => s + (p.cls ?? 0), 0) / withCls.length * 1000) / 1000 : null;
+    const avgInp = withInp.length > 0 ? Math.round(withInp.reduce((s, p) => s + (p.inp_ms ?? 0), 0) / withInp.length) : null;
+    const lcpGood = withLcp.filter((p) => (p.lcp_ms ?? 9999) <= 2500).length;
+    const clsGood = withCls.filter((p) => (p.cls ?? 1) <= 0.1).length;
+    const inpGood = withInp.filter((p) => (p.inp_ms ?? 9999) <= 200).length;
+    return { avgLcp, avgCls, avgInp, lcpGood, clsGood, inpGood, totalLcp: withLcp.length, totalCls: withCls.length, totalInp: withInp.length };
+  }, [auditPages]);
+
+  // Content health
+  const published = contentPages.filter((p) => p.status === "published").length;
+  const drafts = contentPages.filter((p) => p.status !== "published").length;
+  const avgWordCount = contentPages.length > 0
+    ? Math.round(contentPages.reduce((s, p) => s + (p.word_count ?? 0), 0) / contentPages.length)
+    : 0;
+  const thinPages = contentPages.filter((p) => (p.word_count ?? 0) < 300).length;
+
+  return (
+    <div className="space-y-6">
+      {/* SEO Scores */}
+      <Card>
+        <CardContent className="flex flex-col items-center gap-8 py-6 md:flex-row">
+          <ScoreGauge score={seoScore} label="SEO Score" size={140} strokeWidth={10} color="var(--color-editorial-red)" />
+          <div className="flex-1">
+            <div className="grid grid-cols-2 gap-px border border-rule bg-rule md:grid-cols-4">
+              <StatMini label="Technical" value={technicalScore} color="border-editorial-green" />
+              <StatMini label="Performance" value={performanceScore} color="border-editorial-gold" />
+              <StatMini label="Schema Coverage" value={`${auditPages.length > 0 ? Math.round((schemaAudit.pagesWithSchema / auditPages.length) * 100) : 0}%`} color="border-[#8b5cf6]" />
+              <StatMini label="Open Issues" value={latestAudit?.issues_found ?? 0} color="border-editorial-red" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Core Web Vitals Summary */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-serif text-lg">Core Web Vitals</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="border border-rule p-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">LCP (Largest Contentful Paint)</p>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className={cn("font-serif text-2xl font-bold", cwvStats.avgLcp !== null && cwvStats.avgLcp <= 2500 ? "text-editorial-green" : cwvStats.avgLcp !== null && cwvStats.avgLcp <= 4000 ? "text-editorial-gold" : "text-editorial-red")}>
+                  {cwvStats.avgLcp !== null ? `${cwvStats.avgLcp}ms` : "—"}
+                </span>
+                <span className="text-xs text-ink-muted">avg</span>
+              </div>
+              <p className="mt-1 text-xs text-ink-muted">{cwvStats.lcpGood}/{cwvStats.totalLcp} pages pass (&le;2500ms)</p>
+            </div>
+            <div className="border border-rule p-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">CLS (Cumulative Layout Shift)</p>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className={cn("font-serif text-2xl font-bold", cwvStats.avgCls !== null && cwvStats.avgCls <= 0.1 ? "text-editorial-green" : cwvStats.avgCls !== null && cwvStats.avgCls <= 0.25 ? "text-editorial-gold" : "text-editorial-red")}>
+                  {cwvStats.avgCls !== null ? cwvStats.avgCls : "—"}
+                </span>
+                <span className="text-xs text-ink-muted">avg</span>
+              </div>
+              <p className="mt-1 text-xs text-ink-muted">{cwvStats.clsGood}/{cwvStats.totalCls} pages pass (&le;0.1)</p>
+            </div>
+            <div className="border border-rule p-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">INP (Interaction to Next Paint)</p>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className={cn("font-serif text-2xl font-bold", cwvStats.avgInp !== null && cwvStats.avgInp <= 200 ? "text-editorial-green" : cwvStats.avgInp !== null && cwvStats.avgInp <= 500 ? "text-editorial-gold" : "text-editorial-red")}>
+                  {cwvStats.avgInp !== null ? `${cwvStats.avgInp}ms` : "—"}
+                </span>
+                <span className="text-xs text-ink-muted">avg</span>
+              </div>
+              <p className="mt-1 text-xs text-ink-muted">{cwvStats.inpGood}/{cwvStats.totalInp} pages pass (&le;200ms)</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Content Health */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-serif text-lg">Content Health</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-px border border-rule bg-rule md:grid-cols-4">
+            <StatMini label="Published" value={published} color="border-editorial-green" />
+            <StatMini label="Drafts" value={drafts} color="border-editorial-gold" />
+            <StatMini label="Avg Word Count" value={avgWordCount} color="border-[#8b5cf6]" />
+            <StatMini label="Thin Pages (<300w)" value={thinPages} color="border-editorial-red" />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Keyword Rankings */}
+      {keywords.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif text-lg">Keyword Rankings</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[600px] text-sm">
+                <thead className="border-b-2 border-rule-dark">
+                  <tr>
+                    <th className="py-2 pr-4 text-left text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Keyword</th>
+                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Position</th>
+                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Volume</th>
+                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Intent</th>
+                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Difficulty</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {keywords.slice(0, 20).map((kw) => (
+                    <tr key={kw.id} className="border-b border-rule transition-colors hover:bg-surface-raised">
+                      <td className="py-2.5 pr-4 text-sm font-medium text-ink">{kw.keyword}</td>
+                      <td className="px-3 py-2.5 text-center">
+                        <span className={cn(
+                          "font-mono text-sm font-bold",
+                          kw.current_position !== null && kw.current_position <= 3 ? "text-editorial-green" :
+                          kw.current_position !== null && kw.current_position <= 10 ? "text-editorial-gold" :
+                          "text-editorial-red"
+                        )}>
+                          {kw.current_position ?? "—"}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 text-center font-mono text-sm text-ink-muted">{kw.search_volume?.toLocaleString() ?? "—"}</td>
+                      <td className="px-3 py-2.5 text-center">
+                        {kw.intent ? (
+                          <Badge variant="muted" className="text-[10px]">{kw.intent}</Badge>
+                        ) : (
+                          <span className="text-xs text-ink-muted">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-center">
+                        {kw.difficulty !== null ? (
+                          <span className={cn(
+                            "font-mono text-sm",
+                            kw.difficulty <= 30 ? "text-editorial-green" :
+                            kw.difficulty <= 60 ? "text-editorial-gold" :
+                            "text-editorial-red"
+                          )}>
+                            {kw.difficulty}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-ink-muted">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Page Performance Table */}
       {auditPages.length > 0 && (
@@ -839,6 +1054,7 @@ function AeoTab({
    ================================================================ */
 
 function GeoTab({
+  geoScore,
   geoStats,
   geoPages,
   citationMatrix,
@@ -847,6 +1063,7 @@ function GeoTab({
   auditPages,
   geoSignals,
 }: {
+  geoScore: number;
   geoStats: GeoStats;
   geoPages: GeoPageScore[];
   citationMatrix: CitationMatrixEntry[];
@@ -902,12 +1119,6 @@ function GeoTab({
       { label: "Organization Schema", value: 0, desc: "Pages with Organization/Article schema" },
     ];
   }, [geoSignals, auditPages]);
-
-  const computedGeoScore = geoStats.avgGeoScore > 0
-    ? geoStats.avgGeoScore
-    : dimensions.length > 0
-      ? Math.round(dimensions.reduce((s, d) => s + d.value, 0) / dimensions.length)
-      : 0;
 
   // Compute crawlability stats
   const crawlStats = useMemo(() => {
@@ -1046,7 +1257,7 @@ function GeoTab({
       {/* GEO Score + Description */}
       <Card>
         <CardContent className="flex flex-col items-center gap-6 py-6 md:flex-row">
-          <ScoreGauge score={computedGeoScore} label="GEO Score" size={150} strokeWidth={10} color="var(--color-editorial-green)" />
+          <ScoreGauge score={geoScore} label="GEO Score" size={150} strokeWidth={10} color="var(--color-editorial-green)" />
           <div className="flex-1 space-y-3">
             <p className="text-sm text-ink-secondary">
               GEO measures how well your pages are optimized for AI-powered search engines like ChatGPT,

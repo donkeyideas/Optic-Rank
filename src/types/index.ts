@@ -12,6 +12,7 @@ export interface Organization {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   subscription_status: "active" | "past_due" | "canceled" | "trialing" | "paused";
+  trial_ends_at: string | null;
   max_projects: number;
   max_keywords: number;
   max_pages_crawl: number;

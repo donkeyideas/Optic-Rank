@@ -92,14 +92,16 @@ INSERT INTO changelog_entries (title, slug, content, version, type, published_at
 
 -- Seed data: Roadmap items
 INSERT INTO roadmap_items (title, description, status, quarter, category, sort_order) VALUES
-('Google Search Console Integration', 'Connect your GSC account for direct keyword and click data import. Eliminates manual data entry.', 'in_progress', 'Q1 2026', 'integration', 1),
-('Custom Report Builder', 'Drag-and-drop report builder with white-label PDF export for agencies and teams.', 'planned', 'Q2 2026', 'feature', 2),
-('Slack & Teams Notifications', 'Get ranking alerts and weekly summaries delivered directly to your team chat.', 'planned', 'Q2 2026', 'integration', 3),
-('Multi-Language SERP Tracking', 'Track keyword rankings across multiple languages and regions from a single dashboard.', 'planned', 'Q2 2026', 'feature', 4),
-('AI Content Brief Generator', 'Generate SEO-optimized content briefs based on top-ranking pages, SERP features, and search intent.', 'in_progress', 'Q1 2026', 'feature', 5),
-('Site Audit Scheduler', 'Schedule automated site audits to run daily, weekly, or monthly with diff reports.', 'completed', 'Q1 2026', 'feature', 6),
-('Backlink Monitoring Alerts', 'Real-time alerts when you gain or lose backlinks, with quality scoring.', 'completed', 'Q1 2026', 'improvement', 7),
-('API v2 with Webhooks', 'New REST API version with webhook support for real-time data integration.', 'planned', 'Q3 2026', 'feature', 8);
+('Google Search Console Integration', 'Connect your GSC account for direct keyword and click data import. Admin integration complete — user-facing OAuth and keyword import coming next.', 'in_progress', 'Q2 2026', 'integration', 1),
+('Custom Report Builder', 'PDF report generation with 5 templates. Email delivery and drag-and-drop customization coming next.', 'in_progress', 'Q2 2026', 'feature', 2),
+('Slack & Teams Notifications', 'Receive ranking alerts, audit results, and backlink notifications in Slack and Microsoft Teams.', 'completed', 'Q1 2026', 'integration', 3),
+('Multi-Language SERP Tracking', 'Track keyword rankings across multiple languages and regions. Backend ready — UI for location/language selection coming next.', 'in_progress', 'Q2 2026', 'feature', 4),
+('AI Content Brief Generator', 'Generate SEO-optimized content briefs from 8 real data sources with AI analysis across 10 sections.', 'completed', 'Q1 2026', 'feature', 5),
+('Site Audit Scheduler', 'Full site audits with health, SEO, performance, and accessibility scoring. Automated scheduling coming next.', 'in_progress', 'Q2 2026', 'feature', 6),
+('Backlink Monitoring Alerts', 'Discover, monitor, and score backlinks with toxic detection. Alerts via Slack, Teams, and webhooks.', 'completed', 'Q1 2026', 'improvement', 7),
+('API v2 with Webhooks', 'REST API v1 live with 7 endpoints, API key auth, rate limiting, and HMAC-signed webhooks. v2 with write endpoints and docs planned.', 'in_progress', 'Q3 2026', 'feature', 8),
+('Email Notification Channel', 'Send report PDFs and alert notifications via email using Resend or Sendgrid.', 'planned', 'Q2 2026', 'feature', 9),
+('Public API Documentation', 'Interactive API docs with OpenAPI spec, code examples, and developer portal.', 'planned', 'Q3 2026', 'feature', 10);
 
 -- Seed data: Job listings
 INSERT INTO job_listings (title, department, location, type, description, requirements, is_active) VALUES

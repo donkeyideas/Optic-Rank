@@ -1,25 +1,40 @@
 import { redirect } from "next/navigation";
-import { requireAdmin, getUsageAnalytics, getAdminStats } from "@/lib/dal/admin";
+import {
+  requireAdmin,
+  getInvestorMetrics,
+  getGrowthTimeSeries,
+  getRevenueAnalytics,
+  getAPIUsageStats,
+  getAdminStats,
+  getUsageAnalytics,
+  getBillingOverview,
+} from "@/lib/dal/admin";
 import { AnalyticsClient } from "./analytics-client";
 
 export default async function AdminAnalyticsPage() {
   const adminId = await requireAdmin();
   if (!adminId) redirect("/login");
 
-  const [usage, stats] = await Promise.all([
-    getUsageAnalytics(),
-    getAdminStats(),
-  ]);
+  const [investorMetrics, growth, revenue, apiUsage, stats, usage, billing] =
+    await Promise.all([
+      getInvestorMetrics(),
+      getGrowthTimeSeries(),
+      getRevenueAnalytics(),
+      getAPIUsageStats(),
+      getAdminStats(),
+      getUsageAnalytics(),
+      getBillingOverview(),
+    ]);
 
   return (
     <AnalyticsClient
-      totalUsers={stats.totalUsers}
-      totalOrgs={stats.totalOrgs}
-      activeProjects={stats.activeProjects}
-      totalKeywords={usage.totalKeywords}
-      totalBacklinks={usage.totalBacklinks}
-      totalAudits={usage.totalAudits}
-      usageRecords={usage.usageRecords}
+      investorMetrics={investorMetrics}
+      growth={growth}
+      revenue={revenue}
+      apiUsage={apiUsage}
+      stats={stats}
+      usage={usage}
+      billing={billing}
     />
   );
 }

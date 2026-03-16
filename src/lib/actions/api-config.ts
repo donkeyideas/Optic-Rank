@@ -58,6 +58,19 @@ export async function testAPIConnection(
   if (!config) return { error: "API configuration not found." };
   if (!config.api_key) return { error: "No API key configured." };
 
+  // Log to job_queue for System Health tracking
+  const { data: job } = await supabase
+    .from("job_queue")
+    .insert({
+      job_type: "api_test",
+      status: "processing",
+      payload: { provider: config.provider, display_name: config.display_name },
+      locked_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+  const jobId = job?.id;
+
   let testResult: { ok: boolean; message: string };
 
   try {
@@ -102,7 +115,18 @@ export async function testAPIConnection(
     })
     .eq("id", configId);
 
+  // Update job_queue record
+  if (jobId) {
+    await supabase.from("job_queue").update({
+      status: testResult.ok ? "completed" : "failed",
+      completed_at: new Date().toISOString(),
+      last_error: testResult.ok ? null : testResult.message,
+      payload: { provider: config.provider, display_name: config.display_name, result: testResult.message },
+    }).eq("id", jobId);
+  }
+
   revalidatePath("/admin/api");
+  revalidatePath("/admin/health");
 
   if (!testResult.ok) return { error: testResult.message };
   return { success: true, message: testResult.message };
@@ -143,21 +167,18 @@ async function testPageSpeed(apiKey: string) {
 }
 
 async function testGemini(apiKey: string) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+  // Use the models list endpoint to validate the key without consuming generation quota
+  const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
   const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: "Say hello" }] }],
-      generationConfig: { maxOutputTokens: 10 },
-    }),
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(10000),
   });
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`Gemini API returned ${res.status}: ${body.slice(0, 200)}`);
   }
-  return { ok: true, message: "Gemini API key is valid." };
+  const data = await res.json();
+  const modelCount = data.models?.length ?? 0;
+  return { ok: true, message: `Gemini API key is valid. ${modelCount} models available.` };
 }
 
 async function testDataForSEO(apiKey: string, apiSecret: string | null) {

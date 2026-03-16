@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendSlackNotification } from "@/lib/integrations/slack";
+import { sendTeamsNotification } from "@/lib/integrations/teams";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -79,7 +80,93 @@ export async function testSlackWebhook(): Promise<
 
   const result = await sendSlackNotification(webhookUrl, {
     type: "test",
-    title: "RankPulse AI — Test Notification",
+    title: "Optic Rank — Test Notification",
+    details: {
+      Status: "Connected successfully",
+      Time: new Date().toLocaleString(),
+    },
+    projectName: org?.name ?? "Test",
+  });
+
+  if (!result.success) return { error: result.error ?? "Test failed." };
+
+  return { success: true };
+}
+
+/**
+ * Save a Microsoft Teams webhook URL to the organization's features JSONB.
+ */
+export async function saveTeamsWebhook(
+  webhookUrl: string
+): Promise<{ error: string } | { success: true }> {
+  const userClient = await createClient();
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
+  const supabase = createAdminClient();
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile?.organization_id) return { error: "No organization found." };
+
+  const { data: org } = await supabase
+    .from("organizations")
+    .select("features")
+    .eq("id", profile.organization_id)
+    .single();
+
+  const features = (org?.features as Record<string, unknown>) ?? {};
+  features.teams_webhook_url = webhookUrl;
+
+  const { error } = await supabase
+    .from("organizations")
+    .update({ features })
+    .eq("id", profile.organization_id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard/settings");
+  return { success: true };
+}
+
+/**
+ * Test the Teams webhook by sending a test message.
+ */
+export async function testTeamsWebhook(): Promise<
+  { error: string } | { success: true }
+> {
+  const userClient = await createClient();
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
+  const supabase = createAdminClient();
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile?.organization_id) return { error: "No organization found." };
+
+  const { data: org } = await supabase
+    .from("organizations")
+    .select("features, name")
+    .eq("id", profile.organization_id)
+    .single();
+
+  const features = (org?.features as Record<string, unknown>) ?? {};
+  const webhookUrl = features.teams_webhook_url as string | undefined;
+
+  if (!webhookUrl) return { error: "No Teams webhook URL configured." };
+
+  const result = await sendTeamsNotification(webhookUrl, {
+    type: "test",
+    title: "Optic Rank — Test Notification",
     details: {
       Status: "Connected successfully",
       Time: new Date().toLocaleString(),
@@ -130,6 +217,7 @@ export async function getIntegrationSettings(): Promise<
   return {
     settings: {
       slackWebhookUrl: (features.slack_webhook_url as string) ?? null,
+      teamsWebhookUrl: (features.teams_webhook_url as string) ?? null,
       slackEvents: (features.slack_events as string[]) ?? [
         "rank_change",
         "audit_alert",
@@ -204,6 +292,7 @@ export async function deleteWebhook(
 
 export interface IntegrationSettings {
   slackWebhookUrl: string | null;
+  teamsWebhookUrl: string | null;
   slackEvents: string[];
   webhookEndpoints: WebhookEndpoint[];
 }

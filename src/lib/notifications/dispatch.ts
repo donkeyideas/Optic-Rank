@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendSlackNotification, type SlackMessage } from "@/lib/integrations/slack";
+import { sendTeamsNotification, type TeamsMessage } from "@/lib/integrations/teams";
 import { dispatchWebhook, type WebhookEvent } from "@/lib/webhooks/dispatch";
 
 export interface NotificationPayload {
@@ -13,10 +14,19 @@ export interface NotificationPayload {
   actionUrl?: string;
 }
 
+const channelTypeMap: Record<string, SlackMessage["type"] & TeamsMessage["type"]> = {
+  "keyword.rank_changed": "rank_change",
+  "audit.completed": "audit_alert",
+  "prediction.generated": "prediction_update",
+  "backlink.new": "new_backlink",
+  "backlink.lost": "lost_backlink",
+};
+
 /**
  * Dispatch a notification to all configured channels:
  * 1. In-app notification (notifications table)
- * 2. Slack (if configured)
+ * 2a. Slack (if configured)
+ * 2b. Microsoft Teams (if configured)
  * 3. Webhooks (if registered)
  */
 export async function dispatchNotification(
@@ -37,28 +47,27 @@ export async function dispatchNotification(
     }).then(() => {});
   }
 
-  // 2. Slack notification
+  // Fetch org features once for Slack + Teams
+  let features: Record<string, unknown> = {};
   try {
     const { data: org } = await supabase
       .from("organizations")
       .select("features")
       .eq("id", orgId)
       .single();
+    features = (org?.features as Record<string, unknown>) ?? {};
+  } catch (err) {
+    console.error("[dispatchNotification] Org lookup error:", err);
+  }
 
-    const features = (org?.features as Record<string, unknown>) ?? {};
+  const msgType = channelTypeMap[payload.type] ?? "test";
+
+  // 2a. Slack notification
+  try {
     const slackUrl = features.slack_webhook_url as string | undefined;
-
     if (slackUrl) {
-      const slackTypeMap: Record<string, SlackMessage["type"]> = {
-        "keyword.rank_changed": "rank_change",
-        "audit.completed": "audit_alert",
-        "prediction.generated": "prediction_update",
-        "backlink.new": "new_backlink",
-        "backlink.lost": "new_backlink",
-      };
-
       await sendSlackNotification(slackUrl, {
-        type: slackTypeMap[payload.type] ?? "test",
+        type: msgType,
         title: payload.title,
         details: payload.details,
         projectName: payload.projectName,
@@ -67,6 +76,22 @@ export async function dispatchNotification(
     }
   } catch (err) {
     console.error("[dispatchNotification] Slack error:", err);
+  }
+
+  // 2b. Microsoft Teams notification
+  try {
+    const teamsUrl = features.teams_webhook_url as string | undefined;
+    if (teamsUrl) {
+      await sendTeamsNotification(teamsUrl, {
+        type: msgType,
+        title: payload.title,
+        details: payload.details,
+        projectName: payload.projectName,
+        url: payload.actionUrl,
+      });
+    }
+  } catch (err) {
+    console.error("[dispatchNotification] Teams error:", err);
   }
 
   // 3. Webhook dispatch

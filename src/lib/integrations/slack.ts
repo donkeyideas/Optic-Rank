@@ -40,7 +40,7 @@ export async function sendSlackNotification(
 }
 
 export interface SlackMessage {
-  type: "rank_change" | "audit_alert" | "prediction_update" | "new_backlink" | "test";
+  type: "rank_change" | "audit_alert" | "prediction_update" | "new_backlink" | "lost_backlink" | "test";
   title: string;
   details: Record<string, string | number>;
   projectName?: string;
@@ -80,7 +80,7 @@ function buildBlocks(message: SlackMessage): SlackBlock[] {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `<${message.url}|View in RankPulse AI>`,
+        text: `<${message.url}|View in Optic Rank>`,
       },
     });
   }
@@ -91,7 +91,7 @@ function buildBlocks(message: SlackMessage): SlackBlock[] {
   // Footer
   blocks.push({
     type: "context",
-    elements: [{ type: "mrkdwn", text: "Sent from RankPulse AI" }],
+    elements: [{ type: "mrkdwn", text: "Sent from Optic Rank" }],
   });
 
   return blocks;

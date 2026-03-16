@@ -57,6 +57,35 @@ export async function updatePricingPlan(
 
   if (error) return { error: error.message };
 
+  // Sync updated limits to all existing organizations on this plan.
+  // This ensures admin changes take effect immediately for current subscribers.
+  const limitsChanged =
+    data.max_projects !== undefined ||
+    data.max_keywords !== undefined ||
+    data.max_pages_crawl !== undefined ||
+    data.max_users !== undefined;
+
+  if (limitsChanged) {
+    // Fetch the full updated plan to get all current limit values
+    const { data: updatedPlan } = await supabase
+      .from("pricing_plans")
+      .select("max_projects, max_keywords, max_pages_crawl, max_users")
+      .eq("plan_key", planKey)
+      .single();
+
+    if (updatedPlan) {
+      await supabase
+        .from("organizations")
+        .update({
+          max_projects: updatedPlan.max_projects,
+          max_keywords: updatedPlan.max_keywords,
+          max_pages_crawl: updatedPlan.max_pages_crawl,
+          max_users: updatedPlan.max_users,
+        })
+        .eq("plan", planKey);
+    }
+  }
+
   revalidatePath("/pricing");
   revalidatePath("/dashboard/settings");
   revalidatePath("/admin/subscriptions");

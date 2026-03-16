@@ -25,6 +25,8 @@ import {
 import {
   saveSlackWebhook,
   testSlackWebhook,
+  saveTeamsWebhook,
+  testTeamsWebhook,
   registerWebhook,
   deleteWebhook,
   type IntegrationSettings,
@@ -46,6 +48,9 @@ export function IntegrationsTab({ settings }: IntegrationsTabProps) {
   const [slackUrl, setSlackUrl] = useState(settings.slackWebhookUrl ?? "");
   const [slackSaved, setSlackSaved] = useState(false);
   const [slackTested, setSlackTested] = useState(false);
+  const [teamsUrl, setTeamsUrl] = useState(settings.teamsWebhookUrl ?? "");
+  const [teamsSaved, setTeamsSaved] = useState(false);
+  const [teamsTested, setTeamsTested] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -78,6 +83,34 @@ export function IntegrationsTab({ settings }: IntegrationsTabProps) {
       } else {
         setSlackTested(true);
         setTimeout(() => setSlackTested(false), 3000);
+      }
+    });
+  }
+
+  function handleSaveTeams() {
+    setError(null);
+    setTeamsSaved(false);
+    startTransition(async () => {
+      const result = await saveTeamsWebhook(teamsUrl);
+      if ("error" in result) {
+        setError(result.error);
+      } else {
+        setTeamsSaved(true);
+        setTimeout(() => setTeamsSaved(false), 3000);
+      }
+    });
+  }
+
+  function handleTestTeams() {
+    setError(null);
+    setTeamsTested(false);
+    startTransition(async () => {
+      const result = await testTeamsWebhook();
+      if ("error" in result) {
+        setError(result.error);
+      } else {
+        setTeamsTested(true);
+        setTimeout(() => setTeamsTested(false), 3000);
       }
     });
   }
@@ -180,6 +213,50 @@ export function IntegrationsTab({ settings }: IntegrationsTabProps) {
           <p className="text-xs text-ink-muted">
             Create an incoming webhook in your Slack workspace settings, then paste the URL above.
             Notifications will be sent for rank changes, audit alerts, and more.
+          </p>
+        </div>
+      </div>
+
+      {/* Microsoft Teams Integration */}
+      <div>
+        <ColumnHeader
+          title="Microsoft Teams Integration"
+          subtitle="Receive SEO notifications in your Teams channels"
+        />
+        <div className="mt-4 flex flex-col gap-4 border border-rule bg-surface-card p-5">
+          <div className="flex items-center gap-3">
+            <Input
+              label="Teams Webhook URL"
+              placeholder="https://outlook.office.com/webhook/..."
+              value={teamsUrl}
+              onChange={(e) => setTeamsUrl(e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleSaveTeams}
+              disabled={!teamsUrl || isPending}
+            >
+              {teamsSaved ? <Check size={14} /> : <Globe size={14} />}
+              {teamsSaved ? "Saved" : "Save Webhook"}
+            </Button>
+            {settings.teamsWebhookUrl && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleTestTeams}
+                disabled={isPending}
+              >
+                {teamsTested ? <Check size={14} /> : <Send size={14} />}
+                {teamsTested ? "Sent!" : "Test"}
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-ink-muted">
+            Create an incoming webhook connector in your Teams channel settings, then paste the URL above.
+            Notifications use Adaptive Card format for rich display.
           </p>
         </div>
       </div>

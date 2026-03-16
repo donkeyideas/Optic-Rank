@@ -20,6 +20,7 @@ export function ContactForm() {
       email: formData.get("email") as string,
       subject: formData.get("subject") as string,
       message: formData.get("message") as string,
+      _hp: formData.get("website_url") as string,
     });
 
     if ("error" in result) {
@@ -52,6 +53,12 @@ export function ContactForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      {/* Honeypot — hidden from humans, bots will fill it */}
+      <div aria-hidden="true" className="absolute -left-[9999px] -top-[9999px]">
+        <label htmlFor="website_url">Website</label>
+        <input id="website_url" name="website_url" type="text" tabIndex={-1} autoComplete="off" />
+      </div>
+
       <div>
         <label htmlFor="name" className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-ink-muted">
           Name

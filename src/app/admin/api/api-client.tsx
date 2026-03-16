@@ -136,7 +136,7 @@ const providerColors: Record<string, string> = {
    ------------------------------------------------------------------ */
 
 export function APIManagementClient({ configs, usageStats, callLog }: Props) {
-  const [activeTab, setActiveTab] = useState<"configs" | "usage" | "logs">("usage");
+  const [activeTab, setActiveTab] = useState<"configs" | "usage" | "logs">("logs");
 
   const overviewStats = [
     {
@@ -164,8 +164,8 @@ export function APIManagementClient({ configs, usageStats, callLog }: Props) {
   ];
 
   const tabs = [
-    { key: "usage" as const, label: "Usage & Costs" },
     { key: "logs" as const, label: "Call History" },
+    { key: "usage" as const, label: "Usage & Costs" },
     { key: "configs" as const, label: "API Configuration" },
   ];
 
@@ -444,10 +444,15 @@ function UsageTab({ usageStats }: { usageStats: UsageStats }) {
     (a, b) => b[1].calls - a[1].calls
   );
 
-  // Daily data sorted by date
-  const dailyEntries = Object.entries(usageStats.dailyCalls)
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .slice(-30);
+  // Build full 30-day range (fill in zeros for days with no calls)
+  const dailyEntries: [string, number][] = [];
+  const today = new Date();
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    dailyEntries.push([key, usageStats.dailyCalls[key] ?? 0]);
+  }
 
   return (
     <div className="space-y-6">
@@ -505,39 +510,125 @@ function UsageTab({ usageStats }: { usageStats: UsageStats }) {
         </CardContent>
       </Card>
 
-      {/* Daily Activity (simple bar visualization) */}
-      {dailyEntries.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Daily API Activity (Last 30 Days)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-end gap-1" style={{ height: 120 }}>
-              {dailyEntries.map(([day, calls]) => {
-                const maxCalls = Math.max(...dailyEntries.map(([, c]) => c));
-                const height = maxCalls > 0 ? (calls / maxCalls) * 100 : 0;
-                const cost = usageStats.dailyCosts[day] ?? 0;
-                return (
-                  <div
-                    key={day}
-                    className="group relative flex-1 min-w-[4px]"
-                    title={`${day}: ${calls} calls, ${formatCost(cost)}`}
+      {/* Daily Activity (SVG bar chart) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Daily API Activity (Last 30 Days)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {(() => {
+            const maxCalls = Math.max(...dailyEntries.map(([, c]) => c), 1);
+            const totalInRange = dailyEntries.reduce((s, [, c]) => s + c, 0);
+            const activeDays = dailyEntries.filter(([, c]) => c > 0).length;
+            const avgCalls = activeDays > 0 ? Math.round(totalInRange / activeDays) : 0;
+            const chartH = 180;
+            const barW = Math.max(Math.floor(680 / dailyEntries.length) - 2, 6);
+            const chartW = dailyEntries.length * (barW + 2);
+            return (
+              <>
+                <div className="mb-3 flex flex-wrap items-baseline gap-4">
+                  <span className="font-mono text-xs text-ink-muted">
+                    <span className="font-semibold text-ink">{totalInRange.toLocaleString()}</span> calls
+                  </span>
+                  <span className="font-mono text-xs text-ink-muted">
+                    Peak: <span className="font-semibold text-ink">{maxCalls.toLocaleString()}</span>/day
+                  </span>
+                  <span className="font-mono text-xs text-ink-muted">
+                    Avg: <span className="font-semibold text-ink">{avgCalls.toLocaleString()}</span>/day
+                  </span>
+                  <span className="font-mono text-xs text-ink-muted">
+                    Active days: <span className="font-semibold text-ink">{activeDays}</span>/30
+                  </span>
+                </div>
+                <div className="w-full overflow-x-auto">
+                  <svg
+                    width={chartW}
+                    height={chartH + 24}
+                    viewBox={`0 0 ${chartW} ${chartH + 24}`}
+                    className="min-w-full"
+                    role="img"
+                    aria-label="Daily API calls bar chart"
                   >
-                    <div
-                      className="w-full bg-editorial-red/70 transition-colors hover:bg-editorial-red"
-                      style={{ height: `${Math.max(height, 2)}%` }}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-            <div className="mt-2 flex justify-between text-[10px] text-ink-muted">
-              <span>{dailyEntries[0]?.[0]}</span>
-              <span>{dailyEntries[dailyEntries.length - 1]?.[0]}</span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                    {/* Grid lines */}
+                    {[0, 0.25, 0.5, 0.75, 1].map((frac) => (
+                      <line
+                        key={frac}
+                        x1={0}
+                        y1={chartH - frac * chartH}
+                        x2={chartW}
+                        y2={chartH - frac * chartH}
+                        stroke="currentColor"
+                        strokeOpacity={0.08}
+                        strokeDasharray={frac === 0 ? "none" : "4 4"}
+                      />
+                    ))}
+                    {/* Bars */}
+                    {dailyEntries.map(([day, calls], i) => {
+                      const barH = calls > 0
+                        ? Math.max((calls / maxCalls) * (chartH - 4), 4)
+                        : 0;
+                      const x = i * (barW + 2);
+                      const y = chartH - barH;
+                      const shortDay = day.slice(8); // DD
+                      const showLabel = i === 0 || i === dailyEntries.length - 1 || i % 5 === 0;
+                      return (
+                        <g key={day}>
+                          {/* Baseline tick for empty days */}
+                          {calls === 0 && (
+                            <rect
+                              x={x}
+                              y={chartH - 2}
+                              width={barW}
+                              height={2}
+                              rx={1}
+                              className="fill-rule/40"
+                            />
+                          )}
+                          {/* Data bar */}
+                          {calls > 0 && (
+                            <rect
+                              x={x}
+                              y={y}
+                              width={barW}
+                              height={barH}
+                              rx={2}
+                              className="fill-editorial-red/70 hover:fill-editorial-red transition-colors"
+                            />
+                          )}
+                          {/* Value label on tall bars */}
+                          {calls > 0 && barH > 20 && (
+                            <text
+                              x={x + barW / 2}
+                              y={y - 4}
+                              textAnchor="middle"
+                              className="fill-ink text-[9px] font-mono"
+                            >
+                              {calls >= 1000 ? `${(calls / 1000).toFixed(1)}k` : calls}
+                            </text>
+                          )}
+                          {/* X-axis date labels */}
+                          {showLabel && (
+                            <text
+                              x={x + barW / 2}
+                              y={chartH + 14}
+                              textAnchor="middle"
+                              className="fill-ink-muted text-[9px] font-mono"
+                            >
+                              {day.slice(5)}
+                            </text>
+                          )}
+                          {/* Hover target */}
+                          <title>{`${day}: ${calls.toLocaleString()} calls`}</title>
+                        </g>
+                      );
+                    })}
+                  </svg>
+                </div>
+              </>
+            );
+          })()}
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import { loadStripe, type Stripe as StripeClient } from "@stripe/stripe-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // --- Server-side Stripe instance ---
 
@@ -31,21 +32,24 @@ export function getStripePromise(): Promise<StripeClient | null> {
 
 export type PlanId = "free" | "starter" | "pro" | "business" | "enterprise";
 
-export interface PlanConfig {
-  name: string;
-  priceMonthly: number;
-  stripePriceId: string | null;
+export interface PlanLimits {
   maxProjects: number;
   maxKeywords: number;
   maxPagesCrawl: number;
   maxUsers: number;
 }
 
+export interface PlanConfig extends PlanLimits {
+  name: string;
+  priceMonthly: number;
+  stripePriceId: string | null;
+}
+
 /**
- * Plan limits. stripe_price_id values should be set from env or Stripe dashboard.
- * Using placeholder IDs — replace with real Stripe Price IDs when configured.
+ * Fallback defaults — used only when the pricing_plans table is unreachable.
+ * The authoritative source is always the database.
  */
-export const PLAN_LIMITS: Record<PlanId, PlanConfig> = {
+const FALLBACK_LIMITS: Record<PlanId, PlanConfig> = {
   free: {
     name: "Free",
     priceMonthly: 0,
@@ -84,7 +88,7 @@ export const PLAN_LIMITS: Record<PlanId, PlanConfig> = {
   },
   enterprise: {
     name: "Enterprise",
-    priceMonthly: 0, // Custom pricing
+    priceMonthly: 0,
     stripePriceId: null,
     maxProjects: 1000,
     maxKeywords: 100000,
@@ -93,11 +97,93 @@ export const PLAN_LIMITS: Record<PlanId, PlanConfig> = {
   },
 };
 
+/** @deprecated Use fetchPlanLimits() for dynamic DB-backed limits */
+export const PLAN_LIMITS = FALLBACK_LIMITS;
+
 /**
- * Look up plan from Stripe Price ID.
+ * Fetch plan limits from the pricing_plans table (authoritative source).
+ * Falls back to hardcoded defaults if DB is unreachable.
+ */
+export async function fetchPlanLimits(planKey: string): Promise<PlanLimits> {
+  try {
+    const supabase = createAdminClient();
+    const { data } = await supabase
+      .from("pricing_plans")
+      .select("max_projects, max_keywords, max_pages_crawl, max_users")
+      .eq("plan_key", planKey)
+      .single();
+
+    if (data) {
+      return {
+        maxProjects: data.max_projects,
+        maxKeywords: data.max_keywords,
+        maxPagesCrawl: data.max_pages_crawl,
+        maxUsers: data.max_users,
+      };
+    }
+  } catch {
+    // Fall through to defaults
+  }
+
+  const fallback = FALLBACK_LIMITS[planKey as PlanId];
+  return fallback ?? FALLBACK_LIMITS.free;
+}
+
+/**
+ * Fetch full plan config (with price and Stripe ID) from the database.
+ */
+export async function fetchPlanConfig(planKey: string): Promise<PlanConfig> {
+  try {
+    const supabase = createAdminClient();
+    const { data } = await supabase
+      .from("pricing_plans")
+      .select("name, price_monthly, stripe_price_id, max_projects, max_keywords, max_pages_crawl, max_users")
+      .eq("plan_key", planKey)
+      .single();
+
+    if (data) {
+      return {
+        name: data.name,
+        priceMonthly: data.price_monthly,
+        stripePriceId: data.stripe_price_id,
+        maxProjects: data.max_projects,
+        maxKeywords: data.max_keywords,
+        maxPagesCrawl: data.max_pages_crawl,
+        maxUsers: data.max_users,
+      };
+    }
+  } catch {
+    // Fall through to defaults
+  }
+
+  return FALLBACK_LIMITS[planKey as PlanId] ?? FALLBACK_LIMITS.free;
+}
+
+/**
+ * Look up plan key from Stripe Price ID — queries DB first, falls back to env.
+ */
+export async function fetchPlanFromPriceId(priceId: string): Promise<PlanId> {
+  try {
+    const supabase = createAdminClient();
+    const { data } = await supabase
+      .from("pricing_plans")
+      .select("plan_key")
+      .eq("stripe_price_id", priceId)
+      .single();
+
+    if (data?.plan_key) return data.plan_key as PlanId;
+  } catch {
+    // Fall through to static lookup
+  }
+
+  return planFromPriceId(priceId);
+}
+
+/**
+ * Look up plan from Stripe Price ID (static fallback using env vars).
  */
 export function planFromPriceId(priceId: string): PlanId {
-  for (const [plan, config] of Object.entries(PLAN_LIMITS)) {
+  for (const [plan, config] of Object.entries(FALLBACK_LIMITS)) {
     if (config.stripePriceId === priceId) return plan as PlanId;
   }
   return "free";

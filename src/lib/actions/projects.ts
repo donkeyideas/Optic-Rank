@@ -34,14 +34,20 @@ export async function createProject(
 
   let orgId = profile?.organization_id;
 
-  // If no organization, create one
+  // If no organization, create one with 14-day trial
   if (!orgId) {
     const slug = `org-${Date.now().toString(36)}`;
+    const trialEndsAt = new Date();
+    trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+
     const { data: org, error: orgError } = await supabase
       .from("organizations")
       .insert({
         name: `${name} Organization`,
         slug,
+        plan: "free",
+        subscription_status: "trialing",
+        trial_ends_at: trialEndsAt.toISOString(),
       })
       .select("id")
       .single();

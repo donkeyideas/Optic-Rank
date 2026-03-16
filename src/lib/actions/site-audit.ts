@@ -96,8 +96,35 @@ export async function runSiteAudit(
       })
       .eq("id", audit.id);
 
-    // Step 5: Insert additional crawled pages (homepage already inserted by processPageSpeedAudit)
+    // Step 5: Update homepage audit_pages row with crawler data (processPageSpeedAudit only stores PageSpeed metrics)
     const homepageNorm = targetUrl.replace(/\/$/, "");
+    const homepageCrawl = crawledPages.find((p) => {
+      const norm = p.url.replace(/\/$/, "");
+      return norm === homepageNorm || norm === homepageNorm.replace("www.", "") || norm.replace("www.", "") === homepageNorm;
+    });
+
+    if (homepageCrawl) {
+      // Update using targetUrl (the URL processPageSpeedAudit stored) since crawler may return a different variant
+      const { error: hpUpdateError } = await supabase
+        .from("audit_pages")
+        .update({
+          title: homepageCrawl.title,
+          meta_description: homepageCrawl.metaDescription,
+          h1: homepageCrawl.h1,
+          word_count: homepageCrawl.wordCount,
+          has_schema: homepageCrawl.hasSchema,
+          canonical_url: homepageCrawl.canonicalUrl,
+          issues_count: countPageIssues(homepageCrawl),
+        })
+        .eq("audit_id", audit.id)
+        .ilike("url", `%${domain}%`);
+
+      if (hpUpdateError) {
+        console.error("[runSiteAudit] Failed to update homepage crawler data:", hpUpdateError.message);
+      }
+    }
+
+    // Step 5b: Insert additional crawled pages (homepage already inserted by processPageSpeedAudit)
     const additionalPages = crawledPages.filter((p) => {
       const norm = p.url.replace(/\/$/, "");
       return norm !== homepageNorm && norm !== homepageNorm.replace("www.", "") && norm.replace("www.", "") !== homepageNorm;
@@ -126,21 +153,28 @@ export async function runSiteAudit(
 
     // Step 7: Generate AEO/GEO signal entries (stored as audit_issues for retrieval)
     const signalIssues = generatePageSignals(crawledPages, audit.id);
-    const allIssues = [...crawlIssues, ...signalIssues];
 
-    if (allIssues.length > 0) {
-      await supabase.from("audit_issues").insert(allIssues);
-      // Update total issues count (exclude metric & signal entries)
-      const { count } = await supabase
-        .from("audit_issues")
-        .select("id", { count: "exact" })
-        .eq("audit_id", audit.id)
-        .not("rule_id", "like", "cwv-metric-%")
-        .not("rule_id", "like", "page-%-signals");
-
-      if (count != null) {
-        await supabase.from("site_audits").update({ issues_found: count }).eq("id", audit.id);
+    // Insert SEO issues and AEO/GEO signals separately so one failure doesn't block the other
+    if (crawlIssues.length > 0) {
+      await supabase.from("audit_issues").insert(crawlIssues);
+    }
+    if (signalIssues.length > 0) {
+      const { error: signalError } = await supabase.from("audit_issues").insert(signalIssues);
+      if (signalError) {
+        console.error("Failed to insert AEO/GEO signals:", signalError.message);
       }
+    }
+
+    // Update total issues count (exclude metric & signal entries)
+    const { count } = await supabase
+      .from("audit_issues")
+      .select("id", { count: "exact" })
+      .eq("audit_id", audit.id)
+      .not("rule_id", "like", "cwv-metric-%")
+      .not("rule_id", "like", "page-%-signals");
+
+    if (count != null) {
+      await supabase.from("site_audits").update({ issues_found: count }).eq("id", audit.id);
     }
   } catch (err) {
     await supabase
@@ -388,11 +422,16 @@ async function finalizeCrawlOnlyAudit(
   }));
   await supabase.from("audit_pages").insert(pageRows);
 
-  // Insert issues + AEO/GEO signals
+  // Insert SEO issues and AEO/GEO signals separately
+  if (issues.length > 0) {
+    await supabase.from("audit_issues").insert(issues);
+  }
   const signalIssues = generatePageSignals(pages, auditId);
-  const allIssues = [...issues, ...signalIssues];
-  if (allIssues.length > 0) {
-    await supabase.from("audit_issues").insert(allIssues);
+  if (signalIssues.length > 0) {
+    const { error: signalError } = await supabase.from("audit_issues").insert(signalIssues);
+    if (signalError) {
+      console.error("Failed to insert AEO/GEO signals:", signalError.message);
+    }
   }
 }
 

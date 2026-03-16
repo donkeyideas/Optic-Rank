@@ -6,6 +6,7 @@ import {
   getRecentAuditLog,
   getAPIUsageStats,
   getBillingOverview,
+  getRevenueAnalytics,
   getUsageAnalytics,
   getSystemHealth,
 } from "@/lib/dal/admin";
@@ -15,13 +16,14 @@ export default async function AdminOverviewPage() {
   const userId = await requireAdmin();
   if (!userId) redirect("/login");
 
-  const [stats, recentSignups, recentAuditLog, apiUsage, billing, usage, health] =
+  const [stats, recentSignups, recentAuditLog, apiUsage, billing, revenue, usage, health] =
     await Promise.all([
       getAdminStats(),
       getRecentSignups(5),
       getRecentAuditLog(8),
       getAPIUsageStats(),
       getBillingOverview(),
+      getRevenueAnalytics(),
       getUsageAnalytics(),
       getSystemHealth(),
     ]);
@@ -33,6 +35,7 @@ export default async function AdminOverviewPage() {
       recentAuditLog={recentAuditLog}
       apiUsage={apiUsage}
       billing={billing}
+      revenue={revenue}
       usage={usage}
       health={health}
     />

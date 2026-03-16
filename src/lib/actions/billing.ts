@@ -2,16 +2,18 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getStripe, PLAN_LIMITS, type PlanId } from "@/lib/stripe/client";
+import { getStripe, fetchPlanLimits, fetchPlanConfig, fetchPlanFromPriceId, type PlanId } from "@/lib/stripe/client";
 import { getUsageSummary, type GatedResource } from "@/lib/stripe/plan-gate";
 import { revalidatePath } from "next/cache";
 
 /**
- * Create a Stripe Checkout session for upgrading to a paid plan.
+ * Create a Stripe Subscription with incomplete status.
+ * Returns a client_secret from the PaymentIntent so the client
+ * can collect payment using the fully-stylable Payment Element.
  */
 export async function createCheckoutSession(
   planId: PlanId
-): Promise<{ error: string } | { url: string }> {
+): Promise<{ error: string } | { clientSecret: string; subscriptionId: string }> {
   const userClient = await createClient();
   const { data: { user } } = await userClient.auth.getUser();
   if (!user) return { error: "Not authenticated." };
@@ -34,14 +36,13 @@ export async function createCheckoutSession(
 
   if (!org) return { error: "Organization not found." };
 
-  const planConfig = PLAN_LIMITS[planId];
+  const planConfig = await fetchPlanConfig(planId);
   if (!planConfig?.stripePriceId) {
     return { error: `No Stripe price configured for ${planId} plan.` };
   }
 
   try {
     const stripe = getStripe();
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
     // Create or reuse Stripe customer
     let customerId = org.stripe_customer_id;
@@ -59,22 +60,43 @@ export async function createCheckoutSession(
         .eq("id", org.id);
     }
 
-    const session = await stripe.checkout.sessions.create({
+    // Create subscription with incomplete status
+    const subscription = await stripe.subscriptions.create({
       customer: customerId,
-      mode: "subscription",
-      line_items: [{ price: planConfig.stripePriceId, quantity: 1 }],
-      success_url: `${appUrl}/dashboard/settings?tab=billing&success=true`,
-      cancel_url: `${appUrl}/dashboard/settings?tab=billing&canceled=true`,
+      items: [{ price: planConfig.stripePriceId }],
+      payment_behavior: "default_incomplete",
+      payment_settings: { save_default_payment_method: "on_subscription" },
+      expand: ["latest_invoice"],
       metadata: { organization_id: org.id },
-      subscription_data: {
-        metadata: { organization_id: org.id },
-      },
     });
 
-    if (!session.url) return { error: "Failed to create checkout session." };
-    return { url: session.url };
+    const invoice = subscription.latest_invoice;
+    if (!invoice || typeof invoice === "string") {
+      return { error: "Failed to create subscription invoice." };
+    }
+
+    // In Stripe Clover API, PaymentIntent is accessed via invoicePayments
+    const payments = await stripe.invoicePayments.list({
+      invoice: invoice.id,
+      expand: ["data.payment.payment_intent"],
+      limit: 1,
+    });
+
+    const paymentIntent = payments.data[0]?.payment?.payment_intent;
+    if (!paymentIntent || typeof paymentIntent === "string") {
+      return { error: "Failed to create payment intent." };
+    }
+
+    if (!paymentIntent.client_secret) {
+      return { error: "Payment intent has no client secret." };
+    }
+
+    return {
+      clientSecret: paymentIntent.client_secret,
+      subscriptionId: subscription.id,
+    };
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Failed to create checkout session." };
+    return { error: err instanceof Error ? err.message : "Failed to create subscription." };
   }
 }
 
@@ -118,6 +140,83 @@ export async function createPortalSession(): Promise<{ error: string } | { url: 
     return { url: session.url };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to create portal session." };
+  }
+}
+
+/**
+ * Activate a subscription after successful payment.
+ * Called client-side after stripe.confirmPayment succeeds.
+ * This ensures the org is updated even if the webhook hasn't fired yet.
+ */
+export async function activateSubscription(
+  subscriptionId: string
+): Promise<{ error: string } | { success: true }> {
+  const userClient = await createClient();
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
+  const supabase = createAdminClient();
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile?.organization_id) return { error: "No organization found." };
+
+  try {
+    const stripe = getStripe();
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+    // Verify this subscription belongs to this org's customer
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("id, stripe_customer_id")
+      .eq("id", profile.organization_id)
+      .single();
+
+    if (!org) return { error: "Organization not found." };
+    if (org.stripe_customer_id && org.stripe_customer_id !== subscription.customer) {
+      return { error: "Subscription does not belong to this organization." };
+    }
+
+    const priceId = subscription.items.data[0]?.price?.id;
+    const plan = priceId ? await fetchPlanFromPriceId(priceId) : "free";
+    const limits = await fetchPlanLimits(plan);
+
+    // Only activate if subscription is active or has succeeded payment
+    const isActive = subscription.status === "active" || subscription.status === "trialing";
+    if (!isActive) {
+      // Even if not fully active yet, still link the subscription
+      await supabase
+        .from("organizations")
+        .update({
+          stripe_subscription_id: subscriptionId,
+        })
+        .eq("id", org.id);
+      return { error: "Subscription is not yet active. Status: " + subscription.status };
+    }
+
+    await supabase
+      .from("organizations")
+      .update({
+        plan,
+        subscription_status: "active",
+        stripe_subscription_id: subscriptionId,
+        trial_ends_at: null,
+        max_projects: limits.maxProjects,
+        max_keywords: limits.maxKeywords,
+        max_pages_crawl: limits.maxPagesCrawl,
+        max_users: limits.maxUsers,
+      })
+      .eq("id", org.id);
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/settings");
+    return { success: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to activate subscription." };
   }
 }
 
