@@ -9,6 +9,8 @@ import {
   Users,
   Globe,
   Zap,
+  Share2,
+  Smartphone,
 } from "lucide-react";
 import { getSiteContent } from "@/lib/dal/admin";
 import {
@@ -18,21 +20,21 @@ import {
 } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = {
-  title: "AI-Powered SEO Intelligence Platform",
+  title: "AI-Powered SEO & Social Intelligence Platform",
   description:
-    "Track keyword rankings, monitor competitors, audit your site, and unlock AI-driven insights. The all-in-one SEO platform for modern marketing teams.",
+    "Track keyword rankings, monitor competitors, audit your site, analyze social media performance, and unlock AI-driven insights. The all-in-one SEO and social intelligence platform for modern marketing teams.",
   alternates: { canonical: "/" },
   openGraph: {
-    title: "AI-Powered SEO Intelligence Platform",
+    title: "AI-Powered SEO & Social Intelligence Platform",
     description:
-      "Track keyword rankings, monitor competitors, audit your site, and unlock AI-driven SEO insights.",
+      "Track keyword rankings, monitor competitors, audit your site, analyze social media, and unlock AI-driven insights.",
   },
 };
 
 /* ── Icon Map ──────────────────────────────────────────────────── */
 
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>> = {
-  Search, BarChart3, Shield, Sparkles, TrendingUp, Users, Globe, Zap,
+  Search, BarChart3, Shield, Sparkles, TrendingUp, Users, Globe, Zap, Share2, Smartphone,
 };
 
 /* ── Helpers ───────────────────────────────────────────────────── */
@@ -49,6 +51,8 @@ const DEFAULT_FEATURES = [
   { icon: "Users", title: "Competitor Surveillance", description: "Monitor your competitors' every move. See their ranking changes, new content, backlink acquisitions, and strategic shifts before they impact you." },
   { icon: "Shield", title: "Technical Site Audit", description: "Comprehensive crawl-based audits that uncover critical issues: broken links, thin content, Core Web Vitals failures, and indexability problems." },
   { icon: "Sparkles", title: "AI-Powered Insights", description: "Our AI analyzes your data continuously, surfacing actionable recommendations and predicting ranking opportunities before your competitors see them." },
+  { icon: "Share2", title: "Social Intelligence", description: "AI-powered analytics for Instagram, TikTok, YouTube, Twitter, and LinkedIn. Earnings forecasts, growth strategies, competitor benchmarking, and content optimization." },
+  { icon: "Smartphone", title: "App Store Optimization", description: "Track your app's keyword rankings, monitor competitor apps, analyze reviews, and get AI-powered ASO recommendations for the App Store and Google Play." },
 ];
 
 const DEFAULT_STATS = [
@@ -174,7 +178,7 @@ export default async function MarketingHomePage() {
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-ink-secondary">
               {featuresHeader?.description ??
-                "Four pillars of SEO intelligence, unified in a single platform that thinks ahead and presents findings with editorial precision."}
+                "Six pillars of search and social intelligence, unified in a single platform that thinks ahead and presents findings with editorial precision."}
             </p>
           </div>
 

@@ -12,27 +12,28 @@ import {
   TrendingUp,
   Zap,
   ArrowRight,
+  Share2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getSiteContent } from "@/lib/dal/admin";
 import { JsonLd, breadcrumbJsonLd } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = {
-  title: "All SEO Features & Capabilities",
+  title: "All SEO & Social Intelligence Features",
   description:
-    "Explore Optic Rank's complete feature set: keyword tracking, site audits, backlink monitoring, competitor analysis, AI visibility tracking, and actionable insights.",
+    "Explore Optic Rank's complete feature set: keyword tracking, site audits, backlink monitoring, competitor analysis, AI visibility tracking, social media intelligence, app store optimization, and actionable insights.",
   alternates: { canonical: "/features" },
   openGraph: {
-    title: "All SEO Features & Capabilities",
+    title: "All SEO & Social Intelligence Features",
     description:
-      "Explore Optic Rank's complete feature set for modern SEO intelligence.",
+      "Explore Optic Rank's complete feature set for modern SEO and social media intelligence.",
   },
 };
 
 /* ── Icon Map ──────────────────────────────────────────────────── */
 
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>> = {
-  Search, Link2, Shield, Users, Sparkles, Smartphone, FileText, Eye, TrendingUp,
+  Search, Link2, Shield, Users, Sparkles, Smartphone, FileText, Eye, TrendingUp, Share2,
 };
 
 /* ── Helpers ───────────────────────────────────────────────────── */
