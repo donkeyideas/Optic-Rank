@@ -143,7 +143,7 @@ export async function getGSCOverview(
     };
   } catch (err) {
     console.error("GSC overview error:", err);
-    return null;
+    throw err;
   }
 }
 
@@ -178,7 +178,7 @@ export async function getGSCTopQueries(
     }));
   } catch (err) {
     console.error("GSC top queries error:", err);
-    return [];
+    throw err;
   }
 }
 
@@ -223,7 +223,7 @@ export async function getGSCTopPages(
     });
   } catch (err) {
     console.error("GSC top pages error:", err);
-    return [];
+    throw err;
   }
 }
 
@@ -256,7 +256,7 @@ export async function getGSCDailyData(
     }));
   } catch (err) {
     console.error("GSC daily data error:", err);
-    return [];
+    throw err;
   }
 }
 
@@ -289,7 +289,7 @@ export async function getGSCDevices(
     }));
   } catch (err) {
     console.error("GSC devices error:", err);
-    return [];
+    throw err;
   }
 }
 
@@ -324,7 +324,7 @@ export async function getGSCCountries(
     }));
   } catch (err) {
     console.error("GSC countries error:", err);
-    return [];
+    throw err;
   }
 }
 

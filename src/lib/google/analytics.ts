@@ -123,7 +123,7 @@ export async function getGA4Overview(
     };
   } catch (err) {
     console.error("GA4 overview error:", err);
-    return null;
+    throw err;
   }
 }
 
@@ -166,7 +166,7 @@ export async function getGA4TopPages(
     }));
   } catch (err) {
     console.error("GA4 top pages error:", err);
-    return [];
+    throw err;
   }
 }
 
@@ -204,7 +204,7 @@ export async function getGA4TrafficSources(
     }));
   } catch (err) {
     console.error("GA4 traffic sources error:", err);
-    return [];
+    throw err;
   }
 }
 
@@ -243,6 +243,6 @@ export async function getGA4DailyData(
     });
   } catch (err) {
     console.error("GA4 daily data error:", err);
-    return [];
+    throw err;
   }
 }

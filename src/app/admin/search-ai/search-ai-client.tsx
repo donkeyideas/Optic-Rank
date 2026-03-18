@@ -167,7 +167,7 @@ export function SearchAIAdminClient({ audit, ga4, gsc }: Props) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-serif text-2xl font-bold text-ink">Search & AI Analytics</h1>
-          <p className="text-sm text-ink-muted">
+          <p className="text-sm text-ink-muted" suppressHydrationWarning>
             Self-audit of {audit.siteUrl} &mdash; {audit.totalPages} pages crawled at{" "}
             {new Date(audit.crawledAt).toLocaleString()}
           </p>
