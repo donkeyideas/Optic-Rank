@@ -96,7 +96,7 @@ export function GenerateAllButton({ projectId }: GenerateAllButtonProps) {
         ) : (
           <Zap size={12} />
         )}
-        {isRunning ? "Generating..." : "Generate All AI"}
+        {isRunning ? "Syncing..." : "Sync All"}
       </button>
 
       {/* Live Progress Modal */}
@@ -109,7 +109,7 @@ export function GenerateAllButton({ projectId }: GenerateAllButtonProps) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {finished ? "AI Generation Complete" : "Generating AI Data..."}
+              {finished ? "Sync Complete" : "Syncing All Data..."}
             </DialogTitle>
             <DialogDescription>
               {finished ? (

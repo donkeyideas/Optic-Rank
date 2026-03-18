@@ -20,7 +20,7 @@ export default async function SettingsPage() {
     .from("profiles")
     .select("*")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
   if (!profile) {
     return (
@@ -45,7 +45,7 @@ export default async function SettingsPage() {
         .from("organizations")
         .select("*")
         .eq("id", profile.organization_id)
-        .single(),
+        .maybeSingle(),
       supabase
         .from("projects")
         .select("*")
@@ -109,7 +109,7 @@ export default async function SettingsPage() {
         .from("organizations")
         .select("features")
         .eq("id", profile.organization_id)
-        .single();
+        .maybeSingle();
 
       const features = (org?.features as Record<string, unknown>) ?? {};
 

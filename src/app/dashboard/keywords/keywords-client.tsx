@@ -529,6 +529,10 @@ export function KeywordsPageClient({
                               )}
                               {change > 0 ? `+${change}` : change}
                             </span>
+                          ) : kw.previous_position === null && kw.current_position !== null ? (
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+                              New
+                            </span>
                           ) : (
                             <span className="text-[13px] text-ink-muted">
                               &mdash;

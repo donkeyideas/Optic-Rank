@@ -75,7 +75,7 @@ Tabs.displayName = "Tabs";
 /* ------------------------------------------------------------------
    TabsList
    ------------------------------------------------------------------ */
-interface TabsListProps extends React.HTMLAttributes<HTMLDivElement> {}
+type TabsListProps = React.HTMLAttributes<HTMLDivElement>;
 
 const TabsList = React.forwardRef<HTMLDivElement, TabsListProps>(
   ({ className, ...props }, ref) => (
@@ -153,21 +153,24 @@ TabsTrigger.displayName = "TabsTrigger";
 interface TabsContentProps extends React.HTMLAttributes<HTMLDivElement> {
   /** The value that activates this content panel */
   value: string;
+  /** Keep mounted in DOM when inactive (preserves state) */
+  forceMount?: boolean;
 }
 
 const TabsContent = React.forwardRef<HTMLDivElement, TabsContentProps>(
-  ({ className, value, children, ...props }, ref) => {
+  ({ className, value, forceMount, children, ...props }, ref) => {
     const { activeTab } = useTabsContext();
     const isActive = activeTab === value;
 
-    if (!isActive) return null;
+    if (!isActive && !forceMount) return null;
 
     return (
       <div
         ref={ref}
         role="tabpanel"
-        tabIndex={0}
-        className={cn("mt-4 focus-visible:outline-none", className)}
+        tabIndex={isActive ? 0 : -1}
+        hidden={!isActive}
+        className={cn("mt-4 focus-visible:outline-none", !isActive && "hidden", className)}
         {...props}
       >
         {children}

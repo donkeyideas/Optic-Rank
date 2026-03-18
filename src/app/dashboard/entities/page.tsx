@@ -16,7 +16,7 @@ export default async function EntitiesPage() {
     .from("profiles")
     .select("organization_id")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
   if (!profile?.organization_id) {
     return (
@@ -36,7 +36,7 @@ export default async function EntitiesPage() {
     .eq("organization_id", profile.organization_id)
     .eq("is_active", true)
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (!project) {
     return (

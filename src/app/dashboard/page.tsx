@@ -18,6 +18,11 @@ import {
   getKeywordsWithRevenue,
   getCroStats,
 } from "@/lib/dal/optimization";
+import {
+  getAppStoreListings,
+  getAppReviews,
+} from "@/lib/dal/app-store";
+import { AppStoreDispatch } from "@/components/editorial/app-store-dispatch";
 
 /* ------------------------------------------------------------------
    Helpers
@@ -98,7 +103,7 @@ export default async function DashboardPage() {
     .from("profiles")
     .select("*")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
   if (!profile?.organization_id) {
     return <NoOrgState />;
@@ -111,7 +116,7 @@ export default async function DashboardPage() {
     .eq("organization_id", profile.organization_id)
     .eq("is_active", true)
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (!project) {
     return <NoProjectState />;
@@ -156,7 +161,7 @@ export default async function DashboardPage() {
     .eq("project_id", project.id)
     .order("created_at", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   // Top keyword rankings for center column (show ranked first, then unranked)
   const { data: rankedKeywords } = await supabase
@@ -188,16 +193,21 @@ export default async function DashboardPage() {
     .not("current_position", "is", null)
     .not("search_volume", "is", null);
 
-  // Advanced AI module stats + Optimization data (fetched in parallel)
-  const [visibilityStats, predictionStats, entityStats, conversionGoals] = await Promise.all([
+  // Advanced AI module stats + Optimization + App Store listings (fetched in parallel)
+  const [visibilityStats, predictionStats, entityStats, conversionGoals, appListings] = await Promise.all([
     getVisibilityStats(project.id),
     getPredictionStats(project.id),
     getEntityStats(project.id),
     getConversionGoals(project.id),
+    getAppStoreListings(project.id),
   ]);
 
-  // CRO revenue (depends on conversionGoals)
-  const kwWithRevenue = await getKeywordsWithRevenue(project.id, conversionGoals);
+  // Phase 2: CRO revenue + App Store reviews (depend on phase 1 results)
+  const appListingIds = appListings.map((l) => l.id);
+  const [kwWithRevenue, appReviews] = await Promise.all([
+    getKeywordsWithRevenue(project.id, conversionGoals),
+    getAppReviews(appListingIds),
+  ]);
   const croStats = await getCroStats(project.id, conversionGoals, kwWithRevenue);
 
   // Latest AI brief
@@ -207,7 +217,7 @@ export default async function DashboardPage() {
     .eq("project_id", project.id)
     .order("created_at", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   // ------------------------------------------------------------------
   // Compute headline stats from real data
@@ -364,6 +374,17 @@ export default async function DashboardPage() {
       color: "var(--color-editorial-gold)",
     },
   ];
+
+  // ------------------------------------------------------------------
+  // App Store summary stats
+  // ------------------------------------------------------------------
+
+  const appReviewSentiment = appListings.map((listing) => {
+    const listingReviews = appReviews.filter((r) => r.listing_id === listing.id);
+    const positive = listingReviews.filter((r) => r.sentiment === "positive").length;
+    const negative = listingReviews.filter((r) => r.sentiment === "negative").length;
+    return { listingId: listing.id, positive, negative, total: listingReviews.length };
+  });
 
   // ------------------------------------------------------------------
   // Render
@@ -543,6 +564,34 @@ export default async function DashboardPage() {
                 </div>
               )}
             </div>
+
+            {/* App Store Dispatch */}
+            <div>
+              <ColumnHeader
+                title="App Store Dispatch"
+                subtitle="ASO Intelligence & Rankings"
+              />
+              {appListings.length > 0 ? (
+                <AppStoreDispatch
+                  listings={appListings}
+                  reviewSentiment={appReviewSentiment}
+                />
+              ) : (
+                <div className="flex h-40 items-center justify-center border border-dashed border-rule bg-surface-raised">
+                  <div className="flex flex-col items-center gap-2 px-4 text-center">
+                    <span className="text-xs font-medium uppercase tracking-widest text-ink-muted">
+                      No apps tracked yet
+                    </span>
+                    <Link
+                      href="/dashboard/app-store"
+                      className="text-[11px] font-semibold uppercase tracking-[0.15em] text-editorial-red hover:opacity-70"
+                    >
+                      Track Your First App
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         }
         right={
@@ -717,13 +766,6 @@ export default async function DashboardPage() {
                 </Link>
               </div>
 
-              {/* CTA */}
-              <Link
-                href="/dashboard/advanced-ai"
-                className="mt-3 flex items-center justify-center border border-editorial-red bg-editorial-red/5 px-3 py-2 font-sans text-[10px] font-bold uppercase tracking-[0.15em] text-editorial-red transition-colors hover:bg-editorial-red hover:text-surface-cream"
-              >
-                Open AI Command Center &rarr;
-              </Link>
             </SidebarSection>
           </div>
         }
@@ -740,12 +782,6 @@ export default async function DashboardPage() {
               Conversion Rate Optimization &middot; Revenue Attribution
             </p>
           </div>
-          <Link
-            href="/dashboard/search-ai"
-            className="text-[10px] font-bold uppercase tracking-[0.15em] text-editorial-red hover:underline"
-          >
-            View All &rarr;
-          </Link>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -767,39 +803,43 @@ export default async function DashboardPage() {
             </span>
           </Link>
 
-          {/* Conversion Goals */}
+          {/* Avg. Position */}
           <Link
             href="/dashboard/search-ai"
             className="group border border-rule bg-surface-card px-4 py-3 transition-colors hover:bg-surface-raised"
           >
             <span className="block text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
-              Conversion Goals
+              Avg. Position
             </span>
             <span className="mt-1 block font-mono text-2xl font-bold text-ink">
-              {croStats.goalsCount > 0 ? croStats.goalsCount : "—"}
+              {croStats.avgPosition > 0 ? croStats.avgPosition : "—"}
             </span>
             <span className="mt-0.5 block text-[10px] text-ink-muted">
-              {croStats.goalsCount > 0
-                ? `${croStats.goalsCount} active goal${croStats.goalsCount !== 1 ? "s" : ""}`
-                : "Define your first goal"}
+              {croStats.avgPosition > 0
+                ? croStats.avgPosition <= 10
+                  ? "Page 1 average"
+                  : "Across tracked keywords"
+                : "No ranked keywords"}
             </span>
           </Link>
 
-          {/* Top Revenue Keywords */}
+          {/* Est. Traffic */}
           <Link
             href="/dashboard/search-ai"
             className="group border border-rule bg-surface-card px-4 py-3 transition-colors hover:bg-surface-raised"
           >
             <span className="block text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
-              Top Earners
+              Est. Traffic
             </span>
-            <span className="mt-1 block font-mono text-2xl font-bold text-ink">
-              {croStats.topKeywordsByRevenue > 0 ? croStats.topKeywordsByRevenue : "—"}
+            <span className="mt-1 block font-mono text-2xl font-bold text-editorial-green">
+              {croStats.estimatedTraffic > 0
+                ? croStats.estimatedTraffic.toLocaleString()
+                : "—"}
             </span>
             <span className="mt-0.5 block text-[10px] text-ink-muted">
-              {croStats.topKeywordsByRevenue > 0
-                ? "Keywords in top 5"
-                : "No ranked keywords yet"}
+              {croStats.estimatedTraffic > 0
+                ? "Monthly organic visits"
+                : "No traffic data yet"}
             </span>
           </Link>
 

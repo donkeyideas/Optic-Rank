@@ -18,19 +18,11 @@ import {
   Check,
   X,
   Zap,
-  Plus,
-  Trash2,
-  Loader2,
-  DollarSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  createConversionGoal,
-  deleteConversionGoal,
-} from "@/lib/actions/optimization";
 import {
   AreaChart,
   Area,
@@ -50,7 +42,7 @@ import {
 import type { GeoStats, GeoPageScore, CitationMatrixEntry, SchemaAuditData, CroStats, KeywordWithRevenue } from "@/lib/dal/optimization";
 import type { SnippetOpportunity, AnswerReadiness, VoiceSearchKeyword } from "@/lib/ai/aeo-analysis";
 import type { VisibilityStats } from "@/lib/dal/ai-visibility";
-import type { SiteAudit, ConversionGoal, AIVisibilityCheck } from "@/types";
+import type { SiteAudit, AIVisibilityCheck } from "@/types";
 
 /* ── Tabs ──────────────────────────────────────────────────────── */
 
@@ -124,7 +116,6 @@ interface SearchAIClientProps {
   schemaAudit: SchemaAuditData;
   totalKeywords: number;
   // CRO
-  conversionGoals: ConversionGoal[];
   keywordsWithRevenue: KeywordWithRevenue[];
   croStats: CroStats;
   // Crawl signals
@@ -313,12 +304,31 @@ export function SearchAIClient(props: SearchAIClientProps) {
   }, [props.aeoSignals, props.auditPages]);
 
   const croScore = useMemo(() => {
-    // Simple CRO score based on goals and revenue
-    if (props.keywords.length === 0) return 0;
-    const withPosition = props.keywords.filter((k) => k.current_position !== null && k.current_position <= 10).length;
-    const pct = Math.round((withPosition / props.keywords.length) * 100);
-    return Math.min(pct, 100);
-  }, [props.keywords]);
+    const kws = props.keywords;
+    if (kws.length === 0) return 0;
+
+    // 1. Position quality (0-40): weighted by how close keywords are to page 1
+    const ranked = kws.filter((k) => k.current_position != null && k.current_position > 0);
+    let positionScore = 0;
+    if (ranked.length > 0) {
+      const avgPos = ranked.reduce((s, k) => s + k.current_position!, 0) / ranked.length;
+      // avg position 1 = 40pts, 10 = 30pts, 20 = 20pts, 50 = 5pts, 100+ = 0
+      positionScore = avgPos <= 1 ? 40 : avgPos >= 100 ? 0 : Math.round(40 * (1 - (avgPos - 1) / 99));
+    }
+
+    // 2. Keyword coverage (0-20): % of keywords that have a tracked position
+    const coverageScore = Math.round((ranked.length / kws.length) * 20);
+
+    // 3. Revenue potential (0-25): based on estimated revenue relative to keyword count
+    const rev = props.croStats.estimatedMonthlyRevenue;
+    const revenueScore = rev > 0 ? Math.min(25, Math.round(Math.log10(rev + 1) * 10)) : 0;
+
+    // 4. Converting keywords (0-15): % of keywords generating estimated revenue
+    const kwConverting = props.keywordsWithRevenue.filter((k) => k.estimatedRevenue > 0).length;
+    const convertingScore = kws.length > 0 ? Math.round((kwConverting / kws.length) * 15) : 0;
+
+    return Math.min(100, positionScore + coverageScore + revenueScore + convertingScore);
+  }, [props.keywords, props.croStats, props.keywordsWithRevenue]);
 
   const overallScore = Math.round((seoScore + technicalScore + contentScore + geoScore + aeoScore + croScore) / 6);
 
@@ -412,10 +422,8 @@ export function SearchAIClient(props: SearchAIClientProps) {
       )}
       {activeTab === "cro" && (
         <CroTab
-          projectId={props.projectId}
           croScore={croScore}
           croStats={props.croStats}
-          conversionGoals={props.conversionGoals}
           keywordsWithRevenue={props.keywordsWithRevenue}
           keywords={props.keywords}
           contentPages={props.contentPages}
@@ -612,23 +620,23 @@ function SeoTab({
   contentPages: ContentPage[];
   schemaAudit: SchemaAuditData;
 }) {
-  // CWV aggregates
+  // CWV aggregates (coerce to Number — Supabase returns decimal columns as strings)
   const cwvStats = useMemo(() => {
     const withLcp = auditPages.filter((p) => p.lcp_ms !== null);
     const withCls = auditPages.filter((p) => p.cls !== null);
     const withInp = auditPages.filter((p) => p.inp_ms !== null);
-    const avgLcp = withLcp.length > 0 ? Math.round(withLcp.reduce((s, p) => s + (p.lcp_ms ?? 0), 0) / withLcp.length) : null;
-    const avgCls = withCls.length > 0 ? Math.round(withCls.reduce((s, p) => s + (p.cls ?? 0), 0) / withCls.length * 1000) / 1000 : null;
-    const avgInp = withInp.length > 0 ? Math.round(withInp.reduce((s, p) => s + (p.inp_ms ?? 0), 0) / withInp.length) : null;
-    const lcpGood = withLcp.filter((p) => (p.lcp_ms ?? 9999) <= 2500).length;
-    const clsGood = withCls.filter((p) => (p.cls ?? 1) <= 0.1).length;
-    const inpGood = withInp.filter((p) => (p.inp_ms ?? 9999) <= 200).length;
+    const avgLcp = withLcp.length > 0 ? Math.round(withLcp.reduce((s, p) => s + Number(p.lcp_ms ?? 0), 0) / withLcp.length) : null;
+    const avgCls = withCls.length > 0 ? Math.round(withCls.reduce((s, p) => s + Number(p.cls ?? 0), 0) / withCls.length * 1000) / 1000 : null;
+    const avgInp = withInp.length > 0 ? Math.round(withInp.reduce((s, p) => s + Number(p.inp_ms ?? 0), 0) / withInp.length) : null;
+    const lcpGood = withLcp.filter((p) => Number(p.lcp_ms ?? 9999) <= 2500).length;
+    const clsGood = withCls.filter((p) => Number(p.cls ?? 1) <= 0.1).length;
+    const inpGood = withInp.filter((p) => Number(p.inp_ms ?? 9999) <= 200).length;
     return { avgLcp, avgCls, avgInp, lcpGood, clsGood, inpGood, totalLcp: withLcp.length, totalCls: withCls.length, totalInp: withInp.length };
   }, [auditPages]);
 
-  // Content health
-  const published = contentPages.filter((p) => p.status === "published").length;
-  const drafts = contentPages.filter((p) => p.status !== "published").length;
+  // Content health (status is HTTP status code from audit_pages, e.g. "200")
+  const published = contentPages.filter((p) => p.status === "200" || p.status === "published").length;
+  const drafts = contentPages.length - published;
   const avgWordCount = contentPages.length > 0
     ? Math.round(contentPages.reduce((s, p) => s + (p.word_count ?? 0), 0) / contentPages.length)
     : 0;
@@ -1436,35 +1444,20 @@ function GeoTab({
    CRO TAB
    ================================================================ */
 
-const GOAL_TYPES = [
-  { value: "page_visit", label: "Page Visit" },
-  { value: "form_submit", label: "Form Submit" },
-  { value: "purchase", label: "Purchase" },
-  { value: "signup", label: "Signup" },
-  { value: "download", label: "Download" },
-  { value: "custom", label: "Custom" },
-];
 
 function CroTab({
-  projectId,
   croScore,
   croStats,
-  conversionGoals,
   keywordsWithRevenue,
   keywords,
   contentPages,
 }: {
-  projectId: string;
   croScore: number;
   croStats: CroStats;
-  conversionGoals: ConversionGoal[];
   keywordsWithRevenue: KeywordWithRevenue[];
   keywords: KeywordRow[];
   contentPages: ContentPage[];
 }) {
-  const [showGoalForm, setShowGoalForm] = useState(false);
-  const [isPending, startTransition] = useTransition();
-
   // Funnel data
   const totalKeywords = keywords.length;
   const ranking = keywords.filter((k) => k.current_position !== null && k.current_position <= 20).length;
@@ -1478,21 +1471,6 @@ function CroTab({
     (kw) => kw.currentPosition !== null && kw.currentPosition > 5
   );
 
-  const handleAddGoal = (formData: FormData) => {
-    startTransition(async () => {
-      await createConversionGoal(projectId, formData);
-      setShowGoalForm(false);
-      window.location.reload();
-    });
-  };
-
-  const handleDeleteGoal = (goalId: string) => {
-    startTransition(async () => {
-      await deleteConversionGoal(goalId);
-      window.location.reload();
-    });
-  };
-
   return (
     <div className="space-y-6">
       {/* CRO Score + Stats */}
@@ -1501,91 +1479,9 @@ function CroTab({
           <ScoreGauge score={croScore} label="CRO Score" size={140} strokeWidth={10} color="var(--color-editorial-gold)" />
           <div className="grid flex-1 grid-cols-2 gap-px border border-rule bg-rule md:grid-cols-3">
             <StatMini label="Est. Monthly Revenue" value={`$${croStats.estimatedMonthlyRevenue.toLocaleString()}`} color="border-editorial-green" />
-            <StatMini label="Conversion Goals" value={croStats.goalsCount} color="border-editorial-gold" />
+            <StatMini label="Keywords Converting" value={converting} color="border-editorial-gold" />
             <StatMini label="High-Value Gaps" value={croStats.highValueGaps} color="border-editorial-red" />
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Conversion Goals */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="font-serif text-lg">Conversion Goals</CardTitle>
-            <button
-              type="button"
-              onClick={() => setShowGoalForm(!showGoalForm)}
-              className="flex items-center gap-1 text-[11px] font-semibold text-editorial-red hover:underline"
-            >
-              <Plus size={12} />
-              Add Goal
-            </button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {showGoalForm && (
-            <form action={handleAddGoal} className="mb-4 border border-rule bg-surface-raised/50 p-4">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div>
-                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-ink-muted">Name</label>
-                  <input name="name" type="text" required placeholder="e.g. Newsletter Signup"
-                    className="w-full border border-rule bg-surface-card px-3 py-1.5 text-[12px] text-ink focus:border-editorial-red focus:outline-none" />
-                </div>
-                <div>
-                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-ink-muted">Type</label>
-                  <select name="goal_type" required
-                    className="w-full border border-rule bg-surface-card px-3 py-1.5 text-[12px] text-ink focus:border-editorial-red focus:outline-none">
-                    {GOAL_TYPES.map((t) => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-ink-muted">Value ($)</label>
-                  <input name="estimated_value" type="number" step="0.01" defaultValue="10"
-                    className="w-full border border-rule bg-surface-card px-3 py-1.5 text-[12px] text-ink focus:border-editorial-red focus:outline-none" />
-                </div>
-                <div>
-                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-ink-muted">Conv. Rate (%)</label>
-                  <input name="estimated_conversion_rate" type="number" step="0.001" defaultValue="0.02"
-                    className="w-full border border-rule bg-surface-card px-3 py-1.5 text-[12px] text-ink focus:border-editorial-red focus:outline-none" />
-                </div>
-              </div>
-              <div className="mt-3 flex gap-2">
-                <Button type="submit" variant="primary" size="sm" disabled={isPending}>
-                  {isPending ? <Loader2 size={12} className="mr-1 animate-spin" /> : null}
-                  Save Goal
-                </Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => setShowGoalForm(false)}>Cancel</Button>
-              </div>
-            </form>
-          )}
-
-          {conversionGoals.length > 0 ? (
-            <div className="divide-y divide-rule">
-              {conversionGoals.map((goal) => (
-                <div key={goal.id} className="flex items-center justify-between py-2.5">
-                  <div>
-                    <span className="text-sm font-semibold text-ink">{goal.name}</span>
-                    <span className="ml-2 text-[10px] uppercase text-ink-muted">{goal.goal_type.replace("_", " ")}</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-[11px] text-ink-muted">${Number(goal.estimated_value).toFixed(2)} / conv</span>
-                    <span className="text-[11px] text-ink-muted">{(Number(goal.estimated_conversion_rate) * 100).toFixed(1)}% rate</span>
-                    <button type="button" onClick={() => handleDeleteGoal(goal.id)} disabled={isPending}
-                      className="text-ink-muted transition-colors hover:text-editorial-red disabled:opacity-50">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="py-6 text-center">
-              <DollarSign size={24} className="mx-auto mb-2 text-ink-muted/30" />
-              <p className="text-[12px] text-ink-muted">No conversion goals set. Add goals to see revenue estimates.</p>
-            </div>
-          )}
         </CardContent>
       </Card>
 
@@ -1664,13 +1560,7 @@ function CroTab({
                 <tbody>
                   {opportunities.slice(0, 15).map((kw) => {
                     // Potential if moved to position 3 (11% CTR)
-                    const avgRate = conversionGoals.length > 0
-                      ? conversionGoals.reduce((s, g) => s + Number(g.estimated_conversion_rate), 0) / conversionGoals.length
-                      : 0.02;
-                    const avgValue = conversionGoals.length > 0
-                      ? conversionGoals.reduce((s, g) => s + Number(g.estimated_value), 0) / conversionGoals.length
-                      : 10;
-                    const potentialRev = kw.searchVolume * 0.11 * avgRate * avgValue;
+                    const potentialRev = kw.searchVolume * 0.11 * 0.02 * 10;
                     const gap = potentialRev - kw.estimatedRevenue;
 
                     return (

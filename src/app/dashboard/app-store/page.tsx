@@ -3,6 +3,17 @@ import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Smartphone } from "lucide-react";
 import { AppStoreClient } from "./app-store-client";
+import {
+  getAppStoreListings,
+  getAppStoreRankings,
+  getAppReviews,
+  getAppStoreCompetitors,
+  getAppStoreSnapshots,
+  getAppVersions,
+  getKeywordHistory,
+  getReviewTopics,
+  getLocalizations,
+} from "@/lib/dal/app-store";
 
 export default async function AppStorePage() {
   const supabase = await createClient();
@@ -15,7 +26,7 @@ export default async function AppStorePage() {
     .from("profiles")
     .select("organization_id")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
   if (!profile?.organization_id) {
     return (
@@ -35,7 +46,7 @@ export default async function AppStorePage() {
     .eq("organization_id", profile.organization_id)
     .eq("is_active", true)
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (!project) {
     return (
@@ -49,40 +60,36 @@ export default async function AppStorePage() {
     );
   }
 
-  // Fetch app store listings
-  const { data: listings } = await supabase
-    .from("app_store_listings")
-    .select("*")
-    .eq("project_id", project.id);
+  // Fetch all listings
+  const listings = await getAppStoreListings(project.id);
+  const listingIds = listings.map((l) => l.id);
 
-  // Fetch rankings and reviews for each listing
-  const listingIds = (listings ?? []).map((l) => l.id);
-  let rankings: Array<Record<string, unknown>> = [];
-  let reviews: Array<Record<string, unknown>> = [];
+  // Fetch all data in parallel
+  const [rankings, reviews, competitors, snapshots, versions, topics, localizations] = await Promise.all([
+    getAppStoreRankings(listingIds),
+    getAppReviews(listingIds),
+    getAppStoreCompetitors(listingIds),
+    getAppStoreSnapshots(listingIds, 90),
+    getAppVersions(listingIds),
+    getReviewTopics(listingIds),
+    getLocalizations(listingIds),
+  ]);
 
-  if (listingIds.length > 0) {
-    const [rankingsRes, reviewsRes] = await Promise.all([
-      supabase
-        .from("app_store_rankings")
-        .select("*")
-        .in("listing_id", listingIds)
-        .order("checked_at", { ascending: false }),
-      supabase
-        .from("app_store_reviews")
-        .select("*")
-        .in("listing_id", listingIds)
-        .order("review_date", { ascending: false })
-        .limit(50),
-    ]);
-    rankings = (rankingsRes.data as Array<Record<string, unknown>>) ?? [];
-    reviews = (reviewsRes.data as Array<Record<string, unknown>>) ?? [];
-  }
+  // Fetch keyword history for all rankings
+  const rankingIds = rankings.map((r) => r.id);
+  const keywordHistory = await getKeywordHistory(rankingIds, 30);
 
   return (
     <AppStoreClient
-      listings={listings ?? []}
+      listings={listings}
       rankings={rankings}
       reviews={reviews}
+      competitors={competitors}
+      snapshots={snapshots}
+      versions={versions}
+      keywordHistory={keywordHistory}
+      topics={topics}
+      localizations={localizations}
       projectId={project.id}
     />
   );

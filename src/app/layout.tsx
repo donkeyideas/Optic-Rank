@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Playfair_Display, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/shared/theme-provider";
+import { ToastProvider } from "@/components/shared/toast";
 import "./globals.css";
 
 /* ------------------------------------------------------------------
@@ -117,7 +118,9 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="min-h-screen bg-surface-cream font-sans text-ink antialiased">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export type GatedResource = "projects" | "keywords" | "pages_crawl" | "users";
+export type GatedResource = "projects" | "keywords" | "pages_crawl" | "users" | "social_profiles";
 
 export interface PlanLimitResult {
   allowed: boolean;
@@ -36,7 +36,7 @@ export async function checkPlanLimit(
   // Fetch org with plan limits
   const { data: org } = await supabase
     .from("organizations")
-    .select("plan, max_projects, max_keywords, max_pages_crawl, max_users")
+    .select("plan, max_projects, max_keywords, max_pages_crawl, max_users, max_social_profiles")
     .eq("id", orgId)
     .single();
 
@@ -111,6 +111,22 @@ export async function checkPlanLimit(
       current = count ?? 0;
       break;
     }
+    case "social_profiles": {
+      limit = org.max_social_profiles ?? 1;
+      const { data: projects } = await supabase
+        .from("projects")
+        .select("id")
+        .eq("organization_id", orgId);
+      if (projects && projects.length > 0) {
+        const projectIds = projects.map((p) => p.id);
+        const { count } = await supabase
+          .from("social_profiles")
+          .select("id", { count: "exact", head: true })
+          .in("project_id", projectIds);
+        current = count ?? 0;
+      }
+      break;
+    }
   }
 
   return {
@@ -127,11 +143,12 @@ export async function checkPlanLimit(
 export async function getUsageSummary(
   orgId: string
 ): Promise<Record<GatedResource, { current: number; limit: number }>> {
-  const [projects, keywords, pagesCrawl, users] = await Promise.all([
+  const [projects, keywords, pagesCrawl, users, socialProfiles] = await Promise.all([
     checkPlanLimit(orgId, "projects", 0),
     checkPlanLimit(orgId, "keywords", 0),
     checkPlanLimit(orgId, "pages_crawl", 0),
     checkPlanLimit(orgId, "users", 0),
+    checkPlanLimit(orgId, "social_profiles", 0),
   ]);
 
   return {
@@ -139,5 +156,6 @@ export async function getUsageSummary(
     keywords: { current: keywords.current, limit: keywords.limit },
     pages_crawl: { current: pagesCrawl.current, limit: pagesCrawl.limit },
     users: { current: users.current, limit: users.limit },
+    social_profiles: { current: socialProfiles.current, limit: socialProfiles.limit },
   };
 }

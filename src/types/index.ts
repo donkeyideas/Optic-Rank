@@ -333,6 +333,137 @@ export interface GeoRecommendation {
   description: string;
 }
 
+// --- Social Intelligence ---
+export type SocialPlatform = "instagram" | "tiktok" | "youtube" | "twitter" | "linkedin";
+
+export interface SocialProfile {
+  id: string;
+  project_id: string;
+  platform: SocialPlatform;
+  handle: string;
+  platform_user_id: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  followers_count: number;
+  following_count: number;
+  posts_count: number;
+  engagement_rate: number | null;
+  verified: boolean;
+  niche: string | null;
+  country: string | null;
+  last_synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SocialMetric {
+  id: string;
+  social_profile_id: string;
+  date: string;
+  followers: number | null;
+  following: number | null;
+  posts_count: number | null;
+  avg_likes: number | null;
+  avg_comments: number | null;
+  avg_shares: number | null;
+  avg_views: number | null;
+  engagement_rate: number | null;
+  top_post_url: string | null;
+  top_post_likes: number | null;
+  created_at: string;
+}
+
+export type SocialAnalysisType =
+  | "growth"
+  | "content_strategy"
+  | "hashtags"
+  | "competitors"
+  | "insights"
+  | "earnings_forecast"
+  | "thirty_day_plan";
+
+export interface SocialAnalysis {
+  id: string;
+  social_profile_id: string;
+  analysis_type: SocialAnalysisType;
+  result: Record<string, unknown>;
+  ai_provider: string | null;
+  tokens_used: number | null;
+  cost_cents: number | null;
+  expires_at: string | null;
+  created_at: string;
+}
+
+export interface SocialCompetitor {
+  id: string;
+  social_profile_id: string;
+  platform: string;
+  handle: string;
+  display_name: string | null;
+  followers_count: number | null;
+  engagement_rate: number | null;
+  avg_views: number | null;
+  niche: string | null;
+  last_synced_at: string | null;
+  created_at: string;
+}
+
+// Earnings Forecast (JSONB structure stored in social_analyses.result)
+export interface EarningsForecast {
+  scenarios: {
+    conservative: { monthly: number; annual: number };
+    realistic: { monthly: number; annual: number };
+    optimistic: { monthly: number; annual: number };
+  };
+  revenue_sources: {
+    source: string;
+    percentage: number;
+    estimated_monthly: number;
+  }[];
+  monetization_factors: {
+    factor: string;
+    score: number;
+    description: string;
+  }[];
+  unlock_actions: string[];
+  disclaimer: string;
+  generated_at: string;
+}
+
+// Growth Tip (JSONB structure in social_analyses.result for type=growth)
+export interface SocialGrowthTip {
+  title: string;
+  description: string;
+  priority: "high" | "medium" | "low";
+  estimated_impact: string;
+  category: "content" | "engagement" | "timing" | "profile" | "collaboration";
+}
+
+// Content Strategy (JSONB structure in social_analyses.result for type=content_strategy)
+export interface ContentStrategyDay {
+  day: string;
+  best_times: string[];
+  content_types: string[];
+  theme: string;
+}
+
+export interface ContentStrategy {
+  posting_frequency: string;
+  content_mix: { type: string; percentage: number }[];
+  weekly_schedule: ContentStrategyDay[];
+  tips: string[];
+}
+
+// Hashtag Recommendation (JSONB in social_analyses.result for type=hashtags)
+export interface HashtagRecommendation {
+  tag: string;
+  volume: "high" | "medium" | "low";
+  competition: "high" | "medium" | "low";
+  relevance: number;
+  category: string;
+}
+
 // --- CRO ---
 export type ConversionGoalType =
   | "page_visit"

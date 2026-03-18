@@ -45,3 +45,24 @@ export const registerWebhookSchema = z.object({
   url: z.string().url("Invalid webhook URL").startsWith("https://", "Webhook URL must use HTTPS"),
   events: z.array(z.string()).min(1, "Select at least one event"),
 });
+
+export const addSocialProfileSchema = z.object({
+  platform: z.enum(["instagram", "tiktok", "youtube", "twitter", "linkedin"]),
+  handle: z.string().min(1, "Handle is required").max(200),
+  display_name: z.string().max(100).optional(),
+  niche: z.string().max(100).optional(),
+  country: z.string().max(50).optional(),
+  bio: z.string().max(500).optional(),
+  followers_count: z.coerce.number().int().min(0).default(0),
+  following_count: z.coerce.number().int().min(0).default(0),
+  posts_count: z.coerce.number().int().min(0).default(0),
+  engagement_rate: z.coerce.number().min(0).max(100).optional(),
+});
+
+export const addSocialCompetitorSchema = z.object({
+  handle: z.string().min(1, "Handle is required").max(200),
+  display_name: z.string().max(100).optional(),
+  followers_count: z.coerce.number().int().min(0).optional(),
+  engagement_rate: z.coerce.number().min(0).max(100).optional(),
+  niche: z.string().max(100).optional(),
+});

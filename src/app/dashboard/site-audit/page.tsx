@@ -15,7 +15,7 @@ export default async function SiteAuditPage() {
     .from("profiles")
     .select("organization_id")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
   if (!profile?.organization_id) {
     return (
@@ -35,7 +35,7 @@ export default async function SiteAuditPage() {
     .eq("organization_id", profile.organization_id)
     .eq("is_active", true)
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (!project) {
     return (
@@ -56,7 +56,7 @@ export default async function SiteAuditPage() {
     .eq("project_id", project.id)
     .order("started_at", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   // Fetch issues and pages only if an audit exists
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -66,7 +66,7 @@ export default async function SiteAuditPage() {
 
   if (latestAudit) {
     const [issuesRes, pagesRes] = await Promise.all([
-      supabase.from("audit_issues").select("*").eq("audit_id", latestAudit.id),
+      supabase.from("audit_issues").select("*").eq("audit_id", latestAudit.id).not("category", "like", "%-signal"),
       supabase.from("audit_pages").select("*").eq("audit_id", latestAudit.id),
     ]);
     issues = issuesRes.data ?? [];

@@ -59,15 +59,18 @@ async function resolveAPIKeys(userId?: string): Promise<Map<string, string>> {
   const keys = new Map<string, string>();
   const supabase = createAdminClient();
 
-  // 1. Platform configs (system defaults)
+  // 1. Platform configs (system defaults) — only those with actual keys
   const { data: platformKeys } = await supabase
     .from("platform_api_configs")
     .select("provider, api_key")
-    .eq("is_active", true);
+    .eq("is_active", true)
+    .not("api_key", "is", null);
 
   if (platformKeys) {
     for (const pk of platformKeys) {
-      keys.set(pk.provider, pk.api_key);
+      if (pk.api_key && pk.api_key.trim().length > 0) {
+        keys.set(pk.provider, pk.api_key);
+      }
     }
   }
 
@@ -179,7 +182,10 @@ async function checkOpenAI(
     signal: AbortSignal.timeout(30000),
   });
 
-  if (!response.ok) throw new Error(`OpenAI API ${response.status}`);
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`OpenAI API ${response.status}: ${body.slice(0, 200)}`);
+  }
   const data = await response.json();
   const text = data.choices?.[0]?.message?.content || "";
   return buildResult("openai", query, text, brand, domain);
@@ -203,7 +209,10 @@ async function checkAnthropic(
     signal: AbortSignal.timeout(30000),
   });
 
-  if (!response.ok) throw new Error(`Anthropic API ${response.status}`);
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`Anthropic API ${response.status}: ${body.slice(0, 200)}`);
+  }
   const data = await response.json();
   const text = data.content?.[0]?.text || "";
   return buildResult("anthropic", query, text, brand, domain);
@@ -213,7 +222,7 @@ async function checkGemini(
   apiKey: string, query: string, brand: string, domain: string
 ): Promise<LLMVisibilityResult> {
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -225,7 +234,10 @@ async function checkGemini(
     }
   );
 
-  if (!response.ok) throw new Error(`Gemini API ${response.status}`);
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`Gemini API ${response.status}: ${body.slice(0, 200)}`);
+  }
   const data = await response.json();
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
   return buildResult("gemini", query, text, brand, domain);
@@ -248,7 +260,10 @@ async function checkPerplexity(
     signal: AbortSignal.timeout(30000),
   });
 
-  if (!response.ok) throw new Error(`Perplexity API ${response.status}`);
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`Perplexity API ${response.status}: ${body.slice(0, 200)}`);
+  }
   const data = await response.json();
   const text = data.choices?.[0]?.message?.content || "";
   return buildResult("perplexity", query, text, brand, domain);
@@ -271,7 +286,10 @@ async function checkDeepSeek(
     signal: AbortSignal.timeout(30000),
   });
 
-  if (!response.ok) throw new Error(`DeepSeek API ${response.status}`);
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`DeepSeek API ${response.status}: ${body.slice(0, 200)}`);
+  }
   const data = await response.json();
   const text = data.choices?.[0]?.message?.content || "";
   return buildResult("deepseek", query, text, brand, domain);
@@ -328,14 +346,18 @@ export async function checkLLMVisibility(
           });
           return result;
         } catch (err) {
+          // Extract actual HTTP status from error message (e.g. "Gemini API 404: ...")
+          const errMsg = err instanceof Error ? err.message : String(err);
+          const statusMatch = errMsg.match(/\b([45]\d{2})\b/);
+          const statusCode = statusMatch ? parseInt(statusMatch[1], 10) : 500;
           logAPICall({
             provider,
             endpoint: "/chat/completions",
             method: "POST",
-            status_code: 500,
+            status_code: statusCode,
             response_time_ms: Date.now() - start,
             is_success: false,
-            error_message: err instanceof Error ? err.message : String(err),
+            error_message: errMsg,
             metadata: { module: "llm-visibility", keyword },
           });
           throw err;

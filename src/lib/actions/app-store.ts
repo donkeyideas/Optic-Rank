@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { aiChat } from "@/lib/ai/ai-provider";
-import { fetchAppData, fetchGooglePlayReviews } from "@/lib/app-store/fetcher";
+import { fetchAppData, fetchGooglePlayReviews, batchCheckKeywordRankings } from "@/lib/app-store/fetcher";
+import { trackVersionChange, recordSnapshot } from "@/lib/actions/app-store-versions";
 
 /**
  * Add a new app store listing to a project.
@@ -93,7 +94,7 @@ export async function refreshAppListing(
 
   const { data: listing } = await supabase
     .from("app_store_listings")
-    .select("id, store, app_id")
+    .select("id, store, app_id, current_version")
     .eq("id", listingId)
     .single();
 
@@ -105,6 +106,13 @@ export async function refreshAppListing(
   );
 
   if (!storeData) return { error: "Could not fetch data from the store. Check the app ID." };
+
+  // Detect version change before updating
+  const oldVersion = listing.current_version as string | null;
+  const newVersion = storeData.current_version;
+  if (newVersion && newVersion !== oldVersion) {
+    await trackVersionChange(listingId, newVersion);
+  }
 
   await supabase.from("app_store_listings").update({
     app_name: storeData.app_name,
@@ -119,6 +127,9 @@ export async function refreshAppListing(
     description: storeData.description,
     last_updated: new Date().toISOString(),
   }).eq("id", listingId);
+
+  // Record daily snapshot for trend tracking
+  await recordSnapshot(listingId);
 
   // Refresh reviews for Google Play
   if (listing.store === "google") {
@@ -374,7 +385,7 @@ Return ONLY a JSON array of 3 recommendation strings. Example: ["Recommendation 
  */
 export async function generateAppKeywords(
   listingId: string
-): Promise<{ error: string } | { success: true; keywords: string[] }> {
+): Promise<{ error: string } | { success: true; keywords: string[]; rankings: Array<{ id: string; listing_id: string; keyword: string; position: number | null; country: string; difficulty: number | null; search_volume: number | null; checked_at: string }> }> {
   const userClient = await createClient();
   const { data: { user } } = await userClient.auth.getUser();
   if (!user) return { error: "Not authenticated." };
@@ -383,13 +394,13 @@ export async function generateAppKeywords(
 
   const { data: listing } = await supabase
     .from("app_store_listings")
-    .select("app_name, store, category, description")
+    .select("app_id, app_name, store, category, description")
     .eq("id", listingId)
     .single();
 
   if (!listing) return { error: "Listing not found." };
 
-  const prompt = `You are an ASO (App Store Optimization) expert. Generate 15 app store keywords for this app:
+  const prompt = `You are an ASO (App Store Optimization) expert. Generate 15 app store keywords for this app.
 
 App Name: "${listing.app_name}"
 Store: ${listing.store === "apple" ? "Apple App Store" : "Google Play"}
@@ -402,25 +413,50 @@ Generate keywords that:
 - Include competitor app names if applicable
 - Focus on high-intent search terms
 
-Return ONLY a JSON array of keyword strings.`;
+For each keyword, estimate:
+- search_volume: monthly searches (integer, e.g. 10000, 500, 50000)
+- difficulty: competition score 0-100 (0=easy, 100=hardest)
+
+Return ONLY a JSON array of objects: [{"keyword": "...", "volume": 1000, "difficulty": 45}, ...]`;
 
   const result = await aiChat(prompt, { temperature: 0.7, maxTokens: 500 });
 
-  let keywords: string[] = [];
+  interface KeywordData {
+    keyword: string;
+    volume: number | null;
+    difficulty: number | null;
+  }
+
+  let keywordData: KeywordData[] = [];
 
   if (result?.text) {
     try {
       const match = result.text.match(/\[[\s\S]*?\]/);
-      if (match) keywords = JSON.parse(match[0]) as string[];
+      if (match) {
+        const parsed = JSON.parse(match[0]);
+        if (Array.isArray(parsed)) {
+          keywordData = parsed.map((item: unknown) => {
+            if (typeof item === "string") {
+              return { keyword: item, volume: null, difficulty: null };
+            }
+            const obj = item as Record<string, unknown>;
+            return {
+              keyword: String(obj.keyword ?? obj.term ?? ""),
+              volume: typeof obj.volume === "number" ? obj.volume : (typeof obj.search_volume === "number" ? obj.search_volume : null),
+              difficulty: typeof obj.difficulty === "number" ? obj.difficulty : null,
+            };
+          }).filter((d: KeywordData) => d.keyword.length > 0);
+        }
+      }
     } catch { /* parse error */ }
   }
 
   // Heuristic fallback
-  if (keywords.length === 0) {
+  if (keywordData.length === 0) {
     const name = listing.app_name.toLowerCase();
     const words = name.split(/\s+/).filter((w: string) => w.length > 2);
     const cat = (listing.category ?? "app").toLowerCase();
-    keywords = [
+    const fallbackKws = [
       ...words,
       `best ${cat}`,
       `${cat} app`,
@@ -431,19 +467,111 @@ Return ONLY a JSON array of keyword strings.`;
       `${cat} tool`,
       `${cat} for ${listing.store === "apple" ? "iphone" : "android"}`,
     ].slice(0, 15);
+    keywordData = fallbackKws.map((kw) => ({ keyword: kw, volume: null, difficulty: null }));
   }
 
-  // Insert keywords as rankings
+  // Check actual ranking positions by searching the store for each keyword
+  const store = listing.store as "apple" | "google";
+  const appId = listing.app_id as string;
+  const kwStrings = keywordData.map((d) => d.keyword.trim().toLowerCase());
+  const positionMap = await batchCheckKeywordRankings(store, appId, kwStrings);
+
+  // Insert keywords as rankings with position, volume, and difficulty
   let added = 0;
-  for (const kw of keywords) {
+  for (const kd of keywordData) {
+    const clean = kd.keyword.trim().toLowerCase();
+    if (!clean) continue;
+    const position = positionMap.get(clean) ?? null;
+
     const { error } = await supabase.from("app_store_rankings").insert({
       listing_id: listingId,
-      keyword: kw.trim().toLowerCase(),
+      keyword: clean,
       country: "US",
+      position,
+      search_volume: kd.volume,
+      difficulty: kd.difficulty,
     });
     if (!error) added++;
   }
 
+  // Read back the inserted rankings so the client can display them immediately
+  const { data: insertedRankings } = await supabase
+    .from("app_store_rankings")
+    .select("id, listing_id, keyword, position, country, difficulty, search_volume, checked_at")
+    .eq("listing_id", listingId)
+    .order("checked_at", { ascending: false });
+
   revalidatePath("/dashboard/app-store");
-  return { success: true, keywords: keywords.slice(0, added) };
+  return {
+    success: true,
+    keywords: kwStrings.slice(0, added),
+    rankings: (insertedRankings ?? []).map((r) => ({
+      ...r,
+      difficulty: r.difficulty ?? null,
+      search_volume: r.search_volume ?? null,
+    })) as Array<{
+      id: string;
+      listing_id: string;
+      keyword: string;
+      position: number | null;
+      country: string;
+      difficulty: number | null;
+      search_volume: number | null;
+      checked_at: string;
+    }>,
+  };
+}
+
+/**
+ * Refresh ranking positions for all tracked keywords of a listing.
+ * Re-searches the store for each keyword and updates position.
+ */
+export async function refreshKeywordRankings(
+  listingId: string
+): Promise<{ error: string } | { success: true; updated: number }> {
+  const userClient = await createClient();
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
+  const supabase = createAdminClient();
+
+  const { data: listing } = await supabase
+    .from("app_store_listings")
+    .select("app_id, store")
+    .eq("id", listingId)
+    .single();
+
+  if (!listing) return { error: "Listing not found." };
+
+  // Get all unique keywords for this listing
+  const { data: rankings } = await supabase
+    .from("app_store_rankings")
+    .select("id, keyword")
+    .eq("listing_id", listingId);
+
+  if (!rankings || rankings.length === 0) return { error: "No keywords to refresh." };
+
+  // Deduplicate keywords
+  const uniqueKeywords = [...new Set(rankings.map((r) => r.keyword))];
+
+  // Check positions in the store
+  const positionMap = await batchCheckKeywordRankings(
+    listing.store as "apple" | "google",
+    listing.app_id as string,
+    uniqueKeywords
+  );
+
+  // Update all rankings with new positions
+  let updated = 0;
+  for (const r of rankings) {
+    const position = positionMap.get(r.keyword) ?? null;
+    const { error } = await supabase
+      .from("app_store_rankings")
+      .update({ position, checked_at: new Date().toISOString() })
+      .eq("id", r.id);
+    if (!error) updated++;
+  }
+
+  revalidatePath("/dashboard/app-store");
+  return { success: true, updated };
 }

@@ -48,6 +48,7 @@ import {
   addCalendarEntry,
   updateCalendarEntryStatus,
   deleteCalendarEntry,
+  generateContentBriefs,
 } from "@/lib/actions/content";
 
 /* ------------------------------------------------------------------
@@ -60,9 +61,10 @@ interface ContentPage {
   url?: string | null;
   title?: string | null;
   content_score?: number | null;
-  traffic?: number | null;
+  organic_traffic?: number | null;
   word_count?: number | null;
-  last_updated?: string | null;
+  last_modified?: string | null;
+  updated_at?: string | null;
   status?: string | null;
   decay_risk?: string | null;
   cannibalization_group?: string | null;
@@ -158,9 +160,11 @@ export function ContentClient({
   const [decayMsg, setDecayMsg] = useState<string | null>(null);
   const [cannibalMsg, setCannibalMsg] = useState<string | null>(null);
   const [linksMsg, setLinksMsg] = useState<string | null>(null);
+  const [briefsMsg, setBriefsMsg] = useState<string | null>(null);
   const [isRunningDecay, setIsRunningDecay] = useState(false);
   const [isRunningCannibal, setIsRunningCannibal] = useState(false);
   const [isRunningLinks, setIsRunningLinks] = useState(false);
+  const [isRunningBriefs, setIsRunningBriefs] = useState(false);
 
   function handleAddContent(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -349,7 +353,7 @@ export function ContentClient({
                   <TableRow>
                     <TableHead>Page</TableHead>
                     <TableHead>Score</TableHead>
-                    <TableHead>Traffic</TableHead>
+                    <TableHead>Est. Traffic</TableHead>
                     <TableHead>Words</TableHead>
                     <TableHead>Updated</TableHead>
                     <TableHead>Status</TableHead>
@@ -375,9 +379,9 @@ export function ContentClient({
                             </div>
                           ) : <span className="text-ink-muted">---</span>}
                         </TableCell>
-                        <TableCell>{page.traffic != null ? page.traffic.toLocaleString() : "---"}</TableCell>
+                        <TableCell>{page.organic_traffic != null ? page.organic_traffic.toLocaleString() : "---"}</TableCell>
                         <TableCell>{page.word_count != null ? page.word_count.toLocaleString() : "---"}</TableCell>
-                        <TableCell className="font-mono text-xs text-ink-muted">{page.last_updated ?? "---"}</TableCell>
+                        <TableCell className="font-mono text-xs text-ink-muted">{page.last_modified ? new Date(page.last_modified).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : page.updated_at ? new Date(page.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "---"}</TableCell>
                         <TableCell>
                           <select
                             value={page.status ?? "published"}
@@ -426,7 +430,7 @@ export function ContentClient({
                 <TableRow>
                   <TableHead>Page</TableHead>
                   <TableHead>Risk Level</TableHead>
-                  <TableHead>Traffic</TableHead>
+                  <TableHead>Est. Traffic</TableHead>
                   <TableHead>Last Updated</TableHead>
                 </TableRow>
               </TableHeader>
@@ -442,8 +446,8 @@ export function ContentClient({
                         </div>
                       </TableCell>
                       <TableCell><Badge variant={db.variant}>{db.label}</Badge></TableCell>
-                      <TableCell>{page.traffic != null ? page.traffic.toLocaleString() : "---"}</TableCell>
-                      <TableCell className="font-mono text-xs text-ink-muted">{page.last_updated ?? "---"}</TableCell>
+                      <TableCell>{page.organic_traffic != null ? page.organic_traffic.toLocaleString() : "---"}</TableCell>
+                      <TableCell className="font-mono text-xs text-ink-muted">{page.last_modified ? new Date(page.last_modified).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : page.updated_at ? new Date(page.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "---"}</TableCell>
                     </TableRow>
                   );
                 })}
@@ -578,15 +582,36 @@ export function ContentClient({
 
         {/* ── Briefs Tab ── */}
         <TabsContent value="briefs">
-          {contentBriefs.length === 0 ? (
-            <EmptyState icon={Lightbulb} title="No Content Briefs" description="Content briefs will appear here as AI generates recommendations based on your competitive landscape." />
-          ) : (
+          <div className="mb-4 flex items-center justify-between">
+            <p className="font-sans text-sm text-ink-secondary">AI-generated content briefs based on your tracked keywords.</p>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isRunningBriefs}
+              onClick={() => {
+                setIsRunningBriefs(true);
+                setBriefsMsg(null);
+                startTransition(async () => {
+                  const r = await generateContentBriefs(projectId);
+                  setBriefsMsg("error" in r ? `Error: ${r.error}` : `Generated ${r.generated} brief(s).`);
+                  setIsRunningBriefs(false);
+                });
+              }}
+            >
+              {isRunningBriefs ? <Loader2 size={12} className="mr-1.5 animate-spin" /> : <Lightbulb size={12} className="mr-1.5" />}
+              Generate Briefs
+            </Button>
+          </div>
+          {briefsMsg && <div className="mb-3 border border-rule bg-surface-raised px-3 py-2 text-[12px] text-ink-secondary">{briefsMsg}</div>}
+          {contentBriefs.length === 0 && !briefsMsg ? (
+            <EmptyState icon={Lightbulb} title="No Content Briefs" description="Click 'Generate Briefs' to create AI-powered content recommendations from your tracked keywords." />
+          ) : contentBriefs.length === 0 ? null : (
             <div className="flex flex-col gap-0">
               {contentBriefs.map((brief, i) => (
                 <div key={brief.id} className={`flex items-start gap-4 py-4 ${i < contentBriefs.length - 1 ? "border-b border-rule" : ""}`}>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <h4 className="font-serif text-[15px] font-bold text-ink">{brief.topic ?? "Untitled Brief"}</h4>
+                      <h4 className="font-serif text-[15px] font-bold text-ink">{brief.target_keyword ?? brief.topic ?? "Untitled Brief"}</h4>
                       {brief.status === "generating" && <Badge variant="info">Generating</Badge>}
                       {brief.status === "draft" && <Badge variant="muted">Draft</Badge>}
                       {brief.status === "ready" && <Badge variant="success">Ready</Badge>}

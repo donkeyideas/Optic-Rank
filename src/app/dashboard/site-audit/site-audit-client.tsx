@@ -183,10 +183,13 @@ const categoryConfig: Record<IssueCategory, { label: string; icon: typeof Search
   security: { label: "Security", icon: Lock },
 };
 
+const defaultSeverity = { label: "Info", variant: "info" as const, icon: Info, color: "text-ink-muted" };
+const defaultCategory = { label: "Other", icon: Info };
+
 function IssueCard({ issue }: { issue: AuditIssue }) {
   const [expanded, setExpanded] = useState(false);
-  const severity = severityConfig[issue.severity];
-  const category = categoryConfig[issue.category];
+  const severity = severityConfig[issue.severity] ?? defaultSeverity;
+  const category = categoryConfig[issue.category] ?? defaultCategory;
   const SeverityIcon = severity.icon;
   const CategoryIcon = category.icon;
 

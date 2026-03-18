@@ -57,6 +57,8 @@ export interface CroStats {
   goalsCount: number;
   topKeywordsByRevenue: number;
   highValueGaps: number;
+  avgPosition: number;
+  estimatedTraffic: number;
 }
 
 export interface KeywordWithRevenue {
@@ -367,10 +369,31 @@ export async function getCroStats(
     (kw) => kw.currentPosition !== null && kw.currentPosition <= 5
   ).length;
 
+  // Average position across all ranked keywords
+  const rankedKeywords = keywordsWithRevenue.filter(
+    (kw) => kw.currentPosition !== null && kw.currentPosition > 0
+  );
+  const avgPosition =
+    rankedKeywords.length > 0
+      ? Math.round(
+          (rankedKeywords.reduce((s, kw) => s + kw.currentPosition!, 0) /
+            rankedKeywords.length) *
+            10
+        ) / 10
+      : 0;
+
+  // Total estimated monthly organic traffic
+  const estimatedTraffic = keywordsWithRevenue.reduce(
+    (sum, kw) => sum + kw.estimatedTraffic,
+    0
+  );
+
   return {
     estimatedMonthlyRevenue: Math.round(estimatedMonthlyRevenue),
     goalsCount: goals.length,
     topKeywordsByRevenue,
     highValueGaps,
+    avgPosition,
+    estimatedTraffic,
   };
 }

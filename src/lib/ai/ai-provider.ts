@@ -2,6 +2,10 @@
  * Unified AI provider that reads API keys from platform_api_configs.
  * Priority: User keys (if provided) > DeepSeek > Gemini > env vars.
  * Provides a single aiChat() function for all AI modules.
+ *
+ * User API key resolution: If the caller doesn't pass an explicit userId,
+ * aiChat() will attempt to auto-resolve the current user from the Next.js
+ * auth context so that user-configured API keys are always applied.
  */
 
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -88,14 +92,37 @@ async function getUserAIConfigs(userId: string): Promise<AIConfig[]> {
 const PROVIDER_ORDER = ["deepseek", "openai", "anthropic", "gemini"] as const;
 
 /**
+ * Auto-resolve the current user ID from the Next.js auth context.
+ * This allows aiChat() to use user-configured API keys automatically
+ * without every caller needing to pass userId explicitly.
+ */
+async function resolveCurrentUserId(): Promise<string | null> {
+  try {
+    const { createClient } = await import("@/lib/supabase/server");
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    return user?.id ?? null;
+  } catch {
+    // Not in a request context (e.g. cron job, edge function) — skip
+    return null;
+  }
+}
+
+/**
  * Send a chat completion request to the best available AI provider.
  * Priority: User keys > DeepSeek (from DB) > Gemini (from DB) > env var fallbacks.
+ *
+ * If userId is not passed, it is auto-resolved from the current auth context
+ * so user-configured API keys are always applied when available.
  */
 export async function aiChat(
   prompt: string,
   options: { temperature?: number; maxTokens?: number; timeout?: number; userId?: string } = {}
 ): Promise<AIResponse | null> {
-  const { temperature = 0.7, maxTokens = 1024, timeout = 60000, userId } = options;
+  const { temperature = 0.7, maxTokens = 1024, timeout = 60000 } = options;
+
+  // Resolve userId: explicit > auto-resolved from auth context
+  const userId = options.userId ?? await resolveCurrentUserId();
 
   // Merge user configs on top of platform configs
   const platformConfigs = await getAIConfigs();
@@ -151,14 +178,17 @@ export async function aiChat(
 
       if (callResult.text) return { text: callResult.text, provider: providerName };
     } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const statusMatch = errMsg.match(/\b([45]\d{2})\b/);
+      const statusCode = statusMatch ? parseInt(statusMatch[1], 10) : 500;
       logAPICall({
         provider: providerName,
         endpoint: "/chat/completions",
         method: "POST",
-        status_code: 500,
+        status_code: statusCode,
         response_time_ms: Date.now() - start,
         is_success: false,
-        error_message: err instanceof Error ? err.message : String(err),
+        error_message: errMsg,
       });
       console.error(`[aiChat] ${providerName} error:`, err);
     }
@@ -251,7 +281,7 @@ async function callGemini(
   maxTokens: number,
   timeout: number = 60000
 ): Promise<AICallResult> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
   const response = await fetch(url, {
     method: "POST",
@@ -264,7 +294,8 @@ async function callGemini(
   });
 
   if (!response.ok) {
-    throw new Error(`Gemini API error: ${response.status}`);
+    const body = await response.text().catch(() => "");
+    throw new Error(`Gemini API error ${response.status}: ${body.slice(0, 200)}`);
   }
 
   const data = await response.json();
