@@ -23,6 +23,7 @@ import {
   getAppReviews,
 } from "@/lib/dal/app-store";
 import { AppStoreDispatch } from "@/components/editorial/app-store-dispatch";
+import { getSocialProfiles } from "@/lib/dal/social-intelligence";
 
 /* ------------------------------------------------------------------
    Helpers
@@ -193,13 +194,14 @@ export default async function DashboardPage() {
     .not("current_position", "is", null)
     .not("search_volume", "is", null);
 
-  // Advanced AI module stats + Optimization + App Store listings (fetched in parallel)
-  const [visibilityStats, predictionStats, entityStats, conversionGoals, appListings] = await Promise.all([
+  // Advanced AI module stats + Optimization + App Store listings + Social (fetched in parallel)
+  const [visibilityStats, predictionStats, entityStats, conversionGoals, appListings, socialProfiles] = await Promise.all([
     getVisibilityStats(project.id),
     getPredictionStats(project.id),
     getEntityStats(project.id),
     getConversionGoals(project.id),
     getAppStoreListings(project.id),
+    getSocialProfiles(project.id),
   ]);
 
   // Phase 2: CRO revenue + App Store reviews (depend on phase 1 results)
@@ -213,7 +215,7 @@ export default async function DashboardPage() {
   // Latest AI brief
   const { data: latestBrief } = await supabase
     .from("ai_briefs")
-    .select("id, title, brief_type, created_at")
+    .select("id, title, summary, brief_type, created_at")
     .eq("project_id", project.id)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -427,10 +429,64 @@ export default async function DashboardPage() {
                 </div>
               </div>
             )}
+
+            {/* Social Intelligence — editorial story */}
+            {(() => {
+              if (socialProfiles.length === 0) return null;
+
+              const fmtCount = (n: number) =>
+                n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M`
+                : n >= 1_000 ? `${(n / 1_000).toFixed(1)}K`
+                : n.toLocaleString();
+
+              const totalFollowers = socialProfiles.reduce((s, p) => s + p.followers_count, 0);
+              const topProfile = [...socialProfiles].sort((a, b) => b.followers_count - a.followers_count)[0];
+              const platformNames: Record<string, string> = {
+                instagram: "Instagram", tiktok: "TikTok", youtube: "YouTube",
+                twitter: "X (Twitter)", linkedin: "LinkedIn",
+              };
+
+              return (
+                <article className="flex flex-col gap-2 border-t border-rule py-4">
+                  <span className="font-sans text-[9px] font-bold uppercase tracking-[0.15em] text-editorial-red">
+                    Social Intelligence
+                  </span>
+                  <h3 className="font-serif text-[16px] font-bold leading-snug text-ink">
+                    {fmtCount(totalFollowers)} Combined Reach Across {socialProfiles.length} Profile{socialProfiles.length !== 1 ? "s" : ""}
+                  </h3>
+                  <p className="font-sans text-[13px] leading-relaxed text-ink-secondary">
+                    Your largest audience is on {platformNames[topProfile.platform] ?? topProfile.platform} with @{topProfile.handle} at {fmtCount(topProfile.followers_count)} followers.
+                    {socialProfiles.length > 1 && ` You are active on ${socialProfiles.map((p) => platformNames[p.platform] ?? p.platform).join(", ")}.`}
+                  </p>
+                </article>
+              );
+            })()}
           </div>
         }
         center={
           <div className="flex flex-col gap-6">
+            {/* AI Brief — On-Demand Headline */}
+            {latestBrief && (
+              <Link
+                href="/dashboard/advanced-ai"
+                className="group border-b-2 border-rule-dark pb-4"
+              >
+                <h2 className="font-serif text-2xl font-bold leading-snug text-ink group-hover:text-editorial-red transition-colors">
+                  {latestBrief.title}
+                </h2>
+                {latestBrief.summary && (
+                  <p className="mt-2 font-serif text-[14px] italic leading-relaxed text-ink-secondary">
+                    {latestBrief.summary.length > 200
+                      ? `${latestBrief.summary.slice(0, 200)}…`
+                      : latestBrief.summary}
+                  </p>
+                )}
+                <span className="mt-2 inline-block text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted group-hover:text-editorial-red transition-colors">
+                  Read Full Brief &rarr;
+                </span>
+              </Link>
+            )}
+
             {/* Organic Traffic Trend */}
             <div>
               <ColumnHeader
@@ -592,6 +648,7 @@ export default async function DashboardPage() {
                 </div>
               )}
             </div>
+
           </div>
         }
         right={
@@ -767,6 +824,7 @@ export default async function DashboardPage() {
               </div>
 
             </SidebarSection>
+
           </div>
         }
       />

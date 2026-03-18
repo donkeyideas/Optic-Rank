@@ -1,7 +1,6 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { ArrowRight } from "lucide-react";
 import type { AIInsight } from "@/types";
 
 export interface AIStoryProps {
@@ -54,21 +53,6 @@ export function AIStory({
         {insight.description}
       </p>
 
-      {/* Action link */}
-      {insight.action_label && (
-        <button
-          type="button"
-          onClick={() => onAction?.(insight)}
-          className={cn(
-            "mt-1 inline-flex items-center gap-1 self-start",
-            "font-sans text-[11px] font-semibold uppercase tracking-[0.15em] text-editorial-red",
-            "transition-opacity hover:opacity-70",
-          )}
-        >
-          {insight.action_label}
-          <ArrowRight size={11} strokeWidth={2.5} />
-        </button>
-      )}
     </article>
   );
 }

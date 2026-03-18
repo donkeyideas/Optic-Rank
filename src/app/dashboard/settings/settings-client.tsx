@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import {
   Settings,
   FolderKanban,
@@ -17,6 +17,16 @@ import {
   Check,
   CreditCard,
   Key,
+  Instagram,
+  Youtube,
+  Linkedin,
+  Hash,
+  Target,
+  Globe,
+  Smartphone,
+  Search,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { ColumnHeader } from "@/components/editorial/column-header";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -41,6 +51,7 @@ import {
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { createProject, deleteProject } from "@/lib/actions/projects";
+import { lookupSocialProfile } from "@/lib/actions/social-intelligence";
 import { updateProfileSettings, updateOrganizationSettings, createOrganization } from "@/lib/actions/settings";
 import {
   saveUserApiKey,
@@ -216,7 +227,72 @@ export function SettingsClient({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  // Add Project form — expanded sections
+  const [showAppSection, setShowAppSection] = useState(false);
+  const [showSocialSection, setShowSocialSection] = useState(false);
+  const [lookingUp, setLookingUp] = useState<string | null>(null);
+  const [socialLookupData, setSocialLookupData] = useState<Record<string, Record<string, string | number | null>>>({});
+  const [socialLookupMsg, setSocialLookupMsg] = useState<Record<string, string>>({});
+  const addProjectFormRef = useRef<HTMLFormElement>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Social profile lookup in Add Project form
+  async function handleSocialLookup(platform: string) {
+    const form = addProjectFormRef.current;
+    if (!form) return;
+    const input = form.querySelector<HTMLInputElement>(`[name="social_${platform}"]`);
+    const handle = input?.value?.trim();
+    if (!handle) return;
+    setLookingUp(platform);
+    setSocialLookupMsg((prev) => ({ ...prev, [platform]: "" }));
+    try {
+      const result = await lookupSocialProfile(platform, handle);
+      if (result.success) {
+        const d = result.data;
+        setSocialLookupData((prev) => ({
+          ...prev,
+          [platform]: {
+            followers_count: d.followers_count,
+            following_count: d.following_count,
+            posts_count: d.posts_count,
+            engagement_rate: d.engagement_rate,
+            display_name: d.display_name,
+            bio: d.bio,
+          },
+        }));
+        // Auto-fill hidden fields
+        const fields: Record<string, string> = {
+          [`social_${platform}_followers`]: String(d.followers_count ?? ""),
+          [`social_${platform}_following`]: String(d.following_count ?? ""),
+          [`social_${platform}_posts`]: String(d.posts_count ?? ""),
+          [`social_${platform}_engagement`]: String(d.engagement_rate ?? ""),
+          [`social_${platform}_display_name`]: String(d.display_name ?? ""),
+          [`social_${platform}_bio`]: String(d.bio ?? ""),
+        };
+        for (const [name, val] of Object.entries(fields)) {
+          const el = form.querySelector<HTMLInputElement>(`[name="${name}"]`);
+          if (el) el.value = val;
+        }
+        const followerStr = d.followers_count ? Number(d.followers_count).toLocaleString() : "0";
+        setSocialLookupMsg((prev) => ({
+          ...prev,
+          [platform]: `Found — ${followerStr} followers`,
+        }));
+      } else {
+        setSocialLookupMsg((prev) => ({
+          ...prev,
+          [platform]: result.error || "Could not find profile. Enter stats manually.",
+        }));
+      }
+    } catch {
+      setSocialLookupMsg((prev) => ({
+        ...prev,
+        [platform]: "Lookup failed. Enter stats manually.",
+      }));
+    }
+    setLookingUp(null);
+  }
 
   // AI Provider state
   const [apiKeyInputs, setApiKeyInputs] = useState<Record<string, string>>({});
@@ -977,18 +1053,28 @@ export function SettingsClient({
       </Tabs>
 
       {/* ============================================================
-          Add Project Dialog
+          Add Project Dialog — Unified: Website + Apps + Social Media
           ============================================================ */}
-      <Dialog open={showAddProject} onOpenChange={setShowAddProject}>
-        <DialogContent>
+      <Dialog open={showAddProject} onOpenChange={(open) => {
+        setShowAddProject(open);
+        if (!open) {
+          setProjectError(null);
+          setShowAppSection(false);
+          setShowSocialSection(false);
+          setSocialLookupData({});
+          setSocialLookupMsg({});
+        }
+      }}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Add Project</DialogTitle>
             <DialogDescription>
-              Create a new project to start tracking SEO performance.
+              Set up your website, apps, and social media profiles all at once.
             </DialogDescription>
           </DialogHeader>
 
           <form
+            ref={addProjectFormRef}
             onSubmit={(e) => {
               e.preventDefault();
               setProjectError(null);
@@ -1002,50 +1088,201 @@ export function SettingsClient({
                 }
               });
             }}
-            className="flex flex-col gap-4 p-5"
           >
-            {projectError && (
-              <div className="border border-editorial-red/30 bg-editorial-red/5 px-4 py-3 text-sm text-editorial-red">
-                {projectError}
+            <div className="max-h-[calc(85vh-10rem)] space-y-5 overflow-y-auto px-5 py-4">
+              {projectError && (
+                <div className="border border-editorial-red/30 bg-editorial-red/5 px-4 py-3 text-sm text-editorial-red">
+                  {projectError}
+                </div>
+              )}
+
+              {/* ─── Section 1: Project Details ─── */}
+              <div>
+                <div className="mb-3 flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-ink-muted" />
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-ink-muted">
+                    Project Details
+                  </span>
+                </div>
+                <div className="space-y-3">
+                  <Input
+                    name="name"
+                    label="Project Name"
+                    placeholder="My Website"
+                    required
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+                        Project Type
+                      </label>
+                      <select
+                        name="type"
+                        required
+                        className="h-10 w-full border border-rule bg-surface-card px-3 text-sm text-ink focus:border-editorial-red focus:outline-none"
+                      >
+                        <option value="website">Website</option>
+                        <option value="ios_app">iOS App</option>
+                        <option value="android_app">Android App</option>
+                        <option value="both">Website + App</option>
+                      </select>
+                    </div>
+                    <Input
+                      name="domain"
+                      label="Domain"
+                      placeholder="example.com"
+                    />
+                  </div>
+                  <Input
+                    name="url"
+                    label="URL"
+                    placeholder="https://example.com"
+                  />
+                </div>
               </div>
-            )}
 
-            <Input
-              name="name"
-              label="Project Name"
-              placeholder="My Website"
-              required
-            />
+              {/* ─── Section 2: App Store ─── */}
+              <div className="border-t border-rule pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAppSection(!showAppSection)}
+                  className="flex w-full items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <Smartphone className="h-4 w-4 text-ink-muted" />
+                    <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-ink-muted">
+                      App Store Listings
+                    </span>
+                    <span className="text-[10px] text-ink-muted/60">(optional)</span>
+                  </div>
+                  {showAppSection ? <ChevronUp className="h-4 w-4 text-ink-muted" /> : <ChevronDown className="h-4 w-4 text-ink-muted" />}
+                </button>
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
-                Project Type
-              </label>
-              <select
-                name="type"
-                required
-                className="h-10 w-full border border-rule bg-surface-card px-3 text-sm text-ink focus:border-editorial-red focus:outline-none"
-              >
-                <option value="website">Website</option>
-                <option value="ios_app">iOS App</option>
-                <option value="android_app">Android App</option>
-                <option value="both">Website + App</option>
-              </select>
+                {showAppSection && (
+                  <div className="mt-3 space-y-4">
+                    {/* iOS App */}
+                    <div className="space-y-2 rounded border border-rule/50 bg-surface-card/50 p-3">
+                      <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-ink-muted">
+                        iOS App (Apple App Store)
+                      </span>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Input name="ios_app_name" placeholder="App Name" />
+                        <Input name="ios_app_id" placeholder="Bundle ID (com.example.app)" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Input name="ios_app_url" placeholder="App Store URL (optional)" />
+                        <Input name="ios_category" placeholder="Category (optional)" />
+                      </div>
+                    </div>
+
+                    {/* Android App */}
+                    <div className="space-y-2 rounded border border-rule/50 bg-surface-card/50 p-3">
+                      <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-ink-muted">
+                        Android App (Google Play)
+                      </span>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Input name="android_app_name" placeholder="App Name" />
+                        <Input name="android_app_id" placeholder="Package ID (com.example.app)" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Input name="android_app_url" placeholder="Play Store URL (optional)" />
+                        <Input name="android_category" placeholder="Category (optional)" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ─── Section 3: Social Media Profiles ─── */}
+              <div className="border-t border-rule pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowSocialSection(!showSocialSection)}
+                  className="flex w-full items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-ink-muted" />
+                    <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-ink-muted">
+                      Social Media Profiles
+                    </span>
+                    <span className="text-[10px] text-ink-muted/60">(optional)</span>
+                  </div>
+                  {showSocialSection ? <ChevronUp className="h-4 w-4 text-ink-muted" /> : <ChevronDown className="h-4 w-4 text-ink-muted" />}
+                </button>
+
+                {showSocialSection && (
+                  <div className="mt-3 space-y-3">
+                    {[
+                      { id: "instagram", label: "Instagram", icon: Instagram, color: "text-pink-600", placeholder: "@username or profile URL" },
+                      { id: "tiktok", label: "TikTok", icon: Target, color: "text-ink", placeholder: "@username or profile URL" },
+                      { id: "youtube", label: "YouTube", icon: Youtube, color: "text-red-600", placeholder: "Channel URL or @handle" },
+                      { id: "twitter", label: "X (Twitter)", icon: Hash, color: "text-blue-500", placeholder: "@username or profile URL" },
+                      { id: "linkedin", label: "LinkedIn", icon: Linkedin, color: "text-blue-700", placeholder: "Profile URL or company name" },
+                    ].map((p) => {
+                      const Icon = p.icon;
+                      const lookupData = socialLookupData[p.id];
+                      const lookupMessage = socialLookupMsg[p.id];
+                      return (
+                        <div key={p.id} className="rounded border border-rule/50 bg-surface-card/50 p-3">
+                          <div className="flex items-center gap-2">
+                            <Icon className={`h-3.5 w-3.5 ${p.color}`} />
+                            <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-ink-muted">
+                              {p.label}
+                            </span>
+                          </div>
+                          <div className="mt-2 flex gap-2">
+                            <div className="flex-1">
+                              <Input
+                                name={`social_${p.id}`}
+                                placeholder={p.placeholder}
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleSocialLookup(p.id)}
+                              disabled={lookingUp === p.id}
+                              className="flex shrink-0 items-center gap-1 self-end border border-rule px-2.5 py-2 text-[10px] font-bold uppercase tracking-wider text-ink-muted transition-colors hover:bg-surface-raised hover:text-ink disabled:opacity-50"
+                            >
+                              <Search className="h-3 w-3" />
+                              {lookingUp === p.id ? "..." : "Lookup"}
+                            </button>
+                          </div>
+                          {lookupMessage && (
+                            <p className={`mt-1 text-[10px] ${
+                              lookupMessage.includes("Found") ? "text-editorial-green" : "text-ink-muted"
+                            }`}>
+                              {lookupMessage}
+                            </p>
+                          )}
+                          {lookupData && (
+                            <div className="mt-1.5 flex gap-3 text-[10px] text-ink-muted">
+                              {lookupData.followers_count != null && (
+                                <span>{Number(lookupData.followers_count).toLocaleString()} followers</span>
+                              )}
+                              {lookupData.engagement_rate != null && (
+                                <span>{Number(lookupData.engagement_rate).toFixed(1)}% engagement</span>
+                              )}
+                              {lookupData.posts_count != null && Number(lookupData.posts_count) > 0 && (
+                                <span>{Number(lookupData.posts_count).toLocaleString()} posts</span>
+                              )}
+                            </div>
+                          )}
+                          {/* Hidden fields for auto-filled stats */}
+                          <input type="hidden" name={`social_${p.id}_followers`} defaultValue="" />
+                          <input type="hidden" name={`social_${p.id}_following`} defaultValue="" />
+                          <input type="hidden" name={`social_${p.id}_posts`} defaultValue="" />
+                          <input type="hidden" name={`social_${p.id}_engagement`} defaultValue="" />
+                          <input type="hidden" name={`social_${p.id}_display_name`} defaultValue="" />
+                          <input type="hidden" name={`social_${p.id}_bio`} defaultValue="" />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
-            <Input
-              name="domain"
-              label="Domain"
-              placeholder="example.com"
-            />
-
-            <Input
-              name="url"
-              label="URL"
-              placeholder="https://example.com"
-            />
-
-            <DialogFooter className="border-t-0 px-0 pb-0">
+            <DialogFooter>
               <Button
                 type="button"
                 variant="secondary"

@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { collectProjectData } from "@/lib/actions/collect";
 import { checkPlanLimit } from "@/lib/stripe/plan-gate";
+import { fetchAppData, fetchGooglePlayReviews } from "@/lib/app-store/fetcher";
 
 /**
  * Create a new project. If the user has no organization yet, create one first.
@@ -115,7 +116,131 @@ export async function createProject(
     console.error("[createProject] Data collection error:", err);
   }
 
+  // ── App Store Listings ──────────────────────────────────────────────
+  // Process iOS app if provided
+  const iosAppId = (formData.get("ios_app_id") as string)?.trim();
+  const iosAppName = (formData.get("ios_app_name") as string)?.trim();
+  if (iosAppId && iosAppName) {
+    try {
+      const storeData = await fetchAppData("apple", iosAppId);
+      await supabase.from("app_store_listings").insert({
+        project_id: newProject.id,
+        store: "apple",
+        app_id: iosAppId,
+        app_name: storeData?.app_name ?? iosAppName,
+        app_url: storeData?.app_url ?? ((formData.get("ios_app_url") as string)?.trim() || null),
+        category: storeData?.category ?? ((formData.get("ios_category") as string)?.trim() || null),
+        developer: storeData?.developer ?? null,
+        icon_url: storeData?.icon_url ?? null,
+        rating: storeData?.rating ?? null,
+        reviews_count: storeData?.reviews_count ?? null,
+        downloads_estimate: storeData?.downloads_estimate ?? null,
+        current_version: storeData?.current_version ?? null,
+        description: storeData?.description ?? null,
+      });
+    } catch (err) {
+      console.error("[createProject] iOS app listing error:", err);
+    }
+  }
+
+  // Process Android app if provided
+  const androidAppId = (formData.get("android_app_id") as string)?.trim();
+  const androidAppName = (formData.get("android_app_name") as string)?.trim();
+  if (androidAppId && androidAppName) {
+    try {
+      const storeData = await fetchAppData("google", androidAppId);
+      const { data: inserted } = await supabase.from("app_store_listings").insert({
+        project_id: newProject.id,
+        store: "google",
+        app_id: androidAppId,
+        app_name: storeData?.app_name ?? androidAppName,
+        app_url: storeData?.app_url ?? ((formData.get("android_app_url") as string)?.trim() || null),
+        category: storeData?.category ?? ((formData.get("android_category") as string)?.trim() || null),
+        developer: storeData?.developer ?? null,
+        icon_url: storeData?.icon_url ?? null,
+        rating: storeData?.rating ?? null,
+        reviews_count: storeData?.reviews_count ?? null,
+        downloads_estimate: storeData?.downloads_estimate ?? null,
+        current_version: storeData?.current_version ?? null,
+        description: storeData?.description ?? null,
+      }).select("id").single();
+
+      // Auto-fetch reviews for Google Play
+      if (inserted?.id) {
+        try {
+          const reviews = await fetchGooglePlayReviews(androidAppId, 20);
+          for (const r of reviews) {
+            const sentiment = r.rating >= 4 ? "positive" : r.rating <= 2 ? "negative" : "neutral";
+            await supabase.from("app_store_reviews").upsert({
+              listing_id: inserted.id,
+              store: "google",
+              review_id: r.review_id,
+              author: r.author,
+              rating: r.rating,
+              title: r.title || null,
+              text: r.text || null,
+              sentiment,
+              review_date: r.date || new Date().toISOString(),
+            }, { onConflict: "listing_id,review_id" });
+          }
+        } catch { /* reviews are optional */ }
+      }
+    } catch (err) {
+      console.error("[createProject] Android app listing error:", err);
+    }
+  }
+
+  // ── Social Profiles ─────────────────────────────────────────────────
+  const SOCIAL_PLATFORMS = ["instagram", "tiktok", "youtube", "twitter", "linkedin"] as const;
+
+  const extractHandle = (raw: string): string => {
+    const trimmed = raw.trim().replace(/^@/, "");
+    try {
+      const u = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`);
+      const hostPatterns: Record<string, RegExp> = {
+        instagram: /instagram\.com/,
+        tiktok: /tiktok\.com/,
+        youtube: /youtube\.com|youtu\.be/,
+        twitter: /twitter\.com|x\.com/,
+        linkedin: /linkedin\.com/,
+      };
+      const matchesPlatform = Object.values(hostPatterns).some((r) => r.test(u.hostname));
+      if (matchesPlatform) {
+        const segments = u.pathname.split("/").filter(Boolean);
+        const skipPrefixes = ["in", "channel", "c", "user"];
+        const handleSegment = segments.find((s) => !skipPrefixes.includes(s.toLowerCase()));
+        if (handleSegment) return handleSegment.replace(/^@/, "");
+      }
+    } catch { /* not a URL */ }
+    return trimmed;
+  };
+
+  for (const platform of SOCIAL_PLATFORMS) {
+    const handle = (formData.get(`social_${platform}`) as string)?.trim();
+    if (!handle) continue;
+
+    try {
+      await supabase.from("social_profiles").insert({
+        project_id: newProject.id,
+        platform,
+        handle: extractHandle(handle),
+        followers_count: parseInt(formData.get(`social_${platform}_followers`) as string) || 0,
+        following_count: parseInt(formData.get(`social_${platform}_following`) as string) || 0,
+        posts_count: parseInt(formData.get(`social_${platform}_posts`) as string) || 0,
+        engagement_rate: parseFloat(formData.get(`social_${platform}_engagement`) as string) || null,
+        display_name: (formData.get(`social_${platform}_display_name`) as string)?.trim() || null,
+        niche: (formData.get(`social_${platform}_niche`) as string)?.trim() || null,
+        bio: (formData.get(`social_${platform}_bio`) as string)?.trim() || null,
+        country: (formData.get(`social_${platform}_country`) as string)?.trim() || null,
+      });
+    } catch (err) {
+      console.error(`[createProject] Social profile ${platform} error:`, err);
+    }
+  }
+
   revalidatePath("/dashboard", "layout");
+  revalidatePath("/dashboard/app-store");
+  revalidatePath("/dashboard/social-intelligence");
   return { success: true };
 }
 
