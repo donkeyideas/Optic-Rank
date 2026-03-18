@@ -14,6 +14,8 @@ import type {
   ContentStrategy,
   HashtagRecommendation,
   EarningsForecast,
+  SocialGoal,
+  GeneratedContent,
 } from "@/types";
 
 /* ------------------------------------------------------------------
@@ -527,4 +529,122 @@ Format in markdown. Be specific to ${profile.platform} and the "${profile.niche 
     plan: "Unable to generate plan. Please ensure your profile stats are filled in and try again.",
     provider: "rules",
   };
+}
+
+/* ------------------------------------------------------------------
+   8. Content Generation (Generate Tab)
+   ------------------------------------------------------------------ */
+
+const CONTENT_TYPE_PROMPTS: Record<string, (profile: SocialProfile, opts: { topic?: string; tone: string; count: number; goals?: SocialGoal }) => string> = {
+  post_ideas: (profile, opts) => `You are a top ${profile.platform} content strategist.
+
+Create ${opts.count} unique post ideas for @${profile.handle} (${profile.niche || "general"} niche, ${profile.followers_count.toLocaleString()} followers).
+
+${opts.topic ? `Topic/theme: "${opts.topic}"` : "Use topics relevant to their niche."}
+Tone: ${opts.tone}
+${opts.goals ? `Creator's goal: ${opts.goals.primary_objective.replace(/_/g, " ")}${opts.goals.target_audience ? `. Target audience: ${opts.goals.target_audience}` : ""}` : ""}
+
+Return ONLY a JSON array (no other text). Each item:
+{"title": "Post idea title", "content": "2-3 sentence description of the post with specific angles", "format": "Reel|Carousel|Static|Story", "hook": "Opening hook line", "hashtags": ["tag1", "tag2", "tag3"], "cta": "Call-to-action suggestion"}
+
+Be specific to ${profile.platform}'s current best practices. Make hooks attention-grabbing.`,
+
+  captions: (profile, opts) => `You are a ${profile.platform} copywriting expert.
+
+Write ${opts.count} ready-to-post captions for @${profile.handle} (${profile.niche || "general"} niche).
+
+${opts.topic ? `Topic: "${opts.topic}"` : "Write about topics relevant to their niche."}
+Tone: ${opts.tone}
+${opts.goals ? `Creator's goal: ${opts.goals.primary_objective.replace(/_/g, " ")}` : ""}
+
+Return ONLY a JSON array (no other text). Each item:
+{"title": "Caption theme", "content": "Full caption text with emojis, line breaks, and formatting ready to paste", "hashtags": ["tag1", "tag2"], "cta": "CTA at the end"}
+
+Captions should be ${profile.platform}-optimized. Include emojis naturally. Each caption should be different in structure.`,
+
+  content_calendar: (profile, opts) => `You are a ${profile.platform} content planning expert.
+
+Create a 7-day content calendar for @${profile.handle} (${profile.niche || "general"} niche, ${profile.followers_count.toLocaleString()} followers).
+
+${opts.topic ? `Focus area: "${opts.topic}"` : ""}
+Tone: ${opts.tone}
+${opts.goals ? `Creator's goal: ${opts.goals.primary_objective.replace(/_/g, " ")}. Posting commitment: ${opts.goals.posting_commitment || "3x per week"}` : ""}
+
+Return ONLY a JSON array of 7 items (no other text), one per day. Each item:
+{"title": "Day 1 - Monday", "content": "What to post: [format]. Topic: [specific topic]. Best time: [time]. Key message: [message]", "format": "Reel|Carousel|Static|Story|Rest Day", "hook": "Suggested opening hook", "hashtags": ["tag1", "tag2"]}
+
+Include rest days if appropriate. Be specific about content topics, not generic.`,
+
+  video_scripts: (profile, opts) => `You are a short-form video scriptwriter for ${profile.platform}.
+
+Write ${opts.count} video scripts (Reels/TikToks/Shorts format) for @${profile.handle} (${profile.niche || "general"} niche).
+
+${opts.topic ? `Topic: "${opts.topic}"` : "Write about trending topics in their niche."}
+Tone: ${opts.tone}
+${opts.goals ? `Creator's goal: ${opts.goals.primary_objective.replace(/_/g, " ")}` : ""}
+
+Return ONLY a JSON array (no other text). Each item:
+{"title": "Video concept title", "content": "Full script with [HOOK - 3 sec] → [BODY - 20-40 sec] → [CTA - 5 sec] clearly separated", "hook": "Opening hook (first 3 seconds)", "format": "15s|30s|60s|90s", "cta": "End CTA", "hashtags": ["tag1", "tag2"]}
+
+Hooks must stop the scroll. Scripts should be conversational and fast-paced.`,
+
+  carousel: (profile, opts) => `You are a ${profile.platform} carousel content expert.
+
+Create ${opts.count} carousel post outlines for @${profile.handle} (${profile.niche || "general"} niche).
+
+${opts.topic ? `Topic: "${opts.topic}"` : "Choose engaging educational topics for their niche."}
+Tone: ${opts.tone}
+${opts.goals ? `Creator's goal: ${opts.goals.primary_objective.replace(/_/g, " ")}` : ""}
+
+Return ONLY a JSON array (no other text). Each item:
+{"title": "Carousel title", "content": "Slide 1: [Cover - hook title]\\nSlide 2: [Point 1]\\nSlide 3: [Point 2]\\n... (6-10 slides)", "format": "Carousel", "hook": "Cover slide text", "cta": "Final slide CTA", "hashtags": ["tag1", "tag2"]}
+
+Each carousel should tell a story. Cover slides must be scroll-stopping.`,
+
+  bio: (profile, opts) => `You are a ${profile.platform} profile optimization expert.
+
+Create 3 optimized bio variations for @${profile.handle} (${profile.niche || "general"} niche, ${profile.followers_count.toLocaleString()} followers).
+
+Current bio: "${profile.bio || "none"}"
+Tone: ${opts.tone}
+${opts.goals ? `Creator's goal: ${opts.goals.primary_objective.replace(/_/g, " ")}` : ""}
+
+Return ONLY a JSON array of 3 items (no other text). Each item:
+{"title": "Bio Style (e.g. Professional, Casual, Authority)", "content": "Full bio text optimized for ${profile.platform} (respect character limits)", "cta": "CTA or link suggestion"}
+
+${profile.platform === "instagram" ? "Instagram bios are max 150 characters." : ""}
+Include relevant keywords, a clear value proposition, and a CTA.`,
+};
+
+export async function generateSocialContentAI(
+  profile: SocialProfile,
+  options: {
+    contentType: string;
+    topic?: string;
+    tone: string;
+    count: number;
+    goals?: SocialGoal;
+  }
+): Promise<{ content: GeneratedContent[]; provider: string }> {
+  const promptBuilder = CONTENT_TYPE_PROMPTS[options.contentType];
+  if (!promptBuilder) {
+    return { content: [], provider: "rules" };
+  }
+
+  const prompt = promptBuilder(profile, options);
+
+  const response = await aiChat(prompt, {
+    temperature: 0.8,
+    maxTokens: 3000,
+    timeout: 120000,
+  });
+
+  if (response?.text) {
+    const items = safeParse<GeneratedContent[]>(response.text, []);
+    if (items.length > 0) {
+      return { content: items, provider: response.provider };
+    }
+  }
+
+  return { content: [], provider: "rules" };
 }

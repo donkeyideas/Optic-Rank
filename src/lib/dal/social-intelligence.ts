@@ -6,6 +6,7 @@ import type {
   SocialAnalysis,
   SocialAnalysisType,
   SocialCompetitor,
+  SocialGoal,
 } from "@/types";
 
 /* ------------------------------------------------------------------
@@ -115,6 +116,27 @@ export async function getSocialCompetitors(
     .eq("social_profile_id", profileId)
     .order("followers_count", { ascending: false });
   return (data ?? []) as SocialCompetitor[];
+}
+
+/* ------------------------------------------------------------------
+   Aggregate helpers
+   ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------
+   Social Goals
+   ------------------------------------------------------------------ */
+
+export async function getSocialGoals(
+  profileId: string
+): Promise<SocialGoal | null> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("social_goals")
+    .select("*")
+    .eq("social_profile_id", profileId)
+    .eq("is_active", true)
+    .maybeSingle();
+  return data as SocialGoal | null;
 }
 
 /* ------------------------------------------------------------------

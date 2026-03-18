@@ -551,3 +551,99 @@ export async function lookupSocialProfile(
     error: `Unsupported platform: ${platform}. Please enter stats manually.`,
   };
 }
+
+/* ------------------------------------------------------------------
+   Social Goals — Save / Fetch
+   ------------------------------------------------------------------ */
+
+export async function saveSocialGoals(
+  profileId: string,
+  goals: {
+    primary_objective: string;
+    target_value: number | null;
+    target_days: number | null;
+    content_niche: string | null;
+    monetization_goal: string | null;
+    posting_commitment: string | null;
+    target_audience: string | null;
+    competitive_aspiration: string | null;
+  }
+): Promise<{ error: string } | { success: true }> {
+  const userClient = await createClient();
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
+  const supabase = createAdminClient();
+
+  const { error } = await supabase
+    .from("social_goals")
+    .upsert(
+      {
+        social_profile_id: profileId,
+        ...goals,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "social_profile_id" }
+    );
+
+  if (error) return { error: error.message };
+
+  revalidatePath(REVALIDATE_PATH);
+  return { success: true };
+}
+
+/* ------------------------------------------------------------------
+   Generate Social Content (AI)
+   ------------------------------------------------------------------ */
+
+export async function generateSocialContent(
+  profileId: string,
+  options: {
+    contentType: string;
+    topic?: string;
+    tone?: string;
+    count?: number;
+  }
+): Promise<{ error: string } | { content: import("@/types").GeneratedContent[] }> {
+  const userClient = await createClient();
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
+  const profile = await getSocialProfileById(profileId);
+  if (!profile) return { error: "Profile not found." };
+
+  // Fetch goals if available
+  const supabase = createAdminClient();
+  const { data: goalsData } = await supabase
+    .from("social_goals")
+    .select("*")
+    .eq("social_profile_id", profileId)
+    .maybeSingle();
+
+  const { generateSocialContentAI } = await import("@/lib/ai/social-analysis");
+
+  try {
+    const result = await generateSocialContentAI(profile, {
+      contentType: options.contentType,
+      topic: options.topic,
+      tone: options.tone || "casual",
+      count: options.count || 5,
+      goals: goalsData || undefined,
+    });
+
+    // Store in social_analyses for history
+    await supabase.from("social_analyses").insert({
+      social_profile_id: profileId,
+      analysis_type: "generated_content",
+      result: { items: result.content, contentType: options.contentType, topic: options.topic },
+      ai_provider: result.provider,
+      expires_at: null, // Generated content doesn't expire
+    });
+
+    revalidatePath(REVALIDATE_PATH);
+    return { content: result.content };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Generation failed";
+    return { error: msg };
+  }
+}

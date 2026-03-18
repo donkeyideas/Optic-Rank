@@ -4,6 +4,7 @@ import { ThemeToggle } from "@/components/shared/theme-toggle";
 const navLinks = [
   { href: "/#features", label: "Features" },
   { href: "/search-ai", label: "Search & AI" },
+  { href: "/social-intelligence", label: "Social Intel" },
   { href: "/pricing", label: "Pricing" },
   { href: "/blog", label: "Blog" },
 ];
@@ -14,6 +15,7 @@ const footerSections = [
     links: [
       { href: "/#features", label: "Features" },
       { href: "/search-ai", label: "Search & AI" },
+      { href: "/social-intelligence", label: "Social Intelligence" },
       { href: "/pricing", label: "Pricing" },
       { href: "/changelog", label: "Changelog" },
       { href: "/roadmap", label: "Roadmap" },

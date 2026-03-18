@@ -8,6 +8,7 @@ const PAGE_PATH_MAP: Record<string, string> = {
   homepage: "/",
   features: "/features",
   "search-ai": "/search-ai",
+  "social-intelligence": "/social-intelligence",
 };
 
 /**

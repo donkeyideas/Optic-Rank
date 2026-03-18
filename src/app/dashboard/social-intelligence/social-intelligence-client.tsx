@@ -17,6 +17,8 @@ import {
   Linkedin,
   Loader2,
   Zap,
+  Flag,
+  Wand2,
 } from "lucide-react";
 import { HeadlineBar } from "@/components/editorial/headline-bar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -41,8 +43,10 @@ import { HashtagsTab } from "./tabs/hashtags-tab";
 import { CompetitorsTab } from "./tabs/competitors-tab";
 import { AIInsightsTab } from "./tabs/ai-insights-tab";
 import { EarningsTab } from "./tabs/earnings-tab";
+import { GoalsTab } from "./tabs/goals-tab";
+import { GenerateTab } from "./tabs/generate-tab";
 
-import type { SocialProfile, SocialMetric, SocialAnalysis, SocialCompetitor, SocialAnalysisType } from "@/types";
+import type { SocialProfile, SocialMetric, SocialAnalysis, SocialCompetitor, SocialAnalysisType, SocialGoal } from "@/types";
 
 const ALL_ANALYSIS_TYPES: SocialAnalysisType[] = [
   "growth", "content_strategy", "hashtags", "competitors",
@@ -70,6 +74,7 @@ interface SocialIntelligenceClientProps {
   metricsMap: Record<string, SocialMetric[]>;
   analysesMap: Record<string, SocialAnalysis[]>;
   competitorsMap: Record<string, SocialCompetitor[]>;
+  goalsMap: Record<string, SocialGoal | null>;
   projectId: string;
   maxProfiles: number;
   plan: string;
@@ -84,6 +89,7 @@ export function SocialIntelligenceClient({
   metricsMap,
   analysesMap,
   competitorsMap,
+  goalsMap,
   projectId,
   maxProfiles,
   plan,
@@ -115,6 +121,7 @@ export function SocialIntelligenceClient({
   const selectedMetrics = selectedProfileId ? metricsMap[selectedProfileId] ?? [] : [];
   const selectedAnalyses = selectedProfileId ? analysesMap[selectedProfileId] ?? [] : [];
   const selectedCompetitors = selectedProfileId ? competitorsMap[selectedProfileId] ?? [] : [];
+  const selectedGoals = selectedProfileId ? goalsMap[selectedProfileId] ?? null : null;
 
   // Headline stats
   const totalFollowers = profiles.reduce((sum, p) => sum + p.followers_count, 0);
@@ -352,6 +359,14 @@ export function SocialIntelligenceClient({
               <Users className="mr-1.5 h-3.5 w-3.5" />
               Overview
             </TabsTrigger>
+            <TabsTrigger value="goals">
+              <Flag className="mr-1.5 h-3.5 w-3.5" />
+              Goals
+            </TabsTrigger>
+            <TabsTrigger value="generate">
+              <Wand2 className="mr-1.5 h-3.5 w-3.5" />
+              Generate
+            </TabsTrigger>
             <TabsTrigger value="growth">
               <TrendingUp className="mr-1.5 h-3.5 w-3.5" />
               Growth
@@ -383,6 +398,19 @@ export function SocialIntelligenceClient({
               profile={selectedProfile}
               metrics={selectedMetrics}
               analyses={selectedAnalyses}
+            />
+          </TabsContent>
+          <TabsContent value="goals">
+            <GoalsTab
+              profile={selectedProfile}
+              metrics={selectedMetrics}
+              goals={selectedGoals}
+            />
+          </TabsContent>
+          <TabsContent value="generate">
+            <GenerateTab
+              profile={selectedProfile}
+              goals={selectedGoals}
             />
           </TabsContent>
           <TabsContent value="growth">

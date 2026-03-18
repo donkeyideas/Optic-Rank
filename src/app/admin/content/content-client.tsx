@@ -7,6 +7,7 @@ import {
   Globe,
   Search,
   Brain,
+  Share2,
   ChevronDown,
   ChevronUp,
   Clock,
@@ -38,6 +39,7 @@ const PAGE_TABS = [
   { key: "homepage", label: "Homepage", icon: Globe },
   { key: "features", label: "Features", icon: Search },
   { key: "search-ai", label: "Search & AI", icon: Brain },
+  { key: "social-intelligence", label: "Social Intel", icon: Share2 },
 ] as const;
 
 const SECTION_LABELS: Record<string, string> = {
@@ -56,6 +58,12 @@ const SECTION_LABELS: Record<string, string> = {
   geo: "GEO Section",
   cro: "CRO Section",
   unified: "Unified Section",
+  platforms: "Platform Strip",
+  audience_analytics: "Audience Analytics",
+  earnings_forecast_section: "AI Earnings Forecast",
+  content_engine: "Content Strategy Engine",
+  competitor_bench: "Competitor Benchmarking",
+  growth_intel: "Growth Intelligence",
 };
 
 /* ── Friendly field labels ─────────────────────────────────────── */

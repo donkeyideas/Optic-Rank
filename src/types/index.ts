@@ -381,7 +381,8 @@ export type SocialAnalysisType =
   | "competitors"
   | "insights"
   | "earnings_forecast"
-  | "thirty_day_plan";
+  | "thirty_day_plan"
+  | "generated_content";
 
 export interface SocialAnalysis {
   id: string;
@@ -462,6 +463,35 @@ export interface HashtagRecommendation {
   competition: "high" | "medium" | "low";
   relevance: number;
   category: string;
+}
+
+// Social Goals (stored in social_goals table)
+export interface SocialGoal {
+  id: string;
+  social_profile_id: string;
+  primary_objective: string;
+  target_metric: string | null;
+  target_value: number | null;
+  target_days: number | null;
+  content_niche: string | null;
+  monetization_goal: string | null;
+  posting_commitment: string | null;
+  target_audience: string | null;
+  competitive_aspiration: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Generated Content (stored in social_analyses.result for type=generated_content)
+export interface GeneratedContent {
+  type: string;
+  title: string;
+  content: string;
+  hashtags?: string[];
+  format?: string;
+  hook?: string;
+  cta?: string;
 }
 
 // --- CRO ---
