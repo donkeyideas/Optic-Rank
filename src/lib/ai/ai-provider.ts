@@ -195,7 +195,7 @@ export async function aiChat(
   }
 
   // Fallback: env var Gemini key
-  const envGeminiKey = process.env.GEMINI_API_KEY;
+  const envGeminiKey = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY;
   if (envGeminiKey) {
     const start = Date.now();
     try {
@@ -281,7 +281,7 @@ async function callGemini(
   maxTokens: number,
   timeout: number = 60000
 ): Promise<AICallResult> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
   const response = await fetch(url, {
     method: "POST",

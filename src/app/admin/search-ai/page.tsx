@@ -34,6 +34,7 @@ export default async function AdminSearchAIPage() {
   let ga4Sources: Awaited<ReturnType<typeof getGA4TrafficSources>> = [];
   let ga4Daily: Awaited<ReturnType<typeof getGA4DailyData>> = [];
   let ga4PropertyId: string | null = null;
+  let ga4Error: string | null = null;
 
   try {
     ga4PropertyId = await discoverPropertyId();
@@ -50,7 +51,9 @@ export default async function AdminSearchAIPage() {
       ga4Daily = daily;
     }
   } catch (err) {
-    console.error("GA4 fetch error:", err);
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("GA4 fetch error:", msg);
+    ga4Error = msg;
   }
 
   // 3. Try Google Search Console data
@@ -61,6 +64,7 @@ export default async function AdminSearchAIPage() {
   let gscDevices: Awaited<ReturnType<typeof getGSCDevices>> = [];
   let gscCountries: Awaited<ReturnType<typeof getGSCCountries>> = [];
   let gscSiteUrl: string | null = null;
+  let gscError: string | null = null;
 
   try {
     gscSiteUrl = await discoverSiteUrl();
@@ -82,7 +86,9 @@ export default async function AdminSearchAIPage() {
       gscCountries = countries;
     }
   } catch (err) {
-    console.error("GSC fetch error:", err);
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("GSC fetch error:", msg);
+    gscError = msg;
   }
 
   return (
@@ -94,6 +100,7 @@ export default async function AdminSearchAIPage() {
         pages: ga4Pages,
         sources: ga4Sources,
         daily: ga4Daily,
+        error: ga4Error,
       }}
       gsc={{
         siteUrl: gscSiteUrl,
@@ -103,6 +110,7 @@ export default async function AdminSearchAIPage() {
         daily: gscDaily,
         devices: gscDevices,
         countries: gscCountries,
+        error: gscError,
       }}
     />
   );

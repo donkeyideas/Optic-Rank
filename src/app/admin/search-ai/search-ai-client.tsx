@@ -81,6 +81,7 @@ interface Props {
     pages: GA4PageData[];
     sources: GA4TrafficSource[];
     daily: GA4DailyData[];
+    error?: string | null;
   };
   gsc: {
     siteUrl: string | null;
@@ -90,6 +91,7 @@ interface Props {
     daily: GSCDailyData[];
     devices: GSCDevice[];
     countries: GSCCountry[];
+    error?: string | null;
   };
 }
 
@@ -170,16 +172,27 @@ export function SearchAIAdminClient({ audit, ga4, gsc }: Props) {
             {new Date(audit.crawledAt).toLocaleString()}
           </p>
         </div>
-        <div className="flex gap-2">
-          {ga4.propertyId ? (
-            <Badge variant="success">GA4 Connected</Badge>
-          ) : (
-            <Badge variant="muted">GA4 Not Connected</Badge>
-          )}
-          {gsc.siteUrl ? (
-            <Badge variant="success">GSC Connected</Badge>
-          ) : (
-            <Badge variant="muted">GSC Not Connected</Badge>
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex gap-2">
+            {ga4.propertyId ? (
+              <Badge variant={ga4.error ? "warning" : "success"}>
+                {ga4.error ? "GA4 Error" : "GA4 Connected"}
+              </Badge>
+            ) : (
+              <Badge variant="muted">GA4 Not Connected</Badge>
+            )}
+            {gsc.siteUrl ? (
+              <Badge variant={gsc.error ? "warning" : "success"}>
+                {gsc.error ? "GSC Error" : "GSC Connected"}
+              </Badge>
+            ) : (
+              <Badge variant="muted">GSC Not Connected</Badge>
+            )}
+          </div>
+          {(ga4.error || gsc.error) && (
+            <p className="text-[10px] text-editorial-red max-w-xs text-right">
+              {ga4.error || gsc.error}
+            </p>
           )}
         </div>
       </div>
@@ -507,7 +520,16 @@ function TrafficTab({ ga4 }: { ga4: Props["ga4"] }) {
     return (
       <EmptyState
         title="Google Analytics Not Connected"
-        description="Set GA4_PROPERTY_ID in your .env.local to enable traffic analytics. You can find your Property ID in Google Analytics Admin → Property Settings."
+        description="Set GA4_PROPERTY_ID in your .env.local (and Vercel env vars for production). You can find your Property ID in Google Analytics Admin → Property Settings."
+      />
+    );
+  }
+
+  if (ga4.error) {
+    return (
+      <EmptyState
+        title="Google Analytics Error"
+        description={`GA4 Property ID is set (${ga4.propertyId}) but the API returned an error: ${ga4.error}. Check that the service account has Viewer access on this GA4 property.`}
       />
     );
   }
@@ -722,7 +744,16 @@ function SearchConsoleTab({ gsc }: { gsc: Props["gsc"] }) {
     return (
       <EmptyState
         title="Google Search Console Not Connected"
-        description="Add your site to Search Console and grant Full access to the service account (optic-rank-seo@optic-rank.iam.gserviceaccount.com). Then set GSC_SITE_URL in .env.local (e.g., sc-domain:opticrank.com or https://opticrank.com/)."
+        description="Add your site to Search Console and grant Full access to the service account (optic-rank-seo@optic-rank.iam.gserviceaccount.com). Then set GSC_SITE_URL in .env.local and Vercel env vars (e.g., sc-domain:opticrank.com or https://opticrank.com/)."
+      />
+    );
+  }
+
+  if (gsc.error) {
+    return (
+      <EmptyState
+        title="Google Search Console Error"
+        description={`GSC Site URL is set (${gsc.siteUrl}) but the API returned an error: ${gsc.error}. Check that the service account has Full access on this property.`}
       />
     );
   }
