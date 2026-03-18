@@ -539,25 +539,37 @@ function TrafficTab({ ga4 }: { ga4: Props["ga4"] }) {
   return (
     <div className="space-y-6">
       {/* Overview Stats */}
-      {overview && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {[
-            { label: "Sessions", value: overview.totalSessions.toLocaleString() },
-            { label: "Users", value: overview.totalUsers.toLocaleString() },
-            { label: "Pageviews", value: overview.totalPageviews.toLocaleString() },
-            { label: "Avg Duration", value: `${Math.round(overview.avgSessionDuration)}s` },
-            { label: "Bounce Rate", value: `${(overview.bounceRate * 100).toFixed(1)}%` },
-            { label: "New Users", value: overview.newUsers.toLocaleString() },
-          ].map((s) => (
-            <Card key={s.label}>
-              <CardContent className="py-4 text-center">
-                <p className="font-mono text-xl font-bold text-ink">{s.value}</p>
-                <p className="text-[10px] uppercase tracking-widest text-ink-muted mt-1">{s.label}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+      {overview && (() => {
+        const engagementRate = Math.max(0, (1 - overview.bounceRate) * 100);
+        const pagesPerSession = overview.totalSessions > 0 ? (overview.totalPageviews / overview.totalSessions) : 0;
+        const newUserPct = overview.totalUsers > 0 ? (overview.newUsers / overview.totalUsers) * 100 : 0;
+        const avgMins = Math.floor(overview.avgSessionDuration / 60);
+        const avgSecs = Math.round(overview.avgSessionDuration % 60);
+
+        return (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {[
+              { label: "Sessions", value: overview.totalSessions.toLocaleString() },
+              { label: "Users", value: overview.totalUsers.toLocaleString() },
+              { label: "Pageviews", value: overview.totalPageviews.toLocaleString() },
+              { label: "Pages / Session", value: pagesPerSession.toFixed(1) },
+              { label: "Avg Duration", value: avgMins > 0 ? `${avgMins}m ${avgSecs}s` : `${avgSecs}s` },
+              { label: "Bounce Rate", value: `${(overview.bounceRate * 100).toFixed(1)}%` },
+              { label: "Engagement Rate", value: `${engagementRate.toFixed(1)}%` },
+              { label: "New Users", value: overview.newUsers.toLocaleString() },
+              { label: "Returning Users", value: (overview.totalUsers - overview.newUsers).toLocaleString() },
+              { label: "% New", value: `${newUserPct.toFixed(1)}%` },
+            ].map((s) => (
+              <Card key={s.label}>
+                <CardContent className="py-4 text-center">
+                  <p className="font-mono text-xl font-bold text-ink">{s.value}</p>
+                  <p className="text-[10px] uppercase tracking-widest text-ink-muted mt-1">{s.label}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Daily Traffic Chart */}
       {ga4.daily.length > 0 && (
@@ -573,6 +585,7 @@ function TrafficTab({ ga4 }: { ga4: Props["ga4"] }) {
                 <YAxis tick={{ fontSize: 10, fill: "#999" }} />
                 <Tooltip contentStyle={{ backgroundColor: "#1a1a1a", border: "1px solid #444", color: "#eee" }} />
                 <Line type="monotone" dataKey="sessions" stroke="#27ae60" strokeWidth={2} name="Sessions" dot={false} />
+                <Line type="monotone" dataKey="users" stroke="#b8860b" strokeWidth={1.5} name="Users" dot={false} />
                 <Line type="monotone" dataKey="pageviews" stroke="#2980b9" strokeWidth={1.5} name="Pageviews" dot={false} />
               </LineChart>
             </ResponsiveContainer>
@@ -592,16 +605,24 @@ function TrafficTab({ ga4 }: { ga4: Props["ga4"] }) {
                 <thead>
                   <tr className="border-b border-rule text-left">
                     <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium">Path</th>
-                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium">Views</th>
-                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium">Users</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Views</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Users</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Avg Time</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Bounce</th>
                   </tr>
                 </thead>
                 <tbody>
                   {ga4.pages.slice(0, 10).map((p, i) => (
                     <tr key={i} className="border-b border-rule/50">
-                      <td className="py-2 font-mono text-xs text-ink">{p.path}</td>
-                      <td className="py-2 font-mono text-xs text-ink-muted">{p.pageviews.toLocaleString()}</td>
-                      <td className="py-2 font-mono text-xs text-ink-muted">{p.users.toLocaleString()}</td>
+                      <td className="py-2 font-mono text-xs text-ink max-w-[200px] truncate">{p.path}</td>
+                      <td className="py-2 font-mono text-xs text-ink-muted text-right">{p.pageviews.toLocaleString()}</td>
+                      <td className="py-2 font-mono text-xs text-ink-muted text-right">{p.users.toLocaleString()}</td>
+                      <td className="py-2 font-mono text-xs text-ink-muted text-right">{Math.round(p.avgTimeOnPage)}s</td>
+                      <td className="py-2 font-mono text-xs text-right">
+                        <span className={p.bounceRate * 100 > 70 ? "text-editorial-red" : p.bounceRate * 100 > 50 ? "text-editorial-gold" : "text-editorial-green"}>
+                          {(p.bounceRate * 100).toFixed(0)}%
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -621,16 +642,22 @@ function TrafficTab({ ga4 }: { ga4: Props["ga4"] }) {
                 <thead>
                   <tr className="border-b border-rule text-left">
                     <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium">Source / Medium</th>
-                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium">Sessions</th>
-                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium">Users</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Sessions</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Users</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Bounce</th>
                   </tr>
                 </thead>
                 <tbody>
                   {ga4.sources.slice(0, 10).map((s, i) => (
                     <tr key={i} className="border-b border-rule/50">
                       <td className="py-2 text-xs text-ink">{s.source} / {s.medium}</td>
-                      <td className="py-2 font-mono text-xs text-ink-muted">{s.sessions.toLocaleString()}</td>
-                      <td className="py-2 font-mono text-xs text-ink-muted">{s.users.toLocaleString()}</td>
+                      <td className="py-2 font-mono text-xs text-ink-muted text-right">{s.sessions.toLocaleString()}</td>
+                      <td className="py-2 font-mono text-xs text-ink-muted text-right">{s.users.toLocaleString()}</td>
+                      <td className="py-2 font-mono text-xs text-right">
+                        <span className={s.bounceRate * 100 > 70 ? "text-editorial-red" : s.bounceRate * 100 > 50 ? "text-editorial-gold" : "text-editorial-green"}>
+                          {(s.bounceRate * 100).toFixed(0)}%
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -769,23 +796,37 @@ function SearchConsoleTab({ gsc }: { gsc: Props["gsc"] }) {
   return (
     <div className="space-y-6">
       {/* Overview Stats */}
-      {overview && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { label: "Total Clicks", value: overview.totalClicks.toLocaleString() },
-            { label: "Total Impressions", value: overview.totalImpressions.toLocaleString() },
-            { label: "Avg CTR", value: `${(overview.avgCTR * 100).toFixed(2)}%` },
-            { label: "Avg Position", value: overview.avgPosition.toFixed(1) },
-          ].map((s) => (
-            <Card key={s.label}>
-              <CardContent className="py-4 text-center">
-                <p className="font-mono text-xl font-bold text-ink">{s.value}</p>
-                <p className="text-[10px] uppercase tracking-widest text-ink-muted mt-1">{s.label}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+      {overview && (() => {
+        const queriesTracked = gsc.queries.length;
+        const pagesIndexed = gsc.pages.length;
+        const top3Count = gsc.queries.filter(q => q.position <= 3).length;
+        const top10Count = gsc.queries.filter(q => q.position <= 10).length;
+        const bestPosition = gsc.queries.length > 0 ? Math.min(...gsc.queries.map(q => q.position)) : 0;
+
+        return (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {[
+              { label: "Total Clicks", value: overview.totalClicks.toLocaleString() },
+              { label: "Total Impressions", value: overview.totalImpressions.toLocaleString() },
+              { label: "Avg CTR", value: `${(overview.avgCTR * 100).toFixed(2)}%` },
+              { label: "Avg Position", value: overview.avgPosition.toFixed(1) },
+              { label: "Best Position", value: bestPosition > 0 ? bestPosition.toFixed(1) : "—" },
+              { label: "Queries Tracked", value: queriesTracked.toLocaleString() },
+              { label: "Pages w/ Traffic", value: pagesIndexed.toLocaleString() },
+              { label: "Top 3 Keywords", value: top3Count.toLocaleString() },
+              { label: "Top 10 Keywords", value: top10Count.toLocaleString() },
+              { label: "Desktop vs Mobile", value: gsc.devices.length > 0 ? gsc.devices.map(d => d.device.slice(0, 3).toUpperCase()).join(" / ") : "—" },
+            ].map((s) => (
+              <Card key={s.label}>
+                <CardContent className="py-4 text-center">
+                  <p className="font-mono text-xl font-bold text-ink">{s.value}</p>
+                  <p className="text-[10px] uppercase tracking-widest text-ink-muted mt-1">{s.label}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Daily Performance Chart */}
       {gsc.daily.length > 0 && (
@@ -867,6 +908,7 @@ function SearchConsoleTab({ gsc }: { gsc: Props["gsc"] }) {
                     <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium">Page</th>
                     <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Clicks</th>
                     <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Impr.</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">CTR</th>
                     <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Pos.</th>
                   </tr>
                 </thead>
@@ -876,6 +918,7 @@ function SearchConsoleTab({ gsc }: { gsc: Props["gsc"] }) {
                       <td className="py-2 font-mono text-xs text-ink max-w-[200px] truncate">{p.page}</td>
                       <td className="py-2 font-mono text-xs text-ink-muted text-right">{p.clicks.toLocaleString()}</td>
                       <td className="py-2 font-mono text-xs text-ink-muted text-right">{p.impressions.toLocaleString()}</td>
+                      <td className="py-2 font-mono text-xs text-ink-muted text-right">{(p.ctr * 100).toFixed(1)}%</td>
                       <td className="py-2 font-mono text-xs text-right">
                         <span className={p.position <= 10 ? "text-editorial-green" : p.position <= 20 ? "text-editorial-gold" : "text-ink-muted"}>
                           {p.position.toFixed(1)}
@@ -925,8 +968,9 @@ function SearchConsoleTab({ gsc }: { gsc: Props["gsc"] }) {
                     <tr className="border-b border-rule text-left">
                       <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium">Country</th>
                       <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Clicks</th>
-                      <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Impressions</th>
+                      <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Impr.</th>
                       <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">CTR</th>
+                      <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Pos.</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -936,6 +980,11 @@ function SearchConsoleTab({ gsc }: { gsc: Props["gsc"] }) {
                         <td className="py-2 font-mono text-xs text-ink-muted text-right">{c.clicks.toLocaleString()}</td>
                         <td className="py-2 font-mono text-xs text-ink-muted text-right">{c.impressions.toLocaleString()}</td>
                         <td className="py-2 font-mono text-xs text-ink-muted text-right">{(c.ctr * 100).toFixed(1)}%</td>
+                        <td className="py-2 font-mono text-xs text-right">
+                          <span className={c.position <= 10 ? "text-editorial-green" : c.position <= 20 ? "text-editorial-gold" : "text-ink-muted"}>
+                            {c.position.toFixed(1)}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
