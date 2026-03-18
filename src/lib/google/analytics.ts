@@ -149,7 +149,6 @@ export async function getGA4TopPages(
         { name: "totalUsers" },
         { name: "averageSessionDuration" },
         { name: "bounceRate" },
-        { name: "entrances" },
       ],
       orderBys: [
         { metric: { metricName: "screenPageViews" }, desc: true },
@@ -164,7 +163,7 @@ export async function getGA4TopPages(
       users: parseInt(row.metricValues?.[1]?.value ?? "0"),
       avgTimeOnPage: parseFloat(row.metricValues?.[2]?.value ?? "0"),
       bounceRate: parseFloat(row.metricValues?.[3]?.value ?? "0"),
-      entrances: parseInt(row.metricValues?.[4]?.value ?? "0"),
+      entrances: 0,
     }));
   } catch (err) {
     console.error("GA4 top pages error:", err);
