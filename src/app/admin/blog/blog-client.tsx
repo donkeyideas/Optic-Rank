@@ -1,7 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { createPost, updatePost, deletePost, generateBlogWithAI } from "@/lib/actions/posts";
+import {
+  Bold,
+  Italic,
+  Link,
+  Heading2,
+  Heading3,
+  List,
+  ListOrdered,
+  Quote,
+  Image,
+  Unlink,
+} from "lucide-react";
 
 type Post = {
   id: string;
@@ -33,8 +45,12 @@ export function BlogClient({
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
   const [showPreview, setShowPreview] = useState(false);
-
-  const posts = tab === "blog" ? blogPosts : guides;
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkTarget, setLinkTarget] = useState<"_blank" | "_self">("_blank");
+  const [linkRel, setLinkRel] = useState("noopener noreferrer");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const savedSelection = useRef<{ start: number; end: number } | null>(null);
 
   // Form state
   const [title, setTitle] = useState("");
@@ -43,6 +59,59 @@ export function BlogClient({
   const [content, setContent] = useState("");
   const [status, setStatus] = useState<"draft" | "published">("draft");
   const [tagsInput, setTagsInput] = useState("");
+
+  const posts = tab === "blog" ? blogPosts : guides;
+
+  /* ─── Toolbar helpers ─── */
+  const wrapSelection = useCallback(
+    (before: string, after: string) => {
+      const ta = textareaRef.current;
+      if (!ta) return;
+      const start = ta.selectionStart;
+      const end = ta.selectionEnd;
+      const selected = content.substring(start, end);
+      const replacement = `${before}${selected || "text"}${after}`;
+      const updated = content.substring(0, start) + replacement + content.substring(end);
+      setContent(updated);
+      requestAnimationFrame(() => {
+        ta.focus();
+        const cursorPos = start + before.length + (selected || "text").length;
+        ta.setSelectionRange(cursorPos, cursorPos);
+      });
+    },
+    [content]
+  );
+
+  function handleInsertLink() {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    savedSelection.current = { start: ta.selectionStart, end: ta.selectionEnd };
+    setLinkUrl("");
+    setLinkTarget("_blank");
+    setLinkRel("noopener noreferrer");
+    setShowLinkDialog(true);
+  }
+
+  function confirmInsertLink() {
+    const ta = textareaRef.current;
+    if (!ta || !linkUrl.trim()) return;
+    const sel = savedSelection.current ?? { start: ta.selectionStart, end: ta.selectionEnd };
+    const selected = content.substring(sel.start, sel.end) || "link text";
+    const relAttr = linkRel.trim() ? ` rel="${linkRel.trim()}"` : "";
+    const targetAttr = linkTarget === "_blank" ? ` target="_blank"` : "";
+    const tag = `<a href="${linkUrl.trim()}"${targetAttr}${relAttr}>${selected}</a>`;
+    const updated = content.substring(0, sel.start) + tag + content.substring(sel.end);
+    setContent(updated);
+    setShowLinkDialog(false);
+    requestAnimationFrame(() => ta.focus());
+  }
+
+  function handleInsertImage() {
+    const url = prompt("Image URL:");
+    if (!url) return;
+    const alt = prompt("Alt text (for SEO):") || "";
+    wrapSelection("", `\n<img src="${url}" alt="${alt}" loading="lazy" />\n`);
+  }
 
   function openCreate() {
     setEditing(null);
@@ -303,13 +372,212 @@ export function BlogClient({
                   dangerouslySetInnerHTML={{ __html: content }}
                 />
               ) : (
-                <textarea
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  rows={16}
-                  className="w-full border border-rule bg-surface-cream px-3 py-2 font-mono text-xs text-ink focus:border-ink focus:outline-none"
-                  placeholder="Write your content or use Generate with AI..."
-                />
+                <div>
+                  {/* Formatting toolbar */}
+                  <div className="flex flex-wrap items-center gap-0.5 border border-b-0 border-rule bg-surface-raised px-2 py-1.5">
+                    <button
+                      type="button"
+                      onClick={() => wrapSelection("<strong>", "</strong>")}
+                      className="rounded p-1.5 text-ink-muted hover:bg-surface-cream hover:text-ink"
+                      title="Bold"
+                    >
+                      <Bold className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => wrapSelection("<em>", "</em>")}
+                      className="rounded p-1.5 text-ink-muted hover:bg-surface-cream hover:text-ink"
+                      title="Italic"
+                    >
+                      <Italic className="h-3.5 w-3.5" />
+                    </button>
+
+                    <span className="mx-1 h-4 w-px bg-rule" />
+
+                    <button
+                      type="button"
+                      onClick={handleInsertLink}
+                      className="rounded p-1.5 text-ink-muted hover:bg-surface-cream hover:text-editorial-red"
+                      title="Insert Link (backlink)"
+                    >
+                      <Link className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const ta = textareaRef.current;
+                        if (!ta) return;
+                        const start = ta.selectionStart;
+                        const end = ta.selectionEnd;
+                        // Find and remove surrounding <a> tag
+                        const before = content.substring(0, start);
+                        const after = content.substring(end);
+                        const full = content.substring(0, end);
+                        const openMatch = before.match(/<a\s[^>]*>(?=[^<]*$)/);
+                        const closeIdx = after.indexOf("</a>");
+                        if (openMatch && closeIdx !== -1) {
+                          const tagStart = before.lastIndexOf(openMatch[0]);
+                          const tagEnd = end + closeIdx + 4;
+                          const inner = content.substring(tagStart + openMatch[0].length, end + closeIdx);
+                          setContent(content.substring(0, tagStart) + inner + content.substring(tagEnd));
+                        }
+                      }}
+                      className="rounded p-1.5 text-ink-muted hover:bg-surface-cream hover:text-editorial-red"
+                      title="Remove Link"
+                    >
+                      <Unlink className="h-3.5 w-3.5" />
+                    </button>
+
+                    <span className="mx-1 h-4 w-px bg-rule" />
+
+                    <button
+                      type="button"
+                      onClick={() => wrapSelection("\n<h2>", "</h2>\n")}
+                      className="rounded p-1.5 text-ink-muted hover:bg-surface-cream hover:text-ink"
+                      title="Heading 2"
+                    >
+                      <Heading2 className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => wrapSelection("\n<h3>", "</h3>\n")}
+                      className="rounded p-1.5 text-ink-muted hover:bg-surface-cream hover:text-ink"
+                      title="Heading 3"
+                    >
+                      <Heading3 className="h-3.5 w-3.5" />
+                    </button>
+
+                    <span className="mx-1 h-4 w-px bg-rule" />
+
+                    <button
+                      type="button"
+                      onClick={() => wrapSelection("\n<ul>\n  <li>", "</li>\n</ul>\n")}
+                      className="rounded p-1.5 text-ink-muted hover:bg-surface-cream hover:text-ink"
+                      title="Bullet List"
+                    >
+                      <List className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => wrapSelection("\n<ol>\n  <li>", "</li>\n</ol>\n")}
+                      className="rounded p-1.5 text-ink-muted hover:bg-surface-cream hover:text-ink"
+                      title="Numbered List"
+                    >
+                      <ListOrdered className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => wrapSelection("\n<blockquote>", "</blockquote>\n")}
+                      className="rounded p-1.5 text-ink-muted hover:bg-surface-cream hover:text-ink"
+                      title="Blockquote"
+                    >
+                      <Quote className="h-3.5 w-3.5" />
+                    </button>
+
+                    <span className="mx-1 h-4 w-px bg-rule" />
+
+                    <button
+                      type="button"
+                      onClick={handleInsertImage}
+                      className="rounded p-1.5 text-ink-muted hover:bg-surface-cream hover:text-ink"
+                      title="Insert Image"
+                    >
+                      <Image className="h-3.5 w-3.5" />
+                    </button>
+
+                    <span className="mx-1 h-4 w-px bg-rule" />
+
+                    <button
+                      type="button"
+                      onClick={() => wrapSelection("<p>", "</p>")}
+                      className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-ink-muted hover:bg-surface-cream hover:text-ink"
+                      title="Paragraph"
+                    >
+                      P
+                    </button>
+                  </div>
+
+                  <textarea
+                    ref={textareaRef}
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    rows={16}
+                    className="w-full border border-rule bg-surface-cream px-3 py-2 font-mono text-xs text-ink focus:border-ink focus:outline-none"
+                    placeholder="Write your content or use Generate with AI... Select text and use the toolbar to format."
+                  />
+                </div>
+              )}
+
+              {/* Link insertion dialog */}
+              {showLinkDialog && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                  <div className="w-full max-w-md border border-rule bg-surface-card p-6 shadow-xl">
+                    <h3 className="mb-4 font-serif text-lg font-bold text-ink">Insert Link</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-ink-muted">
+                          URL
+                        </label>
+                        <input
+                          value={linkUrl}
+                          onChange={(e) => setLinkUrl(e.target.value)}
+                          className="w-full border border-rule bg-surface-cream px-3 py-2 font-mono text-sm text-ink focus:border-ink focus:outline-none"
+                          placeholder="https://example.com"
+                          autoFocus
+                          onKeyDown={(e) => e.key === "Enter" && confirmInsertLink()}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-ink-muted">
+                            Target
+                          </label>
+                          <select
+                            value={linkTarget}
+                            onChange={(e) => setLinkTarget(e.target.value as "_blank" | "_self")}
+                            className="w-full border border-rule bg-surface-cream px-3 py-2 text-sm text-ink focus:border-ink focus:outline-none"
+                          >
+                            <option value="_blank">New tab (_blank)</option>
+                            <option value="_self">Same tab (_self)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-ink-muted">
+                            Rel attribute
+                          </label>
+                          <select
+                            value={linkRel}
+                            onChange={(e) => setLinkRel(e.target.value)}
+                            className="w-full border border-rule bg-surface-cream px-3 py-2 text-sm text-ink focus:border-ink focus:outline-none"
+                          >
+                            <option value="noopener noreferrer">noopener noreferrer</option>
+                            <option value="nofollow noopener noreferrer">nofollow noopener</option>
+                            <option value="dofollow">dofollow (pass SEO juice)</option>
+                            <option value="">None</option>
+                          </select>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-ink-muted">
+                        Use &quot;dofollow&quot; for backlinks you want to pass SEO authority. Use &quot;nofollow&quot; for sponsored or untrusted links.
+                      </p>
+                    </div>
+                    <div className="mt-4 flex justify-end gap-2">
+                      <button
+                        onClick={() => setShowLinkDialog(false)}
+                        className="inline-flex h-8 items-center border border-rule px-4 text-xs font-bold uppercase tracking-widest text-ink-muted hover:text-ink"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={confirmInsertLink}
+                        disabled={!linkUrl.trim()}
+                        className="inline-flex h-8 items-center bg-editorial-red px-4 text-xs font-bold uppercase tracking-widest text-white hover:bg-editorial-red/90 disabled:opacity-50"
+                      >
+                        Insert Link
+                      </button>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
 
