@@ -12,8 +12,8 @@ let _client: BetaAnalyticsDataClient | null = null;
 function getClient(): BetaAnalyticsDataClient {
   if (_client) return _client;
 
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const key = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim();
+  const key = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n").trim();
 
   if (!email || !key) {
     throw new Error("Missing Google credentials for GA4");
@@ -24,6 +24,8 @@ function getClient(): BetaAnalyticsDataClient {
       client_email: email,
       private_key: key,
     },
+    // Use REST instead of gRPC — gRPC fails on Vercel serverless
+    fallback: "rest",
   });
 
   return _client;
@@ -77,7 +79,7 @@ export interface GA4DailyData {
  */
 export async function discoverPropertyId(): Promise<string | null> {
   // Check env first
-  const envPropId = process.env.GA4_PROPERTY_ID;
+  const envPropId = process.env.GA4_PROPERTY_ID?.trim();
   if (envPropId) return envPropId;
 
   // Cannot discover without the admin API — user needs to set GA4_PROPERTY_ID

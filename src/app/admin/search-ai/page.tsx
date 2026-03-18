@@ -50,10 +50,12 @@ export default async function AdminSearchAIPage() {
       ga4Sources = sources;
       ga4Daily = daily;
     }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("GA4 fetch error:", msg);
-    ga4Error = msg;
+  } catch (err: unknown) {
+    // Extract detailed error info (gRPC errors have code, details, metadata)
+    const e = err as Record<string, unknown>;
+    const msg = e?.details ?? e?.message ?? (err instanceof Error ? err.message : String(err));
+    console.error("GA4 fetch error:", JSON.stringify({ message: e?.message, code: e?.code, details: e?.details }, null, 2));
+    ga4Error = String(msg);
   }
 
   // 3. Try Google Search Console data
