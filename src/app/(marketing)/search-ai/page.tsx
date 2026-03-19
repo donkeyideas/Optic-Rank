@@ -10,14 +10,14 @@ import {
   Check,
 } from "lucide-react";
 import { getSiteContent } from "@/lib/dal/admin";
-import { JsonLd, breadcrumbJsonLd } from "@/components/seo/json-ld";
+import { JsonLd, breadcrumbJsonLd, faqJsonLd, speakableJsonLd } from "@/components/seo/json-ld";
 
 /* ── SEO Meta ──────────────────────────────────────────────────── */
 
 export const metadata: Metadata = {
   title: "SEO, AEO, GEO & CRO Strategy",
   description:
-    "Master all four pillars of modern search: SEO for rankings, AEO for answer snippets, GEO for AI citations, and CRO for conversions. One unified intelligence platform.",
+    "Master all four pillars of modern search: SEO for rankings, AEO for snippets, GEO for AI citations, and CRO for conversions.",
   alternates: { canonical: "/search-ai" },
   openGraph: {
     title: "SEO, AEO, GEO & CRO Strategy",
@@ -125,6 +125,16 @@ export default async function SearchAIPage() {
   return (
     <>
       <JsonLd data={breadcrumbJsonLd([{ name: "Search & AI", path: "/search-ai" }])} />
+      <JsonLd data={speakableJsonLd(["h1", "h2", "p"], "/search-ai")} />
+      <JsonLd
+        data={faqJsonLd([
+          { question: "What is SEO?", answer: "SEO (Search Engine Optimization) is the practice of optimizing websites to rank higher in search engine results pages. It involves keyword research, on-page optimization, technical improvements, and link building to increase organic traffic." },
+          { question: "What is AEO (Answer Engine Optimization)?", answer: "AEO optimizes content to appear in featured snippets, People Also Ask boxes, knowledge panels, and voice search results. It focuses on directly answering user questions in structured formats that search engines can extract." },
+          { question: "What is GEO (Generative Engine Optimization)?", answer: "GEO is the strategy of optimizing content to be cited by AI-powered search engines like ChatGPT, Gemini, and Perplexity. It focuses on authoritative, well-structured content with proper schema markup for AI discoverability." },
+          { question: "What is CRO (Conversion Rate Optimization)?", answer: "CRO focuses on converting search traffic into customers. It involves optimizing page load speed, calls-to-action, user experience, and landing page design to maximize the value of every visitor from organic search." },
+          { question: "How do SEO, AEO, GEO, and CRO work together?", answer: "The four pillars form a complete search visibility strategy. SEO drives rankings, AEO captures featured snippets, GEO ensures AI citations, and CRO converts that traffic into revenue. Optic Rank unifies all four in one platform." },
+        ])}
+      />
 
       {/* ==================================================================
           HERO SECTION

@@ -63,12 +63,21 @@ export const metadata: Metadata = {
     title: "Optic Rank - AI-Powered SEO Intelligence",
     description:
       "Track keyword rankings, monitor competitors, audit your site, and get actionable AI insights to grow your organic traffic.",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "Optic Rank — AI-Powered SEO Intelligence",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Optic Rank",
     description:
       "AI-powered SEO intelligence platform for modern teams.",
+    images: ["/opengraph-image"],
   },
 };
 

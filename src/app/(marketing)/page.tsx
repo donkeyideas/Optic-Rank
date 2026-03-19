@@ -17,12 +17,15 @@ import {
   JsonLd,
   organizationJsonLd,
   webSiteJsonLd,
+  softwareApplicationJsonLd,
+  speakableJsonLd,
+  howToJsonLd,
 } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = {
   title: "AI-Powered SEO & Social Intelligence Platform",
   description:
-    "Track keyword rankings, monitor competitors, audit your site, analyze social media performance, and unlock AI-driven insights. The all-in-one SEO and social intelligence platform for modern marketing teams.",
+    "Track keyword rankings, monitor competitors, audit your site, and unlock AI-driven insights. The all-in-one SEO intelligence platform.",
   alternates: { canonical: "/" },
   openGraph: {
     title: "AI-Powered SEO & Social Intelligence Platform",
@@ -106,6 +109,19 @@ export default async function MarketingHomePage() {
     <>
       <JsonLd data={organizationJsonLd()} />
       <JsonLd data={webSiteJsonLd()} />
+      <JsonLd data={softwareApplicationJsonLd()} />
+      <JsonLd data={speakableJsonLd(["h1", "h2", ".editorial-headline"], "/")} />
+      <JsonLd
+        data={howToJsonLd(
+          "How to improve your SEO with Optic Rank",
+          "Get started with AI-powered SEO intelligence in three simple steps.",
+          [
+            { name: "Connect Your Properties", text: "Add your domains, connect Google Search Console, and import your keyword targets. Setup takes under 5 minutes." },
+            { name: "AI Analyzes Everything", text: "Our AI continuously monitors rankings, crawls your site, watches competitors, and identifies patterns humans miss." },
+            { name: "Act on Intelligence Briefs", text: "Receive daily editorial-style briefings with prioritized actions. No data overload, just clear, actionable intelligence." },
+          ]
+        )}
+      />
 
       {/* ==== HERO SECTION ==== */}
       <section className="relative overflow-hidden border-b-4 border-double border-rule-dark">

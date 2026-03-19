@@ -16,12 +16,12 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getSiteContent } from "@/lib/dal/admin";
-import { JsonLd, breadcrumbJsonLd } from "@/components/seo/json-ld";
+import { JsonLd, breadcrumbJsonLd, faqJsonLd, speakableJsonLd } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = {
   title: "All SEO & Social Intelligence Features",
   description:
-    "Explore Optic Rank's complete feature set: keyword tracking, site audits, backlink monitoring, competitor analysis, AI visibility tracking, social media intelligence, app store optimization, and actionable insights.",
+    "Keyword tracking, site audits, backlink monitoring, competitor analysis, AI visibility, and app store optimization. All in one platform.",
   alternates: { canonical: "/features" },
   openGraph: {
     title: "All SEO & Social Intelligence Features",
@@ -78,6 +78,16 @@ export default async function FeaturesPage() {
   return (
     <>
       <JsonLd data={breadcrumbJsonLd([{ name: "Features", path: "/features" }])} />
+      <JsonLd data={speakableJsonLd(["h1", "h2", "p"], "/features")} />
+      <JsonLd
+        data={faqJsonLd([
+          { question: "What features does Optic Rank include?", answer: "Optic Rank includes keyword rank tracking, competitor analysis, technical site audits, backlink monitoring, AI-powered insights, content optimization, app store optimization, and social media intelligence — all in one platform." },
+          { question: "How does AI-powered keyword tracking work?", answer: "Optic Rank tracks your keywords daily across search engines, monitors SERP features, and uses AI to identify ranking opportunities and predict trends before your competitors see them." },
+          { question: "Can Optic Rank monitor competitors?", answer: "Yes. Optic Rank provides real-time competitor surveillance including ranking changes, new content detection, backlink acquisitions, and strategic shift alerts." },
+          { question: "Does Optic Rank include site audit capabilities?", answer: "Optic Rank runs comprehensive crawl-based technical audits covering broken links, thin content, Core Web Vitals, indexability issues, and mobile optimization." },
+          { question: "What social media platforms does Optic Rank support?", answer: "Optic Rank provides AI-powered analytics for Instagram, TikTok, YouTube, Twitter/X, and LinkedIn with earnings forecasts, growth strategies, and content optimization." },
+        ])}
+      />
 
       {/* ==== HERO SECTION ==== */}
       <section className="relative overflow-hidden border-b-4 border-double border-rule-dark">
