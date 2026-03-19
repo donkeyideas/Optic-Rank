@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { JsonLd, breadcrumbJsonLd } from "@/components/seo/json-ld";
+import { JsonLd, OG_IMAGES, breadcrumbJsonLd } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
@@ -10,7 +10,8 @@ export const metadata: Metadata = {
     title: "Privacy Policy",
     description:
       "How Optic Rank handles and protects your personal data.",
-  },
+  
+    images: OG_IMAGES,},
 };
 
 export default function PrivacyPage() {

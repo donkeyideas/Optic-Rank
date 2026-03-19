@@ -10,7 +10,7 @@ import {
   Check,
 } from "lucide-react";
 import { getSiteContent } from "@/lib/dal/admin";
-import { JsonLd, breadcrumbJsonLd, faqJsonLd, speakableJsonLd } from "@/components/seo/json-ld";
+import { JsonLd, OG_IMAGES, breadcrumbJsonLd, faqJsonLd, speakableJsonLd, howToJsonLd } from "@/components/seo/json-ld";
 
 /* ── SEO Meta ──────────────────────────────────────────────────── */
 
@@ -23,6 +23,7 @@ export const metadata: Metadata = {
     title: "SEO, AEO, GEO & CRO Strategy",
     description:
       "Master all four pillars of modern search: SEO for rankings, AEO for answer snippets, GEO for AI citations, and CRO for conversions.",
+    images: OG_IMAGES,
   },
 };
 
@@ -127,6 +128,18 @@ export default async function SearchAIPage() {
       <JsonLd data={breadcrumbJsonLd([{ name: "Search & AI", path: "/search-ai" }])} />
       <JsonLd data={speakableJsonLd(["h1", "h2", "p"], "/search-ai")} />
       <JsonLd
+        data={howToJsonLd(
+          "How to optimize for SEO, AEO, GEO, and CRO",
+          "Master all four pillars of modern search visibility with this step-by-step approach.",
+          [
+            { name: "Optimize for traditional search (SEO)", text: "Research keywords, optimize on-page elements, build quality backlinks, and ensure your site is technically sound for search engine crawlers." },
+            { name: "Optimize for answer engines (AEO)", text: "Structure content to directly answer questions using lists, tables, and concise definitions that search engines can extract for featured snippets and People Also Ask boxes." },
+            { name: "Optimize for AI search engines (GEO)", text: "Create authoritative, well-cited content with proper schema markup so AI-powered engines like ChatGPT, Gemini, and Perplexity cite your pages." },
+            { name: "Optimize for conversions (CRO)", text: "Improve page speed, refine calls-to-action, and optimize landing page design to convert organic visitors into customers." },
+          ]
+        )}
+      />
+      <JsonLd
         data={faqJsonLd([
           { question: "What is SEO?", answer: "SEO (Search Engine Optimization) is the practice of optimizing websites to rank higher in search engine results pages. It involves keyword research, on-page optimization, technical improvements, and link building to increase organic traffic." },
           { question: "What is AEO (Answer Engine Optimization)?", answer: "AEO optimizes content to appear in featured snippets, People Also Ask boxes, knowledge panels, and voice search results. It focuses on directly answering user questions in structured formats that search engines can extract." },
@@ -146,7 +159,7 @@ export default async function SearchAIPage() {
           <div className="mx-auto max-w-4xl text-center">
             {hero?.label && <span className="editorial-label">{hero.label}</span>}
             <h1 className="mt-4 font-serif text-5xl font-bold leading-tight tracking-tight text-ink md:text-6xl lg:text-7xl">
-              {hero?.headline ?? "Four Pillars of Search Visibility"}{" "}
+              {hero?.headline ?? "What are the four pillars of search visibility?"}{" "}
               {hero?.headline_highlight && (
                 <span className="text-editorial-red">{hero.headline_highlight}</span>
               )}
@@ -308,6 +321,42 @@ export default async function SearchAIPage() {
           </div>
         </section>
       )}
+
+      {/* ==================================================================
+          FAQ SECTION
+          ================================================================== */}
+      <section className="border-b border-rule bg-surface-card">
+        <div className="mx-auto max-w-3xl px-6 py-16 md:py-24">
+          <div className="mb-12 text-center">
+            <span className="editorial-label">Common Questions</span>
+            <h2 className="mt-4 font-serif text-3xl font-bold tracking-tight text-ink md:text-4xl">
+              Frequently asked questions about search strategy
+            </h2>
+          </div>
+          <div className="divide-y divide-rule">
+            <div className="py-6">
+              <h3 className="font-serif text-lg font-bold text-ink">What is SEO?</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">SEO (Search Engine Optimization) is the practice of optimizing websites to rank higher in search engine results pages. It involves keyword research, on-page optimization, technical improvements, and link building to increase organic traffic.</p>
+            </div>
+            <div className="py-6">
+              <h3 className="font-serif text-lg font-bold text-ink">What is AEO (Answer Engine Optimization)?</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">AEO optimizes content to appear in featured snippets, People Also Ask boxes, knowledge panels, and voice search results. It focuses on directly answering user questions in structured formats that search engines can extract.</p>
+            </div>
+            <div className="py-6">
+              <h3 className="font-serif text-lg font-bold text-ink">What is GEO (Generative Engine Optimization)?</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">GEO is the strategy of optimizing content to be cited by AI-powered search engines like ChatGPT, Gemini, and Perplexity. It focuses on authoritative, well-structured content with proper schema markup for AI discoverability.</p>
+            </div>
+            <div className="py-6">
+              <h3 className="font-serif text-lg font-bold text-ink">What is CRO (Conversion Rate Optimization)?</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">CRO focuses on converting search traffic into customers. It involves optimizing page load speed, calls-to-action, user experience, and landing page design to maximize the value of every visitor from organic search.</p>
+            </div>
+            <div className="py-6">
+              <h3 className="font-serif text-lg font-bold text-ink">How do SEO, AEO, GEO, and CRO work together?</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">The four pillars form a complete search visibility strategy. SEO drives rankings, AEO captures featured snippets, GEO ensures AI citations, and CRO converts that traffic into revenue. Optic Rank unifies all four in one platform.</p>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* ==================================================================
           BOTTOM CTA

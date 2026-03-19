@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { JsonLd, breadcrumbJsonLd } from "@/components/seo/json-ld";
+import { JsonLd, OG_IMAGES, breadcrumbJsonLd } from "@/components/seo/json-ld";
 import { getPublishedChangelog } from "@/lib/dal/admin";
 
 export const metadata: Metadata = {
@@ -10,7 +10,8 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Changelog — What's New",
     description: "Latest features and improvements from Optic Rank.",
-  },
+  
+    images: OG_IMAGES,},
 };
 
 const typeBadge: Record<string, { label: string; className: string }> = {

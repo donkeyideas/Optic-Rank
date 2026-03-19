@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { JsonLd, breadcrumbJsonLd } from "@/components/seo/json-ld";
+import { JsonLd, OG_IMAGES, breadcrumbJsonLd } from "@/components/seo/json-ld";
 import { ContactForm } from "./contact-form";
 
 export const metadata: Metadata = {
@@ -10,7 +10,8 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Contact Us",
     description: "Reach the Optic Rank team for support or partnership inquiries.",
-  },
+  
+    images: OG_IMAGES,},
 };
 
 export default function ContactPage() {

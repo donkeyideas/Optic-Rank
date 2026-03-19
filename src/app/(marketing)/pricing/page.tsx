@@ -4,8 +4,11 @@ import { Check, X, Zap } from "lucide-react";
 import { getPricingPlans } from "@/lib/dal/admin";
 import {
   JsonLd,
+  OG_IMAGES,
   breadcrumbJsonLd,
   faqJsonLd,
+  speakableJsonLd,
+  howToJsonLd,
 } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = {
@@ -17,6 +20,7 @@ export const metadata: Metadata = {
     title: "Plans & Pricing for Every Team",
     description:
       "From free starter to enterprise SEO intelligence. Find pricing that scales with your growth.",
+    images: OG_IMAGES,
   },
 };
 
@@ -89,6 +93,18 @@ export default async function PricingPage() {
     <>
       <JsonLd data={breadcrumbJsonLd([{ name: "Pricing", path: "/pricing" }])} />
       <JsonLd data={faqJsonLd(faqs)} />
+      <JsonLd data={speakableJsonLd(["h1", "h2", "p"], "/pricing")} />
+      <JsonLd
+        data={howToJsonLd(
+          "How to choose the right Optic Rank plan",
+          "Find the perfect plan for your SEO needs in three simple steps.",
+          [
+            { name: "Assess your needs", text: "Consider how many keywords you track, how many competitor sites you monitor, and whether you need features like AI insights, social intelligence, or app store optimization." },
+            { name: "Compare plan features", text: "Review the feature comparison table to see which plan includes the capabilities you need. All paid plans include a 14-day free trial." },
+            { name: "Start your free trial", text: "Sign up for your chosen plan with no credit card required. You can upgrade, downgrade, or cancel anytime from your account settings." },
+          ]
+        )}
+      />
 
       {/* ==== HEADER SECTION ==== */}
       <section className="border-b border-rule">
@@ -183,7 +199,7 @@ export default async function PricingPage() {
             <div className="mb-12 text-center">
               <span className="editorial-label">Detailed Comparison</span>
               <h2 className="mt-4 font-serif text-3xl font-bold tracking-tight text-ink md:text-4xl">
-                Compare all features
+                How do our plans compare?
               </h2>
             </div>
 

@@ -9,6 +9,16 @@ export function JsonLd({ data }: { data: object }) {
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
+/** Shared OG image config — import into every page metadata to avoid override loss. */
+export const OG_IMAGES = [
+  {
+    url: "/opengraph-image",
+    width: 1200,
+    height: 630,
+    alt: "Optic Rank — AI-Powered SEO Intelligence",
+  },
+];
+
 export function organizationJsonLd() {
   return {
     "@context": "https://schema.org",

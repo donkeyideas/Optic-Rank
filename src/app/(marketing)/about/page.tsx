@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { JsonLd, breadcrumbJsonLd } from "@/components/seo/json-ld";
+import { JsonLd, OG_IMAGES, breadcrumbJsonLd } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = {
   title: "About Optic Rank",
@@ -10,7 +10,8 @@ export const metadata: Metadata = {
     title: "About Optic Rank",
     description:
       "Our mission: make world-class SEO intelligence accessible to every team.",
-  },
+  
+    images: OG_IMAGES,},
 };
 
 export default function AboutPage() {

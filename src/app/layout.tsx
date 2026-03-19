@@ -3,6 +3,7 @@ import Script from "next/script";
 import { Playfair_Display, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/shared/theme-provider";
 import { ToastProvider } from "@/components/shared/toast";
+import { JsonLd, organizationJsonLd } from "@/components/seo/json-ld";
 import "./globals.css";
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
@@ -146,6 +147,7 @@ export default function RootLayout({
         )}
       </head>
       <body className="min-h-screen bg-surface-cream font-sans text-ink antialiased">
+        <JsonLd data={organizationJsonLd()} />
         <ThemeProvider>
           <ToastProvider>{children}</ToastProvider>
         </ThemeProvider>

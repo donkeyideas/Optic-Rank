@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { JsonLd, breadcrumbJsonLd } from "@/components/seo/json-ld";
+import { JsonLd, OG_IMAGES, breadcrumbJsonLd } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
@@ -9,7 +9,8 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Terms of Service",
     description: "Terms and conditions for using Optic Rank.",
-  },
+  
+    images: OG_IMAGES,},
 };
 
 export default function TermsPage() {

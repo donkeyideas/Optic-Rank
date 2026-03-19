@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getSiteContent } from "@/lib/dal/admin";
-import { JsonLd, breadcrumbJsonLd } from "@/components/seo/json-ld";
+import { JsonLd, OG_IMAGES, breadcrumbJsonLd } from "@/components/seo/json-ld";
 
 /* ── SEO Meta ──────────────────────────────────────────────────── */
 
@@ -32,7 +32,8 @@ export const metadata: Metadata = {
     title: "Social Intelligence — AI-Powered Social Media Analytics",
     description:
       "AI-powered analytics for Instagram, TikTok, YouTube, Twitter, and LinkedIn. Earnings forecasts, growth strategies, and competitor benchmarking.",
-  },
+  
+    images: OG_IMAGES,},
 };
 
 /* ── Icon Map ──────────────────────────────────────────────────── */

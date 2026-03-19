@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { JsonLd, breadcrumbJsonLd } from "@/components/seo/json-ld";
+import { JsonLd, OG_IMAGES, breadcrumbJsonLd } from "@/components/seo/json-ld";
 import { getPublishedPosts } from "@/lib/dal/admin";
 
 export const metadata: Metadata = {
@@ -11,7 +11,8 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Guides — Learn SEO with Optic Rank",
     description: "Step-by-step SEO guides and tutorials.",
-  },
+  
+    images: OG_IMAGES,},
 };
 
 export default async function GuidesPage() {

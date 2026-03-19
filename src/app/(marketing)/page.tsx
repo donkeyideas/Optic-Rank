@@ -15,11 +15,14 @@ import {
 import { getSiteContent } from "@/lib/dal/admin";
 import {
   JsonLd,
+  OG_IMAGES,
   organizationJsonLd,
   webSiteJsonLd,
   softwareApplicationJsonLd,
   speakableJsonLd,
   howToJsonLd,
+  faqJsonLd,
+  breadcrumbJsonLd,
 } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = {
@@ -31,6 +34,7 @@ export const metadata: Metadata = {
     title: "AI-Powered SEO & Social Intelligence Platform",
     description:
       "Track keyword rankings, monitor competitors, audit your site, analyze social media, and unlock AI-driven insights.",
+    images: OG_IMAGES,
   },
 };
 
@@ -110,10 +114,11 @@ export default async function MarketingHomePage() {
       <JsonLd data={organizationJsonLd()} />
       <JsonLd data={webSiteJsonLd()} />
       <JsonLd data={softwareApplicationJsonLd()} />
+      <JsonLd data={breadcrumbJsonLd([])} />
       <JsonLd data={speakableJsonLd(["h1", "h2", ".editorial-headline"], "/")} />
       <JsonLd
         data={howToJsonLd(
-          "How to improve your SEO with Optic Rank",
+          "How do you improve your SEO with Optic Rank?",
           "Get started with AI-powered SEO intelligence in three simple steps.",
           [
             { name: "Connect Your Properties", text: "Add your domains, connect Google Search Console, and import your keyword targets. Setup takes under 5 minutes." },
@@ -121,6 +126,14 @@ export default async function MarketingHomePage() {
             { name: "Act on Intelligence Briefs", text: "Receive daily editorial-style briefings with prioritized actions. No data overload, just clear, actionable intelligence." },
           ]
         )}
+      />
+      <JsonLd
+        data={faqJsonLd([
+          { question: "What is Optic Rank?", answer: "Optic Rank is an AI-powered SEO intelligence platform that tracks keyword rankings, monitors competitors, performs technical site audits, analyzes backlinks, and provides actionable AI insights to help grow organic traffic." },
+          { question: "How much does Optic Rank cost?", answer: "Optic Rank offers a free starter plan, with paid plans starting at $29/month for small teams up to $199/month for businesses. All paid plans include a 14-day free trial with no credit card required." },
+          { question: "What makes Optic Rank different from other SEO tools?", answer: "Optic Rank unifies SEO, AEO (Answer Engine Optimization), GEO (Generative Engine Optimization), and CRO (Conversion Rate Optimization) in one platform, with AI that continuously analyzes data and surfaces actionable recommendations." },
+          { question: "Does Optic Rank offer a free trial?", answer: "Yes, Optic Rank offers a free 14-day trial on all paid plans with no credit card required. You can also use the free starter plan indefinitely with limited features." },
+        ])}
       />
 
       {/* ==== HERO SECTION ==== */}
@@ -190,11 +203,11 @@ export default async function MarketingHomePage() {
             </span>
             <h2 className="mt-4 font-serif text-4xl font-bold leading-tight tracking-tight text-ink md:text-5xl">
               {featuresHeader?.title ??
-                "Every tool an SEO strategist needs, sharpened by artificial intelligence"}
+                "What tools does an SEO strategist need?"}
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-ink-secondary">
               {featuresHeader?.description ??
-                "Six pillars of search and social intelligence, unified in a single platform that thinks ahead and presents findings with editorial precision."}
+                "Six pillars of search and social intelligence, sharpened by AI and unified in one platform."}
             </p>
           </div>
 
@@ -230,7 +243,7 @@ export default async function MarketingHomePage() {
               {howItWorksHeader?.label ?? "Trusted Intelligence"}
             </span>
             <h2 className="mt-4 font-serif text-4xl font-bold leading-tight tracking-tight text-ink md:text-5xl">
-              {howItWorksHeader?.title ?? "How Optic Rank works"}
+              {howItWorksHeader?.title ?? "How does Optic Rank work?"}
             </h2>
           </div>
 
@@ -258,6 +271,36 @@ export default async function MarketingHomePage() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      </section>
+
+      {/* ==== FAQ SECTION ==== */}
+      <section className="border-b border-rule">
+        <div className="mx-auto max-w-3xl px-6 py-20 md:py-28">
+          <div className="mb-12 text-center">
+            <span className="editorial-label">Common Questions</span>
+            <h2 className="mt-4 font-serif text-3xl font-bold tracking-tight text-ink md:text-4xl">
+              Frequently asked questions about Optic Rank
+            </h2>
+          </div>
+          <div className="divide-y divide-rule">
+            <div className="py-6">
+              <h3 className="font-serif text-lg font-bold text-ink">What is Optic Rank?</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">Optic Rank is an AI-powered SEO intelligence platform that tracks keyword rankings, monitors competitors, performs technical site audits, analyzes backlinks, and provides actionable AI insights to help grow organic traffic.</p>
+            </div>
+            <div className="py-6">
+              <h3 className="font-serif text-lg font-bold text-ink">How much does Optic Rank cost?</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">Optic Rank offers a free starter plan, with paid plans starting at $29/month for small teams up to $199/month for businesses. All paid plans include a 14-day free trial with no credit card required.</p>
+            </div>
+            <div className="py-6">
+              <h3 className="font-serif text-lg font-bold text-ink">What makes Optic Rank different from other SEO tools?</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">Optic Rank unifies SEO, AEO (Answer Engine Optimization), GEO (Generative Engine Optimization), and CRO (Conversion Rate Optimization) in one platform, with AI that continuously analyzes data and surfaces actionable recommendations.</p>
+            </div>
+            <div className="py-6">
+              <h3 className="font-serif text-lg font-bold text-ink">Does Optic Rank offer a free trial?</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">Yes, Optic Rank offers a free 14-day trial on all paid plans with no credit card required. You can also use the free starter plan indefinitely with limited features.</p>
+            </div>
           </div>
         </div>
       </section>

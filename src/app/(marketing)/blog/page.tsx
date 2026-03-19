@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { JsonLd, breadcrumbJsonLd } from "@/components/seo/json-ld";
+import { JsonLd, OG_IMAGES, breadcrumbJsonLd } from "@/components/seo/json-ld";
 import { getPublishedPosts } from "@/lib/dal/admin";
 
 export const metadata: Metadata = {
@@ -11,7 +11,8 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Blog — SEO Insights & Updates",
     description: "SEO strategies, AI search trends, and product updates.",
-  },
+  
+    images: OG_IMAGES,},
 };
 
 export default async function BlogPage() {

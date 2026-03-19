@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { JsonLd, breadcrumbJsonLd } from "@/components/seo/json-ld";
+import { JsonLd, OG_IMAGES, breadcrumbJsonLd } from "@/components/seo/json-ld";
 import { getPublishedRoadmap } from "@/lib/dal/admin";
 
 export const metadata: Metadata = {
@@ -10,7 +10,8 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Product Roadmap",
     description: "See what's planned, in progress, and recently shipped.",
-  },
+  
+    images: OG_IMAGES,},
 };
 
 const statusConfig: Record<

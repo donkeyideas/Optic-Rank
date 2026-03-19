@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { JsonLd, breadcrumbJsonLd } from "@/components/seo/json-ld";
+import { JsonLd, OG_IMAGES, breadcrumbJsonLd } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = {
   title: "Cookie Policy",
@@ -9,7 +9,8 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Cookie Policy",
     description: "How Optic Rank uses cookies and tracking technologies.",
-  },
+  
+    images: OG_IMAGES,},
 };
 
 export default function CookiesPage() {

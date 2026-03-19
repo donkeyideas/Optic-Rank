@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { JsonLd, breadcrumbJsonLd } from "@/components/seo/json-ld";
+import { JsonLd, OG_IMAGES, breadcrumbJsonLd } from "@/components/seo/json-ld";
 import { getActiveJobs } from "@/lib/dal/admin";
 
 export const metadata: Metadata = {
@@ -10,7 +10,8 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Careers at Optic Rank",
     description: "Join our team and help build the future of search intelligence.",
-  },
+  
+    images: OG_IMAGES,},
 };
 
 export default async function CareersPage() {

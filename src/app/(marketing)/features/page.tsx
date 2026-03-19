@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getSiteContent } from "@/lib/dal/admin";
-import { JsonLd, breadcrumbJsonLd, faqJsonLd, speakableJsonLd } from "@/components/seo/json-ld";
+import { JsonLd, OG_IMAGES, breadcrumbJsonLd, faqJsonLd, speakableJsonLd, howToJsonLd } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = {
   title: "All SEO & Social Intelligence Features",
@@ -27,6 +27,7 @@ export const metadata: Metadata = {
     title: "All SEO & Social Intelligence Features",
     description:
       "Explore Optic Rank's complete feature set for modern SEO and social media intelligence.",
+    images: OG_IMAGES,
   },
 };
 
@@ -79,6 +80,17 @@ export default async function FeaturesPage() {
     <>
       <JsonLd data={breadcrumbJsonLd([{ name: "Features", path: "/features" }])} />
       <JsonLd data={speakableJsonLd(["h1", "h2", "p"], "/features")} />
+      <JsonLd
+        data={howToJsonLd(
+          "How to use Optic Rank's SEO intelligence features",
+          "Get started with Optic Rank's complete suite of SEO tools in three steps.",
+          [
+            { name: "Choose your modules", text: "Select from keyword tracking, competitor analysis, site audits, backlink monitoring, AI insights, social intelligence, and app store optimization." },
+            { name: "Connect your properties", text: "Add your domains, connect Google Search Console, import keywords, and set up competitor tracking. Setup takes under 5 minutes." },
+            { name: "Review AI-powered insights", text: "Optic Rank's AI analyzes all your data and delivers editorial-style intelligence briefs with prioritized, actionable recommendations." },
+          ]
+        )}
+      />
       <JsonLd
         data={faqJsonLd([
           { question: "What features does Optic Rank include?", answer: "Optic Rank includes keyword rank tracking, competitor analysis, technical site audits, backlink monitoring, AI-powered insights, content optimization, app store optimization, and social media intelligence — all in one platform." },
@@ -198,6 +210,40 @@ export default async function FeaturesPage() {
           </section>
         );
       })}
+
+      {/* ==== FAQ SECTION ==== */}
+      <section className="border-b border-rule bg-surface-card">
+        <div className="mx-auto max-w-3xl px-6 py-16 md:py-24">
+          <div className="mb-12 text-center">
+            <span className="editorial-label">Common Questions</span>
+            <h2 className="mt-4 font-serif text-3xl font-bold tracking-tight text-ink md:text-4xl">
+              Frequently asked questions about our features
+            </h2>
+          </div>
+          <div className="divide-y divide-rule">
+            <div className="py-6">
+              <h3 className="font-serif text-lg font-bold text-ink">What features does Optic Rank include?</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">Optic Rank includes keyword rank tracking, competitor analysis, technical site audits, backlink monitoring, AI-powered insights, content optimization, app store optimization, and social media intelligence — all in one platform.</p>
+            </div>
+            <div className="py-6">
+              <h3 className="font-serif text-lg font-bold text-ink">How does AI-powered keyword tracking work?</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">Optic Rank tracks your keywords daily across search engines, monitors SERP features, and uses AI to identify ranking opportunities and predict trends before your competitors see them.</p>
+            </div>
+            <div className="py-6">
+              <h3 className="font-serif text-lg font-bold text-ink">Can Optic Rank monitor competitors?</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">Yes. Optic Rank provides real-time competitor surveillance including ranking changes, new content detection, backlink acquisitions, and strategic shift alerts.</p>
+            </div>
+            <div className="py-6">
+              <h3 className="font-serif text-lg font-bold text-ink">Does Optic Rank include site audit capabilities?</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">Optic Rank runs comprehensive crawl-based technical audits covering broken links, thin content, Core Web Vitals, indexability issues, and mobile optimization.</p>
+            </div>
+            <div className="py-6">
+              <h3 className="font-serif text-lg font-bold text-ink">What social media platforms does Optic Rank support?</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">Optic Rank provides AI-powered analytics for Instagram, TikTok, YouTube, Twitter/X, and LinkedIn with earnings forecasts, growth strategies, and content optimization.</p>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* ==== BOTTOM CTA SECTION ==== */}
       <section className="border-b border-rule">
