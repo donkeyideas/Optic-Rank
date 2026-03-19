@@ -18,6 +18,7 @@ import {
   Briefcase,
   Mail,
   Bell,
+  Share2,
 } from "lucide-react";
 
 const adminNavItems = [
@@ -33,6 +34,7 @@ const adminNavItems = [
   { href: "/admin/health",     label: "System Health",  icon: Activity },
   { href: "/admin/analytics",  label: "Analytics",      icon: BarChart3 },
   { href: "/admin/blog",       label: "Blog",           icon: BookOpen },
+  { href: "/admin/social-posts", label: "Social Posts",  icon: Share2 },
   { href: "/admin/changelog",  label: "Changelog",      icon: History },
   { href: "/admin/roadmap",    label: "Roadmap",        icon: Map },
   { href: "/admin/careers",    label: "Careers",        icon: Briefcase },

@@ -130,8 +130,8 @@ Max Length: ${maxLen} characters
 Description: ${descText}
 
 For each title:
+- HARD LIMIT: Each title MUST be ${maxLen} characters or fewer (count every character including spaces, colons, dashes). Any title over ${maxLen} chars is invalid.
 - Include the brand name "${listing.app_name}" or a close variant
-- Stay under ${maxLen} characters
 - Optimize for keyword ranking
 - Only reference features/capabilities that appear in the description above
 
@@ -147,14 +147,22 @@ Return ONLY a JSON array: [{"title": "...", "score": 85, "reason": "Includes bra
     } catch { /* parse error */ }
   }
 
+  // Enforce character limit: drop variants that exceed maxLen, trim whitespace
+  variants = variants
+    .map((v) => ({ ...v, title: v.title.trim() }))
+    .filter((v) => v.title.length <= maxLen && v.title.length > 0);
+
   if (variants.length === 0) {
-    const name = listing.app_name as string;
+    const name = (listing.app_name as string).slice(0, maxLen);
     const cat = (listing.category as string ?? "App").toLowerCase();
-    variants = [
+    const fallbacks = [
       { title: `${name} - Best ${cat}`, score: 70, reason: "Brand + category keyword" },
-      { title: `${name}: ${cat.charAt(0).toUpperCase() + cat.slice(1)} Tool`, score: 65, reason: "Brand + generic keyword" },
+      { title: `${name}: ${cat.charAt(0).toUpperCase() + cat.slice(1)}`, score: 65, reason: "Brand + generic keyword" },
       { title: `${name} — #1 ${cat}`, score: 60, reason: "Brand + ranking claim" },
     ];
+    variants = fallbacks
+      .map((v) => ({ ...v, title: v.title.slice(0, maxLen) }))
+      .filter((v) => v.title.length > 0);
   }
 
   return { success: true, variants };

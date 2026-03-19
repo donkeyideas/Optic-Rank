@@ -37,6 +37,9 @@ import {
   LineChart,
   Line,
   Cell,
+  PieChart,
+  Pie,
+  Legend,
 } from "recharts";
 import type { SelfAuditResult, CrawledPage } from "@/lib/crawl/self-audit";
 import type {
@@ -536,30 +539,84 @@ function TrafficTab({ ga4 }: { ga4: Props["ga4"] }) {
 
   const overview = ga4.overview;
 
+  // Computed KPIs
+  const engagementRate = overview ? (1 - overview.bounceRate) * 100 : 0;
+  const pagesPerSession = overview && overview.totalSessions > 0
+    ? overview.totalPageviews / overview.totalSessions
+    : 0;
+
+  // Traffic source donut data
+  const SOURCE_COLORS = ["#27ae60", "#2980b9", "#8e44ad", "#d35400", "#c0392b", "#b8860b", "#16a085", "#2c3e50"];
+  const sourceDonutData = ga4.sources.slice(0, 8).map((s, i) => ({
+    name: `${s.source} / ${s.medium}`,
+    value: s.sessions,
+    fill: SOURCE_COLORS[i % SOURCE_COLORS.length],
+  }));
+
+  // New vs returning users donut
+  const newUsers = overview?.newUsers ?? 0;
+  const returningUsers = (overview?.totalUsers ?? 0) - newUsers;
+  const userDonutData = [
+    { name: "New Users", value: newUsers, fill: "#27ae60" },
+    { name: "Returning", value: Math.max(returningUsers, 0), fill: "#2980b9" },
+  ];
+
+  // Page engagement data (top 8 by avg time)
+  const engagementData = [...ga4.pages]
+    .sort((a, b) => b.avgTimeOnPage - a.avgTimeOnPage)
+    .slice(0, 8)
+    .map((p) => ({
+      path: p.path.length > 25 ? p.path.slice(0, 25) + "\u2026" : p.path,
+      avgTime: Math.round(p.avgTimeOnPage),
+      bounceRate: p.bounceRate,
+    }));
+
+  // Bounce rate color helper
+  const bounceColor = (rate: number) => {
+    const pct = rate * 100;
+    return pct < 50 ? "text-editorial-green" : pct < 70 ? "text-editorial-gold" : "text-editorial-red";
+  };
+
   return (
     <div className="space-y-6">
-      {/* Overview Stats */}
+      {/* KPI Cards - Row 1 */}
       {overview && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {[
-            { label: "Sessions", value: overview.totalSessions.toLocaleString() },
-            { label: "Users", value: overview.totalUsers.toLocaleString() },
-            { label: "Pageviews", value: overview.totalPageviews.toLocaleString() },
-            { label: "Avg Duration", value: `${Math.round(overview.avgSessionDuration)}s` },
-            { label: "Bounce Rate", value: `${(overview.bounceRate * 100).toFixed(1)}%` },
-            { label: "New Users", value: overview.newUsers.toLocaleString() },
-          ].map((s) => (
-            <Card key={s.label}>
-              <CardContent className="py-4 text-center">
-                <p className="font-mono text-xl font-bold text-ink">{s.value}</p>
-                <p className="text-[10px] uppercase tracking-widest text-ink-muted mt-1">{s.label}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: "Sessions", value: overview.totalSessions.toLocaleString() },
+              { label: "Users", value: overview.totalUsers.toLocaleString() },
+              { label: "Pageviews", value: overview.totalPageviews.toLocaleString() },
+              { label: "New Users", value: overview.newUsers.toLocaleString() },
+            ].map((s) => (
+              <Card key={s.label}>
+                <CardContent className="py-4 text-center">
+                  <p className="font-mono text-xl font-bold text-ink">{s.value}</p>
+                  <p className="text-[10px] uppercase tracking-widest text-ink-muted mt-1">{s.label}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          {/* KPI Cards - Row 2 */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: "Avg Duration", value: `${Math.round(overview.avgSessionDuration)}s` },
+              { label: "Bounce Rate", value: `${(overview.bounceRate * 100).toFixed(1)}%` },
+              { label: "Engagement Rate", value: `${engagementRate.toFixed(1)}%` },
+              { label: "Pages / Session", value: pagesPerSession.toFixed(1) },
+            ].map((s) => (
+              <Card key={s.label}>
+                <CardContent className="py-4 text-center">
+                  <p className="font-mono text-xl font-bold text-ink">{s.value}</p>
+                  <p className="text-[10px] uppercase tracking-widest text-ink-muted mt-1">{s.label}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
       )}
 
-      {/* Daily Traffic Chart */}
+      {/* Daily Traffic Chart — with Users line */}
       {ga4.daily.length > 0 && (
         <Card>
           <CardHeader>
@@ -572,7 +629,9 @@ function TrafficTab({ ga4 }: { ga4: Props["ga4"] }) {
                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#999" }} angle={-45} textAnchor="end" height={60} />
                 <YAxis tick={{ fontSize: 10, fill: "#999" }} />
                 <Tooltip contentStyle={{ backgroundColor: "#1a1a1a", border: "1px solid #444", color: "#eee" }} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
                 <Line type="monotone" dataKey="sessions" stroke="#27ae60" strokeWidth={2} name="Sessions" dot={false} />
+                <Line type="monotone" dataKey="users" stroke="#b8860b" strokeWidth={1.5} name="Users" dot={false} />
                 <Line type="monotone" dataKey="pageviews" stroke="#2980b9" strokeWidth={1.5} name="Pageviews" dot={false} />
               </LineChart>
             </ResponsiveContainer>
@@ -580,8 +639,81 @@ function TrafficTab({ ga4 }: { ga4: Props["ga4"] }) {
         </Card>
       )}
 
+      {/* Two-column: Traffic Source Donut | New vs Returning Users Donut */}
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Top Pages */}
+        {sourceDonutData.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-serif text-lg">Traffic Source Distribution</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie
+                    data={sourceDonutData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    {sourceDonutData.map((entry, i) => (
+                      <Cell key={i} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ backgroundColor: "#1a1a1a", border: "1px solid #444", color: "#eee" }}
+                    formatter={(value) => [Number(value).toLocaleString(), "Sessions"]}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 13 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
+
+        {overview && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-serif text-lg">New vs Returning Users</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie
+                    data={userDonutData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={2}
+                    dataKey="value"
+                    label={({ name, percent }: { name?: string; percent?: number }) =>
+                      `${name ?? ""} ${((percent ?? 0) * 100).toFixed(0)}%`
+                    }
+                  >
+                    {userDonutData.map((entry, i) => (
+                      <Cell key={i} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ backgroundColor: "#1a1a1a", border: "1px solid #444", color: "#eee" }}
+                    formatter={(value) => [Number(value).toLocaleString(), "Users"]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <p className="text-center font-mono text-lg font-bold text-ink mt-2">
+                {overview.totalUsers.toLocaleString()}{" "}
+                <span className="text-sm text-ink-muted font-normal">total users</span>
+              </p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Two-column: Top Pages (enhanced) | Traffic Sources (enhanced) */}
+      <div className="grid md:grid-cols-2 gap-6">
         {ga4.pages.length > 0 && (
           <Card>
             <CardHeader>
@@ -592,16 +724,22 @@ function TrafficTab({ ga4 }: { ga4: Props["ga4"] }) {
                 <thead>
                   <tr className="border-b border-rule text-left">
                     <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium">Path</th>
-                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium">Views</th>
-                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium">Users</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Views</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Users</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Avg Time</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Bounce</th>
                   </tr>
                 </thead>
                 <tbody>
                   {ga4.pages.slice(0, 10).map((p, i) => (
                     <tr key={i} className="border-b border-rule/50">
-                      <td className="py-2 font-mono text-xs text-ink">{p.path}</td>
-                      <td className="py-2 font-mono text-xs text-ink-muted">{p.pageviews.toLocaleString()}</td>
-                      <td className="py-2 font-mono text-xs text-ink-muted">{p.users.toLocaleString()}</td>
+                      <td className="py-2 font-mono text-xs text-ink max-w-[160px] truncate">{p.path}</td>
+                      <td className="py-2 font-mono text-xs text-ink-muted text-right">{p.pageviews.toLocaleString()}</td>
+                      <td className="py-2 font-mono text-xs text-ink-muted text-right">{p.users.toLocaleString()}</td>
+                      <td className="py-2 font-mono text-xs text-ink-muted text-right">{Math.round(p.avgTimeOnPage)}s</td>
+                      <td className={cn("py-2 font-mono text-xs text-right", bounceColor(p.bounceRate))}>
+                        {(p.bounceRate * 100).toFixed(1)}%
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -610,7 +748,6 @@ function TrafficTab({ ga4 }: { ga4: Props["ga4"] }) {
           </Card>
         )}
 
-        {/* Traffic Sources */}
         {ga4.sources.length > 0 && (
           <Card>
             <CardHeader>
@@ -621,16 +758,20 @@ function TrafficTab({ ga4 }: { ga4: Props["ga4"] }) {
                 <thead>
                   <tr className="border-b border-rule text-left">
                     <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium">Source / Medium</th>
-                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium">Sessions</th>
-                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium">Users</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Sessions</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Users</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Bounce</th>
                   </tr>
                 </thead>
                 <tbody>
                   {ga4.sources.slice(0, 10).map((s, i) => (
                     <tr key={i} className="border-b border-rule/50">
                       <td className="py-2 text-xs text-ink">{s.source} / {s.medium}</td>
-                      <td className="py-2 font-mono text-xs text-ink-muted">{s.sessions.toLocaleString()}</td>
-                      <td className="py-2 font-mono text-xs text-ink-muted">{s.users.toLocaleString()}</td>
+                      <td className="py-2 font-mono text-xs text-ink-muted text-right">{s.sessions.toLocaleString()}</td>
+                      <td className="py-2 font-mono text-xs text-ink-muted text-right">{s.users.toLocaleString()}</td>
+                      <td className={cn("py-2 font-mono text-xs text-right", bounceColor(s.bounceRate))}>
+                        {(s.bounceRate * 100).toFixed(1)}%
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -639,6 +780,42 @@ function TrafficTab({ ga4 }: { ga4: Props["ga4"] }) {
           </Card>
         )}
       </div>
+
+      {/* Page Engagement Bar Chart — full width */}
+      {engagementData.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif text-lg">Page Engagement</CardTitle>
+            <p className="text-xs text-ink-muted">
+              Top pages by avg time on page — bars colored by bounce rate (green &lt;50%, gold 50-70%, red &gt;70%)
+            </p>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={engagementData} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+                <XAxis
+                  type="number"
+                  tick={{ fontSize: 10, fill: "#999" }}
+                  label={{ value: "Avg Time (seconds)", position: "insideBottom", offset: -5, fill: "#999", fontSize: 10 }}
+                />
+                <YAxis dataKey="path" type="category" width={160} tick={{ fontSize: 10, fill: "#ccc" }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: "#1a1a1a", border: "1px solid #444", color: "#eee" }}
+                  formatter={(value) => [`${value}s`, "Avg Time"]}
+                />
+                <Bar dataKey="avgTime" name="Avg Time (s)" radius={[0, 4, 4, 0]}>
+                  {engagementData.map((d, i) => {
+                    const pct = d.bounceRate * 100;
+                    const color = pct < 50 ? "#27ae60" : pct < 70 ? "#b8860b" : "#c0392b";
+                    return <Cell key={i} fill={color} />;
+                  })}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
 
       {!overview && ga4.daily.length === 0 && (
         <EmptyState
@@ -760,6 +937,32 @@ function SearchConsoleTab({ gsc }: { gsc: Props["gsc"] }) {
 
   const overview = gsc.overview;
 
+  // Computed KPIs
+  const bestPosition = gsc.queries.length > 0
+    ? Math.min(...gsc.queries.map((q) => q.position))
+    : 0;
+  const queriesTracked = gsc.queries.length;
+  const top10Keywords = gsc.queries.filter((q) => q.position <= 10).length;
+
+  // Position Distribution data
+  const positionBuckets = [
+    { range: "Top 3", count: gsc.queries.filter((q) => q.position <= 3).length, fill: "#27ae60" },
+    { range: "4\u201310", count: gsc.queries.filter((q) => q.position > 3 && q.position <= 10).length, fill: "#b8860b" },
+    { range: "11\u201320", count: gsc.queries.filter((q) => q.position > 10 && q.position <= 20).length, fill: "#d35400" },
+    { range: "21+", count: gsc.queries.filter((q) => q.position > 20).length, fill: "#c0392b" },
+  ];
+
+  // CTR Opportunities: high impressions, low CTR
+  const avgCTR = overview?.avgCTR ?? 0;
+  const ctrOpportunities = [...gsc.queries]
+    .filter((q) => q.ctr < avgCTR && q.impressions > 0)
+    .sort((a, b) => b.impressions - a.impressions)
+    .slice(0, 10);
+
+  // Position color helper
+  const posColor = (pos: number) =>
+    pos <= 10 ? "text-editorial-green" : pos <= 20 ? "text-editorial-gold" : "text-ink-muted";
+
   const DEVICE_LABELS: Record<string, string> = {
     DESKTOP: "Desktop",
     MOBILE: "Mobile",
@@ -768,26 +971,43 @@ function SearchConsoleTab({ gsc }: { gsc: Props["gsc"] }) {
 
   return (
     <div className="space-y-6">
-      {/* Overview Stats */}
+      {/* KPI Cards - Row 1 */}
       {overview && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { label: "Total Clicks", value: overview.totalClicks.toLocaleString() },
-            { label: "Total Impressions", value: overview.totalImpressions.toLocaleString() },
-            { label: "Avg CTR", value: `${(overview.avgCTR * 100).toFixed(2)}%` },
-            { label: "Avg Position", value: overview.avgPosition.toFixed(1) },
-          ].map((s) => (
-            <Card key={s.label}>
-              <CardContent className="py-4 text-center">
-                <p className="font-mono text-xl font-bold text-ink">{s.value}</p>
-                <p className="text-[10px] uppercase tracking-widest text-ink-muted mt-1">{s.label}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: "Total Clicks", value: overview.totalClicks.toLocaleString() },
+              { label: "Total Impressions", value: overview.totalImpressions.toLocaleString() },
+              { label: "Avg CTR", value: `${(overview.avgCTR * 100).toFixed(2)}%` },
+              { label: "Avg Position", value: overview.avgPosition.toFixed(1) },
+            ].map((s) => (
+              <Card key={s.label}>
+                <CardContent className="py-4 text-center">
+                  <p className="font-mono text-xl font-bold text-ink">{s.value}</p>
+                  <p className="text-[10px] uppercase tracking-widest text-ink-muted mt-1">{s.label}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          {/* KPI Cards - Row 2 */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {[
+              { label: "Best Position", value: bestPosition > 0 ? bestPosition.toFixed(1) : "\u2014" },
+              { label: "Queries Tracked", value: queriesTracked.toString() },
+              { label: "Top 10 Keywords", value: top10Keywords.toString() },
+            ].map((s) => (
+              <Card key={s.label}>
+                <CardContent className="py-4 text-center">
+                  <p className="font-mono text-xl font-bold text-ink">{s.value}</p>
+                  <p className="text-[10px] uppercase tracking-widest text-ink-muted mt-1">{s.label}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
       )}
 
-      {/* Daily Performance Chart */}
+      {/* Search Performance Chart */}
       {gsc.daily.length > 0 && (
         <Card>
           <CardHeader>
@@ -808,6 +1028,7 @@ function SearchConsoleTab({ gsc }: { gsc: Props["gsc"] }) {
                 <YAxis yAxisId="left" tick={{ fontSize: 10, fill: "#999" }} />
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: "#999" }} />
                 <Tooltip contentStyle={{ backgroundColor: "#1a1a1a", border: "1px solid #444", color: "#eee" }} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
                 <Line yAxisId="left" type="monotone" dataKey="clicks" stroke="#27ae60" strokeWidth={2} name="Clicks" dot={false} />
                 <Line yAxisId="right" type="monotone" dataKey="impressions" stroke="#2980b9" strokeWidth={1.5} name="Impressions" dot={false} />
               </LineChart>
@@ -815,6 +1036,71 @@ function SearchConsoleTab({ gsc }: { gsc: Props["gsc"] }) {
           </CardContent>
         </Card>
       )}
+
+      {/* Two-column: Position Distribution | CTR Opportunities */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {gsc.queries.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-serif text-lg">Position Distribution</CardTitle>
+              <p className="text-xs text-ink-muted">How your keywords rank across position ranges</p>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={positionBuckets}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+                  <XAxis dataKey="range" tick={{ fontSize: 11, fill: "#ccc" }} />
+                  <YAxis tick={{ fontSize: 10, fill: "#999" }} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: "#1a1a1a", border: "1px solid #444", color: "#eee" }}
+                    formatter={(value) => [value, "Keywords"]}
+                  />
+                  <Bar dataKey="count" name="Keywords" radius={[4, 4, 0, 0]}>
+                    {positionBuckets.map((b, i) => (
+                      <Cell key={i} fill={b.fill} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
+
+        {ctrOpportunities.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-serif text-lg">CTR Opportunities</CardTitle>
+              <p className="text-xs text-ink-muted">
+                High-impression queries with below-average CTR — improve titles & descriptions
+              </p>
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-rule text-left">
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium">Query</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Impr.</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">CTR</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Pos.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ctrOpportunities.map((q, i) => (
+                    <tr key={i} className="border-b border-rule/50">
+                      <td className="py-2 text-xs text-ink font-medium max-w-[180px] truncate">{q.query}</td>
+                      <td className="py-2 font-mono text-xs text-ink-muted text-right">{q.impressions.toLocaleString()}</td>
+                      <td className="py-2 font-mono text-xs text-editorial-red text-right">{(q.ctr * 100).toFixed(1)}%</td>
+                      <td className={cn("py-2 font-mono text-xs text-right", posColor(q.position))}>
+                        {q.position.toFixed(1)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       {/* Top Queries */}
       {gsc.queries.length > 0 && (
@@ -840,10 +1126,8 @@ function SearchConsoleTab({ gsc }: { gsc: Props["gsc"] }) {
                     <td className="py-2 font-mono text-xs text-ink-muted text-right">{q.clicks.toLocaleString()}</td>
                     <td className="py-2 font-mono text-xs text-ink-muted text-right">{q.impressions.toLocaleString()}</td>
                     <td className="py-2 font-mono text-xs text-ink-muted text-right">{(q.ctr * 100).toFixed(1)}%</td>
-                    <td className="py-2 font-mono text-xs text-right">
-                      <span className={q.position <= 10 ? "text-editorial-green" : q.position <= 20 ? "text-editorial-gold" : "text-ink-muted"}>
-                        {q.position.toFixed(1)}
-                      </span>
+                    <td className={cn("py-2 font-mono text-xs text-right", posColor(q.position))}>
+                      {q.position.toFixed(1)}
                     </td>
                   </tr>
                 ))}
@@ -853,8 +1137,8 @@ function SearchConsoleTab({ gsc }: { gsc: Props["gsc"] }) {
         </Card>
       )}
 
+      {/* Two-column: Top Pages (enhanced) | Device Comparison table */}
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Top Pages */}
         {gsc.pages.length > 0 && (
           <Card>
             <CardHeader>
@@ -867,19 +1151,19 @@ function SearchConsoleTab({ gsc }: { gsc: Props["gsc"] }) {
                     <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium">Page</th>
                     <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Clicks</th>
                     <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Impr.</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">CTR</th>
                     <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Pos.</th>
                   </tr>
                 </thead>
                 <tbody>
                   {gsc.pages.slice(0, 15).map((p, i) => (
                     <tr key={i} className="border-b border-rule/50">
-                      <td className="py-2 font-mono text-xs text-ink max-w-[200px] truncate">{p.page}</td>
+                      <td className="py-2 font-mono text-xs text-ink max-w-[160px] truncate">{p.page}</td>
                       <td className="py-2 font-mono text-xs text-ink-muted text-right">{p.clicks.toLocaleString()}</td>
                       <td className="py-2 font-mono text-xs text-ink-muted text-right">{p.impressions.toLocaleString()}</td>
-                      <td className="py-2 font-mono text-xs text-right">
-                        <span className={p.position <= 10 ? "text-editorial-green" : p.position <= 20 ? "text-editorial-gold" : "text-ink-muted"}>
-                          {p.position.toFixed(1)}
-                        </span>
+                      <td className="py-2 font-mono text-xs text-ink-muted text-right">{(p.ctr * 100).toFixed(1)}%</td>
+                      <td className={cn("py-2 font-mono text-xs text-right", posColor(p.position))}>
+                        {p.position.toFixed(1)}
                       </td>
                     </tr>
                   ))}
@@ -889,62 +1173,75 @@ function SearchConsoleTab({ gsc }: { gsc: Props["gsc"] }) {
           </Card>
         )}
 
-        {/* Devices + Countries */}
-        <div className="space-y-6">
-          {gsc.devices.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="font-serif text-lg">By Device</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={gsc.devices.map(d => ({ ...d, device: DEVICE_LABELS[d.device] ?? d.device }))} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-                    <XAxis type="number" tick={{ fontSize: 10, fill: "#999" }} />
-                    <YAxis dataKey="device" type="category" width={70} tick={{ fontSize: 11, fill: "#ccc" }} />
-                    <Tooltip contentStyle={{ backgroundColor: "#1a1a1a", border: "1px solid #444", color: "#eee" }} />
-                    <Bar dataKey="clicks" fill="#27ae60" name="Clicks" radius={[0, 4, 4, 0]}>
-                      {gsc.devices.map((_, i) => (
-                        <Cell key={i} fill={["#27ae60", "#2980b9", "#8e44ad"][i % 3]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          )}
-
-          {gsc.countries.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="font-serif text-lg">Top Countries</CardTitle>
-              </CardHeader>
-              <CardContent className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-rule text-left">
-                      <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium">Country</th>
-                      <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Clicks</th>
-                      <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Impressions</th>
-                      <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">CTR</th>
+        {gsc.devices.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-serif text-lg">Device Comparison</CardTitle>
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-rule text-left">
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium">Device</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Clicks</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Impr.</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">CTR</th>
+                    <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Avg Pos.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {gsc.devices.map((d, i) => (
+                    <tr key={i} className="border-b border-rule/50">
+                      <td className="py-2 text-xs text-ink font-medium">{DEVICE_LABELS[d.device] ?? d.device}</td>
+                      <td className="py-2 font-mono text-xs text-ink-muted text-right">{d.clicks.toLocaleString()}</td>
+                      <td className="py-2 font-mono text-xs text-ink-muted text-right">{d.impressions.toLocaleString()}</td>
+                      <td className="py-2 font-mono text-xs text-ink-muted text-right">{(d.ctr * 100).toFixed(1)}%</td>
+                      <td className={cn("py-2 font-mono text-xs text-right", posColor(d.position))}>
+                        {d.position.toFixed(1)}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {gsc.countries.map((c, i) => (
-                      <tr key={i} className="border-b border-rule/50">
-                        <td className="py-2 text-xs text-ink font-medium uppercase">{c.country}</td>
-                        <td className="py-2 font-mono text-xs text-ink-muted text-right">{c.clicks.toLocaleString()}</td>
-                        <td className="py-2 font-mono text-xs text-ink-muted text-right">{c.impressions.toLocaleString()}</td>
-                        <td className="py-2 font-mono text-xs text-ink-muted text-right">{(c.ctr * 100).toFixed(1)}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      {/* Countries (enhanced with position) */}
+      {gsc.countries.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif text-lg">Top Countries</CardTitle>
+          </CardHeader>
+          <CardContent className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-rule text-left">
+                  <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium">Country</th>
+                  <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Clicks</th>
+                  <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Impressions</th>
+                  <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">CTR</th>
+                  <th className="pb-2 text-[10px] uppercase tracking-widest text-ink-muted font-medium text-right">Avg Pos.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {gsc.countries.map((c, i) => (
+                  <tr key={i} className="border-b border-rule/50">
+                    <td className="py-2 text-xs text-ink font-medium uppercase">{c.country}</td>
+                    <td className="py-2 font-mono text-xs text-ink-muted text-right">{c.clicks.toLocaleString()}</td>
+                    <td className="py-2 font-mono text-xs text-ink-muted text-right">{c.impressions.toLocaleString()}</td>
+                    <td className="py-2 font-mono text-xs text-ink-muted text-right">{(c.ctr * 100).toFixed(1)}%</td>
+                    <td className={cn("py-2 font-mono text-xs text-right", posColor(c.position))}>
+                      {c.position.toFixed(1)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
 
       {!overview && gsc.queries.length === 0 && gsc.daily.length === 0 && (
         <EmptyState

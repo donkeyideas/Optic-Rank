@@ -96,47 +96,27 @@ export default async function BacklinksPage() {
     .order("first_seen", { ascending: false })
     .limit(50);
 
-  // Stats counts
-  const { count: totalCount } = await supabase
-    .from("backlinks")
-    .select("id", { count: "exact" })
-    .eq("project_id", project.id);
-
-  const { count: toxicCount } = await supabase
-    .from("backlinks")
-    .select("id", { count: "exact" })
-    .eq("project_id", project.id)
-    .eq("is_toxic", true);
-
-  const { count: newCount } = await supabase
-    .from("backlinks")
-    .select("id", { count: "exact" })
-    .eq("project_id", project.id)
-    .eq("status", "new");
-
-  const { count: lostCount } = await supabase
-    .from("backlinks")
-    .select("id", { count: "exact" })
-    .eq("project_id", project.id)
-    .eq("status", "lost");
-
-  const { count: dofollowCount } = await supabase
-    .from("backlinks")
-    .select("id", { count: "exact" })
-    .eq("project_id", project.id)
-    .eq("link_type", "dofollow");
+  // Stats counts — run all in parallel for performance
+  const [
+    { count: totalCount },
+    { count: toxicCount },
+    { count: newCount },
+    { count: lostCount },
+    { count: dofollowCount },
+    { data: domainData },
+  ] = await Promise.all([
+    supabase.from("backlinks").select("id", { count: "exact", head: true }).eq("project_id", project.id),
+    supabase.from("backlinks").select("id", { count: "exact", head: true }).eq("project_id", project.id).eq("is_toxic", true),
+    supabase.from("backlinks").select("id", { count: "exact", head: true }).eq("project_id", project.id).eq("status", "new"),
+    supabase.from("backlinks").select("id", { count: "exact", head: true }).eq("project_id", project.id).eq("status", "lost"),
+    supabase.from("backlinks").select("id", { count: "exact", head: true }).eq("project_id", project.id).eq("link_type", "dofollow"),
+    supabase.from("backlinks").select("source_domain").eq("project_id", project.id).limit(5000),
+  ]);
 
   // Compute dofollow percentage
   const total = totalCount ?? 0;
   const dofollow = dofollowCount ?? 0;
   const dofollowPct = total > 0 ? Math.round((dofollow / total) * 100) : 0;
-
-  // Unique referring domains: get distinct source_domain count
-  // We can approximate by getting all source_domains and counting unique
-  const { data: domainData } = await supabase
-    .from("backlinks")
-    .select("source_domain")
-    .eq("project_id", project.id);
 
   const referringDomains = domainData
     ? new Set(domainData.map((d) => d.source_domain)).size
