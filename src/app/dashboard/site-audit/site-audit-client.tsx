@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useCallback } from "react";
 import {
   Shield,
   RefreshCw,
@@ -18,6 +18,8 @@ import {
   Search,
   Lock,
   ExternalLink,
+  ClipboardCopy,
+  Check,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -266,6 +268,40 @@ export function SiteAuditClient({
   const [severityFilter, setSeverityFilter] = useState<IssueSeverity | "all">("all");
   const [isPending, startTransition] = useTransition();
   const [auditError, setAuditError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyIssues = useCallback(() => {
+    const realIssues = issues.filter((i) => !i.rule_id?.startsWith("cwv-metric-"));
+    const grouped: Record<string, typeof realIssues> = { critical: [], warning: [], info: [] };
+    for (const issue of realIssues) {
+      (grouped[issue.severity] ??= []).push(issue);
+    }
+
+    const lines: string[] = [
+      `Site Audit Report — ${latestAudit?.completed_at ? new Date(latestAudit.completed_at).toLocaleDateString() : "N/A"}`,
+      `Health: ${latestAudit?.health_score ?? "N/A"} | SEO: ${latestAudit?.seo_score ?? "N/A"} | Performance: ${latestAudit?.performance_score ?? "N/A"} | Accessibility: ${latestAudit?.accessibility_score ?? "N/A"}`,
+      `Pages crawled: ${latestAudit?.pages_crawled ?? 0} | Issues found: ${realIssues.length}`,
+      "",
+    ];
+
+    for (const severity of ["critical", "warning", "info"] as const) {
+      const group = grouped[severity];
+      if (!group || group.length === 0) continue;
+      lines.push(`=== ${severity.toUpperCase()} (${group.length}) ===`);
+      for (const issue of group) {
+        lines.push(`[${(categoryConfig[issue.category] ?? defaultCategory).label}] ${issue.title}`);
+        lines.push(`  ${issue.description}`);
+        if (issue.affected_pages > 0) lines.push(`  Pages affected: ${issue.affected_pages}`);
+        if (issue.recommendation) lines.push(`  Fix: ${issue.recommendation}`);
+        lines.push("");
+      }
+    }
+
+    navigator.clipboard.writeText(lines.join("\n")).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [issues, latestAudit]);
 
   function handleRunAudit() {
     setAuditError(null);
@@ -536,7 +572,7 @@ export function SiteAuditClient({
                 </button>
               </div>
 
-              {/* Category filter */}
+              {/* Category filter + Copy button */}
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
                   Category:
@@ -556,6 +592,13 @@ export function SiteAuditClient({
                     </button>
                   ),
                 )}
+                <button
+                  onClick={handleCopyIssues}
+                  className="ml-auto flex items-center gap-1.5 border border-rule px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-secondary transition-colors hover:bg-surface-raised hover:text-ink"
+                >
+                  {copied ? <Check size={12} className="text-editorial-green" /> : <ClipboardCopy size={12} />}
+                  {copied ? "Copied!" : "Copy All Issues"}
+                </button>
               </div>
 
               {/* Issue list */}
