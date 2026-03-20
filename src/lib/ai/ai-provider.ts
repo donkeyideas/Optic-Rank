@@ -41,6 +41,24 @@ const COST_PER_1K: Record<string, { input: number; output: number }> = {
 let cachedConfig: { configs: AIConfig[]; timestamp: number } | null = null;
 const CACHE_TTL = 60_000;
 
+// Circuit breaker: skip providers that failed recently (5 min cooldown)
+const failedProviders = new Map<string, number>();
+const CIRCUIT_BREAKER_TTL = 5 * 60_000;
+
+function markProviderFailed(provider: string) {
+  failedProviders.set(provider, Date.now());
+}
+
+function isProviderAvailable(provider: string): boolean {
+  const failedAt = failedProviders.get(provider);
+  if (!failedAt) return true;
+  if (Date.now() - failedAt > CIRCUIT_BREAKER_TTL) {
+    failedProviders.delete(provider);
+    return true;
+  }
+  return false;
+}
+
 async function getAIConfigs(): Promise<AIConfig[]> {
   if (cachedConfig && Date.now() - cachedConfig.timestamp < CACHE_TTL) {
     return cachedConfig.configs;
@@ -119,7 +137,7 @@ export async function aiChat(
   prompt: string,
   options: { temperature?: number; maxTokens?: number; timeout?: number; userId?: string } = {}
 ): Promise<AIResponse | null> {
-  const { temperature = 0.7, maxTokens = 1024, timeout = 60000 } = options;
+  const { temperature = 0.7, maxTokens = 1024, timeout = 30000 } = options;
 
   // Resolve userId: explicit > auto-resolved from auth context
   const userId = options.userId ?? await resolveCurrentUserId();
@@ -134,10 +152,11 @@ export async function aiChat(
   for (const c of userConfigs) configMap.set(c.provider, c);
   const configs = Array.from(configMap.values());
 
-  // Try providers in order
+  // Try providers in order, skipping recently-failed ones
   for (const providerName of PROVIDER_ORDER) {
     const config = configs.find((c) => c.provider === providerName);
     if (!config?.api_key) continue;
+    if (!isProviderAvailable(providerName)) continue;
 
     const start = Date.now();
     try {
@@ -191,6 +210,7 @@ export async function aiChat(
         error_message: errMsg,
       });
       console.error(`[aiChat] ${providerName} error:`, err);
+      markProviderFailed(providerName);
     }
   }
 

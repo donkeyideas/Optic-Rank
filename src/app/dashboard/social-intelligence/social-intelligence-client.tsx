@@ -114,6 +114,16 @@ export function SocialIntelligenceClient({
   const [runAllDone, setRunAllDone] = useState(0);
   const [runAllTotal, setRunAllTotal] = useState(0);
 
+  // Warn user before leaving while analyses are running
+  useEffect(() => {
+    if (!isRunningAll) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isRunningAll]);
+
   // Sync selectedProfileId when profiles change (e.g. after adding the first profile)
   useEffect(() => {
     if (profiles.length > 0 && !profiles.find((p) => p.id === selectedProfileId)) {
@@ -303,9 +313,9 @@ export function SocialIntelligenceClient({
     <div>
       {/* Analysis progress banner */}
       {isRunningAll && (
-        <div className="mb-4 border border-editorial-gold/40 bg-editorial-gold/10 px-4 py-3">
+        <div className="sticky top-0 z-30 mb-4 border border-editorial-gold/40 bg-editorial-gold/10 px-4 py-3 shadow-sm">
           <div className="flex items-center gap-3">
-            <Loader2 className="h-4 w-4 animate-spin text-editorial-gold" />
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin text-editorial-gold" />
             <div className="flex-1">
               <div className="flex items-center justify-between text-sm font-medium text-ink">
                 <span>Running AI analyses{runAllTotal > 0 ? ` — ${runAllDone}/${runAllTotal} complete` : ""}</span>
@@ -323,9 +333,9 @@ export function SocialIntelligenceClient({
                   />
                 </div>
               )}
-              {runAllProgress && (
-                <p className="mt-1.5 font-mono text-[10px] text-ink-muted">{runAllProgress}</p>
-              )}
+              <p className="mt-1.5 font-mono text-[10px] text-ink-muted">
+                {runAllProgress}{runAllProgress ? " · " : ""}Please stay on this page until complete
+              </p>
             </div>
           </div>
         </div>
@@ -394,7 +404,7 @@ export function SocialIntelligenceClient({
           </Button>
         )}
         <button
-          onClick={() => startTransition(() => handleRunAllAnalyses())}
+          onClick={() => handleRunAllAnalyses()}
           disabled={isPending || isRunningAll}
           className="flex items-center gap-1.5 rounded-sm bg-editorial-red px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-editorial-red/90 disabled:opacity-50"
         >
