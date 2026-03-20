@@ -50,12 +50,50 @@ export default async function ContentPage() {
   }
 
   // Fetch content pages, briefs, calendar, and keyword data in parallel
-  const [contentPagesRes, contentBriefsRes, calendarRes, keywordsRes] = await Promise.all([
+  let [contentPagesRes, contentBriefsRes, calendarRes, keywordsRes] = await Promise.all([
     supabase.from("content_pages").select("*").eq("project_id", project.id),
     supabase.from("content_briefs").select("*").eq("project_id", project.id),
     supabase.from("content_calendar").select("*").eq("project_id", project.id).order("target_date", { ascending: true }),
     supabase.from("keywords").select("id, search_volume, current_position").eq("project_id", project.id).eq("is_active", true).not("current_position", "is", null),
   ]);
+
+  // Auto-populate content_pages from latest site audit if empty
+  if (!contentPagesRes.data || contentPagesRes.data.length === 0) {
+    const { data: latestAudit } = await supabase
+      .from("site_audits")
+      .select("id")
+      .eq("project_id", project.id)
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (latestAudit) {
+      const { data: auditPages } = await supabase
+        .from("audit_pages")
+        .select("url, title, word_count, status_code")
+        .eq("audit_id", latestAudit.id)
+        .eq("status_code", 200);
+
+      if (auditPages && auditPages.length > 0) {
+        const { createAdminClient } = await import("@/lib/supabase/admin");
+        const admin = createAdminClient();
+        await admin.from("content_pages").insert(
+          auditPages.map((ap) => ({
+            project_id: project.id,
+            url: ap.url,
+            title: ap.title ?? null,
+            word_count: ap.word_count ?? null,
+            status: "published" as const,
+          }))
+        );
+        // Re-fetch after populating
+        contentPagesRes = await supabase
+          .from("content_pages")
+          .select("*")
+          .eq("project_id", project.id);
+      }
+    }
+  }
 
   // Build keyword_ranks URL→traffic map to enrich content pages
   const CTR: Record<number, number> = { 1: 0.284, 2: 0.155, 3: 0.11, 4: 0.081, 5: 0.062, 6: 0.047, 7: 0.038, 8: 0.031, 9: 0.026, 10: 0.022 };
