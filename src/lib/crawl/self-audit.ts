@@ -294,8 +294,8 @@ async function crawlPage(
       metaKeywords,
       lang,
     };
-  } catch (err) {
-    console.error(`Failed to crawl ${url}:`, err);
+  } catch {
+    // Silently skip unreachable pages (common in dev when crawling localhost)
     return null;
   }
 }

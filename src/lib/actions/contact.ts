@@ -3,6 +3,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/dal/admin";
 import { revalidatePath } from "next/cache";
+import { sendEmail } from "@/lib/email/resend";
+import { contactConfirmationEmail } from "@/lib/email/templates/contact-confirmation";
 
 export async function submitContact(formData: {
   name: string;
@@ -27,6 +29,13 @@ export async function submitContact(formData: {
   });
 
   if (error) return { error: error.message };
+
+  // Send confirmation email to the submitter (fire-and-forget)
+  sendEmail(
+    formData.email,
+    "We received your message — Optic Rank",
+    contactConfirmationEmail(formData.name, formData.subject ?? null, formData.message)
+  ).catch(() => {});
 
   // Notify all admin users about the new submission
   try {

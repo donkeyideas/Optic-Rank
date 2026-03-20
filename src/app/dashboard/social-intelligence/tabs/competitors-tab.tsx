@@ -21,6 +21,7 @@ import {
   discoverSocialCompetitors,
 } from "@/lib/actions/social-intelligence";
 import type { SocialProfile, SocialCompetitor } from "@/types";
+import { getPlatformConfig } from "@/lib/social/platform-config";
 
 interface CompetitorsTabProps {
   profile: SocialProfile;
@@ -29,6 +30,7 @@ interface CompetitorsTabProps {
 }
 
 export function CompetitorsTab({ profile, competitors, profileId }: CompetitorsTabProps) {
+  const pConfig = getPlatformConfig(profile.platform);
   const [isPending, startTransition] = useTransition();
   const [showAdd, setShowAdd] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
@@ -119,7 +121,7 @@ export function CompetitorsTab({ profile, competitors, profileId }: CompetitorsT
             <div className="flex items-center gap-6 text-sm">
               <div className="text-right">
                 <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-ink-muted">
-                  Followers
+                  {pConfig.fields.followers.label}
                 </span>
                 <p className="font-mono font-medium text-ink">
                   {profile.followers_count.toLocaleString()}
@@ -170,7 +172,7 @@ export function CompetitorsTab({ profile, competitors, profileId }: CompetitorsT
                     <div className="flex items-center gap-6 text-sm">
                       <div className="text-right">
                         <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-ink-muted">
-                          Followers
+                          {pConfig.fields.followers.label}
                         </span>
                         <p className="font-mono font-medium text-ink">
                           {comp.followers_count?.toLocaleString() ?? "—"}
@@ -237,7 +239,7 @@ export function CompetitorsTab({ profile, competitors, profileId }: CompetitorsT
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="mb-1 block font-mono text-[10px] font-bold uppercase tracking-widest text-ink-secondary">
-                  Followers
+                  {pConfig.fields.followers.label}
                 </label>
                 <Input name="followers_count" type="number" placeholder="0" />
               </div>

@@ -19,6 +19,7 @@ import {
   Mail,
   Bell,
   Share2,
+  MailOpen,
 } from "lucide-react";
 
 const adminNavItems = [
@@ -38,6 +39,7 @@ const adminNavItems = [
   { href: "/admin/changelog",  label: "Changelog",      icon: History },
   { href: "/admin/roadmap",    label: "Roadmap",        icon: Map },
   { href: "/admin/careers",    label: "Careers",        icon: Briefcase },
+  { href: "/admin/email-templates", label: "Email Templates", icon: MailOpen },
   { href: "/admin/contacts",   label: "Contacts",       icon: Mail },
 ];
 

@@ -13,9 +13,10 @@ import type { SocialMetric } from "@/types";
 
 interface FollowerGrowthChartProps {
   metrics: SocialMetric[];
+  label?: string;
 }
 
-export function FollowerGrowthChart({ metrics }: FollowerGrowthChartProps) {
+export function FollowerGrowthChart({ metrics, label }: FollowerGrowthChartProps) {
   if (metrics.length < 2) {
     return (
       <div className="flex h-[200px] items-center justify-center text-sm text-ink-muted">
@@ -57,7 +58,7 @@ export function FollowerGrowthChart({ metrics }: FollowerGrowthChartProps) {
           stroke="var(--color-editorial-red, #c0392b)"
           strokeWidth={2}
           dot={false}
-          name="Followers"
+          name={label ?? "Followers"}
         />
       </LineChart>
     </ResponsiveContainer>

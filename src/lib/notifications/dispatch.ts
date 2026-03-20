@@ -2,6 +2,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendSlackNotification, type SlackMessage } from "@/lib/integrations/slack";
 import { sendTeamsNotification, type TeamsMessage } from "@/lib/integrations/teams";
 import { dispatchWebhook, type WebhookEvent } from "@/lib/webhooks/dispatch";
+import { sendEmail } from "@/lib/email/resend";
+import { notificationEmail } from "@/lib/email/templates/notification";
 
 export interface NotificationPayload {
   type: WebhookEvent;
@@ -92,6 +94,32 @@ export async function dispatchNotification(
     }
   } catch (err) {
     console.error("[dispatchNotification] Teams error:", err);
+  }
+
+  // 2c. Email notification
+  if (payload.userId) {
+    try {
+      // Check user's email notification preference
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("notification_prefs")
+        .eq("id", payload.userId)
+        .single();
+
+      const prefs = profile?.notification_prefs as Record<string, boolean> | null;
+      if (prefs?.email !== false) {
+        const { data: authUser } = await supabase.auth.admin.getUserById(payload.userId);
+        if (authUser?.user?.email) {
+          await sendEmail(
+            authUser.user.email,
+            `${payload.title} — Optic Rank`,
+            notificationEmail(payload.type, payload.title, payload.message, payload.actionUrl)
+          );
+        }
+      }
+    } catch (err) {
+      console.error("[dispatchNotification] Email error:", err);
+    }
   }
 
   // 3. Webhook dispatch

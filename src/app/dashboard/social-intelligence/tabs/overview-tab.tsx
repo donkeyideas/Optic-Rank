@@ -15,6 +15,7 @@ import type {
   SocialGrowthTip,
   ContentStrategy,
 } from "@/types";
+import { getPlatformConfig } from "@/lib/social/platform-config";
 
 interface OverviewTabProps {
   profile: SocialProfile;
@@ -47,6 +48,8 @@ const PRIORITY_COLORS = {
 };
 
 export function OverviewTab({ profile, metrics, analyses }: OverviewTabProps) {
+  const pConfig = getPlatformConfig(profile.platform);
+
   // --- Compute derived data ---
 
   const latestMetric = metrics[metrics.length - 1];
@@ -111,6 +114,14 @@ export function OverviewTab({ profile, metrics, analyses }: OverviewTabProps) {
             {profile.country && (
               <span className="font-mono text-xs text-ink-muted">{profile.country}</span>
             )}
+            {pConfig.extraBadges.map((badge) => {
+              const extra = (profile as unknown as Record<string, unknown>).extra as Record<string, unknown> | undefined;
+              const val = extra?.[badge.key];
+              if (val == null || val === "" || val === false) return null;
+              const display = badge.format ? badge.format(val) : String(val);
+              if (!display) return null;
+              return <Badge key={badge.key} variant="muted">{display}</Badge>;
+            })}
           </div>
           {profile.bio && (
             <p className="mt-2 text-sm text-ink-secondary">{profile.bio}</p>
@@ -119,37 +130,54 @@ export function OverviewTab({ profile, metrics, analyses }: OverviewTabProps) {
       </Card>
 
       {/* ----------------------------------------------------------------
-          2. Key Metrics Grid — the hero numbers
+          2. Key Metrics Grid — platform-aware hero stats
           ---------------------------------------------------------------- */}
       <div className="grid grid-cols-2 gap-px border border-rule bg-rule sm:grid-cols-4">
-        <HeroStat
-          label="Followers"
-          value={profile.followers_count.toLocaleString()}
-          delta={followerGrowth}
-          highlight
-        />
-        <HeroStat
-          label="Engagement Rate"
-          value={profile.engagement_rate ? `${profile.engagement_rate}%` : "—"}
-          delta={engagementDelta != null ? +engagementDelta.toFixed(2) : null}
-          suffix="%"
-        />
-        <HeroStat
-          label="Est. Monthly Earnings"
-          value={realisticMonthly != null ? `$${realisticMonthly.toLocaleString()}` : "—"}
-          subtext={realisticMonthly != null ? "realistic scenario" : "run analysis to project"}
-        />
-        <HeroStat
-          label={avgViews != null ? "Avg. Views/Post" : "Avg. Likes/Post"}
-          value={
-            avgViews != null
-              ? Math.round(avgViews).toLocaleString()
-              : avgLikes != null
-                ? Math.round(avgLikes).toLocaleString()
-                : profile.posts_count.toLocaleString()
+        {pConfig.heroStats.map((stat, i) => {
+          const extra = (profile as unknown as Record<string, unknown>).extra as Record<string, unknown> | undefined;
+
+          // Build per-stat overrides for live data (deltas, analysis-derived values)
+          let value = stat.getValue(profile, extra);
+          let delta: number | null | undefined;
+          let suffix: string | undefined;
+          let subtext = stat.getSubtext?.(profile, extra);
+
+          // Override audience stat (slot 0) with growth delta
+          if (i === 0) {
+            delta = followerGrowth;
           }
-          subtext={avgViews == null && avgLikes == null ? "total posts" : undefined}
-        />
+          // Override engagement stat with delta
+          if (stat.label === "Engagement Rate") {
+            delta = engagementDelta != null ? +engagementDelta.toFixed(2) : null;
+            suffix = "%";
+          }
+          // Override earnings stat with analysis data
+          if (stat.label === "Est. Monthly Earnings") {
+            value = realisticMonthly != null ? `$${realisticMonthly.toLocaleString()}` : "—";
+            subtext = realisticMonthly != null ? "realistic scenario" : "run analysis to project";
+          }
+          // Override avg likes/post with metric data
+          if (stat.label === "Avg. Likes/Post") {
+            value = avgLikes != null
+              ? Math.round(avgLikes).toLocaleString()
+              : avgViews != null
+                ? Math.round(avgViews).toLocaleString()
+                : profile.posts_count.toLocaleString();
+            subtext = avgLikes == null && avgViews == null ? "total posts" : undefined;
+          }
+
+          return (
+            <HeroStat
+              key={stat.label}
+              label={stat.label}
+              value={value}
+              delta={delta}
+              suffix={suffix}
+              subtext={subtext}
+              highlight={stat.highlight}
+            />
+          );
+        })}
       </div>
 
       {/* ----------------------------------------------------------------
@@ -186,15 +214,15 @@ export function OverviewTab({ profile, metrics, analyses }: OverviewTabProps) {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>Follower Growth</CardTitle>
+              <CardTitle>{pConfig.chartTitles.followerGrowth}</CardTitle>
             </CardHeader>
             <CardContent>
-              <FollowerGrowthChart metrics={metrics} />
+              <FollowerGrowthChart metrics={metrics} label={pConfig.fields.followers.label} />
             </CardContent>
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Engagement Rate</CardTitle>
+              <CardTitle>{pConfig.chartTitles.engagementRate}</CardTitle>
             </CardHeader>
             <CardContent>
               <EngagementChart metrics={metrics} />

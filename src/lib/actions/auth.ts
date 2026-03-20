@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { sendEmail } from "@/lib/email/resend";
+import { welcomeEmail } from "@/lib/email/templates/welcome";
 
 /**
  * Sign up a new user with email/password, create an organization, and link the profile.
@@ -80,8 +82,23 @@ export async function signUp(
     return { error: profileError.message };
   }
 
+  // Auto sign-in the newly created user so they go straight to the dashboard
+  const supabase = await createClient();
+  const { error: signInError } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (signInError) {
+    // Fallback: if auto sign-in fails, send them to login with a message
+    redirect("/login?message=Account created! Sign in to get started.");
+  }
+
+  // Send welcome email (fire-and-forget — don't block the redirect)
+  sendEmail(email, "Welcome to Optic Rank", welcomeEmail(fullName || email.split("@")[0])).catch(() => {});
+
   revalidatePath("/", "layout");
-  redirect("/login?message=Account created! Sign in to get started.");
+  redirect("/dashboard");
 }
 
 /**

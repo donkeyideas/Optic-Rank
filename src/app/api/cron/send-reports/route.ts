@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateReportPDF, type ReportTemplate } from "@/lib/pdf/generate-report";
+import { sendEmailWithAttachment } from "@/lib/email/resend";
+import { reportEmail } from "@/lib/email/templates/report";
 
 /**
  * Cron endpoint: generate and queue scheduled reports.
@@ -77,6 +79,33 @@ export async function GET(request: Request) {
       console.log(
         `[send-reports cron] Generated ${template} report for project ${report.project_id} (${buffer.length} bytes)`
       );
+
+      // Email the PDF to all recipients
+      const recipients = (report.recipients as string[]) ?? [];
+      if (recipients.length > 0) {
+        // Fetch project domain for email template
+        const { data: project } = await supabase
+          .from("projects")
+          .select("domain, name")
+          .eq("id", report.project_id)
+          .single();
+        const domain = project?.domain ?? project?.name ?? "your site";
+        const reportDate = new Date().toLocaleDateString("en-US", {
+          year: "numeric", month: "long", day: "numeric",
+        });
+
+        const html = reportEmail(report.name, domain, reportDate);
+        const filename = `${report.name.replace(/\s+/g, "-").toLowerCase()}-${new Date().toISOString().slice(0, 10)}.pdf`;
+
+        await sendEmailWithAttachment(
+          recipients,
+          `${report.name} — Optic Rank Report`,
+          html,
+          [{ filename, content: buffer }]
+        );
+
+        console.log(`[send-reports cron] Emailed report to ${recipients.length} recipient(s)`);
+      }
 
       // Update last_sent_at and calculate next_send_at
       const now = new Date();

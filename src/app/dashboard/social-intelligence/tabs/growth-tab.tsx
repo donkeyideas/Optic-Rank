@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { analyzeSocialProfile } from "@/lib/actions/social-intelligence";
 import type { SocialProfile, SocialAnalysis, SocialGrowthTip } from "@/types";
+import { getPlatformConfig } from "@/lib/social/platform-config";
 
 interface GrowthTabProps {
   profile: SocialProfile;
@@ -42,7 +43,7 @@ export function GrowthTab({ profile, analyses }: GrowthTabProps) {
     <div className="mt-4 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-serif text-lg font-bold text-ink">Follower Growth Tips</h3>
+          <h3 className="font-serif text-lg font-bold text-ink">{getPlatformConfig(profile.platform).growthTitle}</h3>
           <p className="text-sm text-ink-secondary">
             AI-powered recommendations to grow @{profile.handle} on {profile.platform}
           </p>

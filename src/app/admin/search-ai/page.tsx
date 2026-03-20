@@ -25,8 +25,25 @@ export default async function AdminSearchAIPage() {
   const userId = await requireAdmin();
   if (!userId) redirect("/login");
 
-  // 1. Self-crawl the site's own pages
-  const auditResult = await crawlOwnSite();
+  // 1. Self-crawl the site's own pages (gracefully handle fetch failures in dev)
+  let auditResult: Awaited<ReturnType<typeof crawlOwnSite>>;
+  try {
+    auditResult = await crawlOwnSite();
+  } catch {
+    auditResult = {
+      pages: [],
+      crawledAt: new Date().toISOString(),
+      siteUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+      totalPages: 0,
+      seoScore: 0,
+      aeoScore: 0,
+      geoScore: 0,
+      croScore: 0,
+      technicalScore: 0,
+      contentScore: 0,
+      issues: [],
+    };
+  }
 
   // 2. Try GA4 data (needs GA4_PROPERTY_ID env var)
   let ga4Overview = null;

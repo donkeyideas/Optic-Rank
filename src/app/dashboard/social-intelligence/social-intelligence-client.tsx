@@ -46,7 +46,8 @@ import { EarningsTab } from "./tabs/earnings-tab";
 import { GoalsTab } from "./tabs/goals-tab";
 import { GenerateTab } from "./tabs/generate-tab";
 
-import type { SocialProfile, SocialMetric, SocialAnalysis, SocialCompetitor, SocialAnalysisType, SocialGoal } from "@/types";
+import type { SocialProfile, SocialPlatform, SocialMetric, SocialAnalysis, SocialCompetitor, SocialAnalysisType, SocialGoal } from "@/types";
+import { getPlatformConfig, getAggregateLabels } from "@/lib/social/platform-config";
 
 const ALL_ANALYSIS_TYPES: SocialAnalysisType[] = [
   "growth", "content_strategy", "hashtags", "competitors",
@@ -106,6 +107,7 @@ export function SocialIntelligenceClient({
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; handle: string } | null>(null);
   const [isLooking, setIsLooking] = useState(false);
   const [lookupMsg, setLookupMsg] = useState<string | null>(null);
+  const [addPlatform, setAddPlatform] = useState<SocialPlatform>("instagram");
   const formRef = useRef<HTMLFormElement>(null);
   const [isRunningAll, setIsRunningAll] = useState(false);
   const [runAllProgress, setRunAllProgress] = useState("");
@@ -118,6 +120,13 @@ export function SocialIntelligenceClient({
   }, [profiles, selectedProfileId]);
 
   const selectedProfile = profiles.find((p) => p.id === selectedProfileId) ?? null;
+
+  // Reset tab if current tab isn't available for the selected platform
+  useEffect(() => {
+    if (selectedProfile && activeTab === "hashtags" && !getPlatformConfig(selectedProfile.platform).tabs.hashtags) {
+      setActiveTab("overview");
+    }
+  }, [selectedProfile, activeTab]);
   const selectedMetrics = selectedProfileId ? metricsMap[selectedProfileId] ?? [] : [];
   const selectedAnalyses = selectedProfileId ? analysesMap[selectedProfileId] ?? [] : [];
   const selectedCompetitors = selectedProfileId ? competitorsMap[selectedProfileId] ?? [] : [];
@@ -278,14 +287,19 @@ export function SocialIntelligenceClient({
       )}
 
       {/* Headline stats */}
-      <HeadlineBar
-        stats={[
-          { label: "Profiles", value: String(profiles.length), delta: 0, direction: "neutral" as const },
-          { label: "Total Followers", value: totalFollowers.toLocaleString(), delta: 0, direction: "neutral" as const },
-          { label: "Avg Engagement", value: `${avgEngagement.toFixed(1)}%`, delta: 0, direction: "neutral" as const },
-          { label: "Total Posts", value: totalPosts.toLocaleString(), delta: 0, direction: "neutral" as const },
-        ]}
-      />
+      {(() => {
+        const agg = getAggregateLabels(profiles.map((p) => p.platform));
+        return (
+          <HeadlineBar
+            stats={[
+              { label: "Profiles", value: String(profiles.length), delta: 0, direction: "neutral" as const },
+              { label: agg.audience, value: totalFollowers.toLocaleString(), delta: 0, direction: "neutral" as const },
+              { label: "Avg Engagement", value: `${avgEngagement.toFixed(1)}%`, delta: 0, direction: "neutral" as const },
+              { label: agg.content, value: totalPosts.toLocaleString(), delta: 0, direction: "neutral" as const },
+            ]}
+          />
+        );
+      })()}
 
       {/* Profile selector bar */}
       <div className="mt-4 flex items-center gap-2 border-b border-rule pb-3">
@@ -375,10 +389,12 @@ export function SocialIntelligenceClient({
               <Calendar className="mr-1.5 h-3.5 w-3.5" />
               Content
             </TabsTrigger>
-            <TabsTrigger value="hashtags">
-              <Hash className="mr-1.5 h-3.5 w-3.5" />
-              Hashtags
-            </TabsTrigger>
+            {getPlatformConfig(selectedProfile.platform).tabs.hashtags && (
+              <TabsTrigger value="hashtags">
+                <Hash className="mr-1.5 h-3.5 w-3.5" />
+                Hashtags
+              </TabsTrigger>
+            )}
             <TabsTrigger value="competitors">
               <Target className="mr-1.5 h-3.5 w-3.5" />
               Competitors
@@ -425,12 +441,14 @@ export function SocialIntelligenceClient({
               analyses={selectedAnalyses}
             />
           </TabsContent>
-          <TabsContent value="hashtags">
-            <HashtagsTab
-              profile={selectedProfile}
-              analyses={selectedAnalyses}
-            />
-          </TabsContent>
+          {getPlatformConfig(selectedProfile.platform).tabs.hashtags && (
+            <TabsContent value="hashtags">
+              <HashtagsTab
+                profile={selectedProfile}
+                analyses={selectedAnalyses}
+              />
+            </TabsContent>
+          )}
           <TabsContent value="competitors">
             <CompetitorsTab
               profile={selectedProfile}
@@ -519,6 +537,7 @@ export function SocialIntelligenceClient({
                         name="platform"
                         value={p.id}
                         defaultChecked={p.id === "instagram"}
+                        onChange={() => setAddPlatform(p.id)}
                         className="peer sr-only"
                       />
                       <div className="flex items-center gap-1.5 border border-rule px-3 py-2 text-xs font-medium transition-colors peer-checked:border-ink peer-checked:bg-ink peer-checked:text-surface-cream">
@@ -575,27 +594,27 @@ export function SocialIntelligenceClient({
                 <Input name="display_name" placeholder="Display name (optional)" />
               </div>
 
-              {/* Stats row */}
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="mb-1 block font-mono text-[10px] font-bold uppercase tracking-widest text-ink-secondary">
-                    Followers
-                  </label>
-                  <Input name="followers_count" type="number" min="0" placeholder="e.g. 15000" />
-                </div>
-                <div>
-                  <label className="mb-1 block font-mono text-[10px] font-bold uppercase tracking-widest text-ink-secondary">
-                    Following
-                  </label>
-                  <Input name="following_count" type="number" min="0" placeholder="e.g. 500" />
-                </div>
-                <div>
-                  <label className="mb-1 block font-mono text-[10px] font-bold uppercase tracking-widest text-ink-secondary">
-                    Posts
-                  </label>
-                  <Input name="posts_count" type="number" min="0" placeholder="e.g. 120" />
-                </div>
-              </div>
+              {/* Stats row — platform-aware */}
+              {(() => {
+                const pConf = getPlatformConfig(addPlatform);
+                const visibleFields = [
+                  pConf.fields.followers.showInForm && { name: "followers_count", ...pConf.fields.followers },
+                  pConf.fields.following.showInForm && { name: "following_count", ...pConf.fields.following },
+                  pConf.fields.posts.showInForm && { name: "posts_count", ...pConf.fields.posts },
+                ].filter(Boolean) as { name: string; label: string; placeholder?: string }[];
+                return (
+                  <div className={`grid gap-3 ${visibleFields.length === 3 ? "grid-cols-3" : visibleFields.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
+                    {visibleFields.map((f) => (
+                      <div key={f.name}>
+                        <label className="mb-1 block font-mono text-[10px] font-bold uppercase tracking-widest text-ink-secondary">
+                          {f.label}
+                        </label>
+                        <Input name={f.name} type="number" min="0" placeholder={f.placeholder} />
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
 
               {/* Engagement + Niche */}
               <div className="grid grid-cols-2 gap-3">

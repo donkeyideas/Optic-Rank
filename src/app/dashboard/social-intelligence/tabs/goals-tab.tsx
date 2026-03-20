@@ -8,15 +8,18 @@ import { Badge } from "@/components/ui/badge";
 import { Flag, Save, TrendingUp } from "lucide-react";
 import { saveSocialGoals } from "@/lib/actions/social-intelligence";
 import type { SocialProfile, SocialMetric, SocialGoal } from "@/types";
+import { getPlatformConfig } from "@/lib/social/platform-config";
 
-const OBJECTIVES = [
-  { value: "grow_followers", label: "Grow Followers" },
-  { value: "increase_engagement", label: "Increase Engagement" },
-  { value: "monetize", label: "Monetize / Earn Revenue" },
-  { value: "build_brand", label: "Build Brand Awareness" },
-  { value: "drive_traffic", label: "Drive Website Traffic" },
-  { value: "launch_product", label: "Launch a Product" },
-];
+function getObjectives(followerLabel: string) {
+  return [
+    { value: "grow_followers", label: `Grow ${followerLabel}` },
+    { value: "increase_engagement", label: "Increase Engagement" },
+    { value: "monetize", label: "Monetize / Earn Revenue" },
+    { value: "build_brand", label: "Build Brand Awareness" },
+    { value: "drive_traffic", label: "Drive Website Traffic" },
+    { value: "launch_product", label: "Launch a Product" },
+  ];
+}
 
 const MONETIZATION_GOALS = [
   { value: "sponsorships", label: "Brand Sponsorships" },
@@ -44,6 +47,8 @@ interface GoalsTabProps {
 }
 
 export function GoalsTab({ profile, metrics, goals }: GoalsTabProps) {
+  const pConfig = getPlatformConfig(profile.platform);
+  const OBJECTIVES = getObjectives(pConfig.fields.followers.label);
   const [isPending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
 
@@ -131,7 +136,7 @@ export function GoalsTab({ profile, metrics, goals }: GoalsTabProps) {
                   type="number"
                   value={targetValue}
                   onChange={(e) => setTargetValue(e.target.value)}
-                  placeholder={objective === "grow_followers" ? "e.g. 10000" : "Target value"}
+                  placeholder={objective === "grow_followers" ? `e.g. 10000 ${pConfig.fields.followers.label.toLowerCase()}` : "Target value"}
                   className="flex-1"
                 />
                 <span className="flex items-center text-xs text-ink-muted">in</span>
@@ -228,7 +233,7 @@ export function GoalsTab({ profile, metrics, goals }: GoalsTabProps) {
               <div>
                 <div className="mb-1 flex items-center justify-between text-sm">
                   <span className="text-ink-secondary">
-                    {objective === "grow_followers" ? "Followers" : "Progress"}: {currentFollowers.toLocaleString()} → {target.toLocaleString()}
+                    {objective === "grow_followers" ? pConfig.fields.followers.label : "Progress"}: {currentFollowers.toLocaleString()} → {target.toLocaleString()}
                   </span>
                   <span className="font-mono text-xs font-bold text-ink">{progress}%</span>
                 </div>
