@@ -111,6 +111,8 @@ export function SocialIntelligenceClient({
   const formRef = useRef<HTMLFormElement>(null);
   const [isRunningAll, setIsRunningAll] = useState(false);
   const [runAllProgress, setRunAllProgress] = useState("");
+  const [runAllDone, setRunAllDone] = useState(0);
+  const [runAllTotal, setRunAllTotal] = useState(0);
 
   // Sync selectedProfileId when profiles change (e.g. after adding the first profile)
   useEffect(() => {
@@ -219,22 +221,48 @@ export function SocialIntelligenceClient({
   }
 
   async function handleRunAllAnalyses() {
-    setIsRunningAll(true);
-    const total = profiles.length * ALL_ANALYSIS_TYPES.length;
-    let done = 0;
+    // Build task queue: all profile × analysis type combos
+    const tasks: { profile: (typeof profiles)[0]; type: SocialAnalysisType }[] = [];
     for (const p of profiles) {
       for (const aType of ALL_ANALYSIS_TYPES) {
-        setRunAllProgress(`@${p.handle} — ${aType.replace(/_/g, " ")} (${done + 1}/${total})`);
+        tasks.push({ profile: p, type: aType });
+      }
+    }
+
+    const total = tasks.length;
+    let done = 0;
+    setIsRunningAll(true);
+    setRunAllDone(0);
+    setRunAllTotal(total);
+    setRunAllProgress(`Starting analyses...`);
+
+    // Run up to 3 analyses concurrently
+    const CONCURRENCY = 3;
+    let index = 0;
+
+    async function runNext(): Promise<void> {
+      while (index < tasks.length) {
+        const taskIndex = index++;
+        const task = tasks[taskIndex];
+        setRunAllProgress(`@${task.profile.handle} — ${task.type.replace(/_/g, " ")}`);
         try {
-          await analyzeSocialProfile(p.id, aType);
+          await analyzeSocialProfile(task.profile.id, task.type);
         } catch {
           // Continue on error
         }
         done++;
+        setRunAllDone(done);
       }
     }
+
+    await Promise.all(
+      Array.from({ length: Math.min(CONCURRENCY, total) }, () => runNext())
+    );
+
     setIsRunningAll(false);
     setRunAllProgress("");
+    setRunAllDone(0);
+    setRunAllTotal(0);
     setStatusMsg(`All analyses complete across ${profiles.length} profiles.`);
     router.refresh();
   }
@@ -273,6 +301,36 @@ export function SocialIntelligenceClient({
 
   return (
     <div>
+      {/* Analysis progress banner */}
+      {isRunningAll && (
+        <div className="mb-4 border border-editorial-gold/40 bg-editorial-gold/10 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <Loader2 className="h-4 w-4 animate-spin text-editorial-gold" />
+            <div className="flex-1">
+              <div className="flex items-center justify-between text-sm font-medium text-ink">
+                <span>Running AI analyses{runAllTotal > 0 ? ` — ${runAllDone}/${runAllTotal} complete` : ""}</span>
+                {runAllTotal > 0 && (
+                  <span className="font-mono text-xs text-ink-muted">
+                    {Math.round((runAllDone / runAllTotal) * 100)}%
+                  </span>
+                )}
+              </div>
+              {runAllTotal > 0 && (
+                <div className="mt-2 h-2 w-full overflow-hidden bg-surface-card">
+                  <div
+                    className="h-full bg-editorial-gold transition-all duration-500 ease-out"
+                    style={{ width: `${(runAllDone / runAllTotal) * 100}%` }}
+                  />
+                </div>
+              )}
+              {runAllProgress && (
+                <p className="mt-1.5 font-mono text-[10px] text-ink-muted">{runAllProgress}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Status toast */}
       {statusMsg && (
         <div className="mb-4 border border-editorial-green/30 bg-editorial-green/10 px-4 py-2 text-sm text-editorial-green">
@@ -347,11 +405,6 @@ export function SocialIntelligenceClient({
           )}
           {isRunningAll ? "Analyzing..." : "Run All Analyses"}
         </button>
-        {isRunningAll && (
-          <span className="font-mono text-[10px] text-ink-muted">
-            {runAllProgress}
-          </span>
-        )}
         {selectedProfile && (
           <button
             onClick={() =>
