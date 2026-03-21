@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { JsonLd, OG_IMAGES, breadcrumbJsonLd } from "@/components/seo/json-ld";
 import { getPublishedChangelog } from "@/lib/dal/admin";
 
@@ -50,12 +51,70 @@ export default async function ChangelogPage() {
           <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-ink-secondary">
             A log of every feature, improvement, and fix we ship.
           </p>
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-ink-secondary">
+            We ship updates weekly. Every feature, improvement, and bug fix is
+            logged here so you always know what&apos;s new. Our engineering team
+            is committed to continuous improvement — we listen to user feedback
+            and prioritize the features that matter most to your SEO workflow.
+            Transparency is a core value at Optic Rank, and this changelog is
+            our way of keeping you informed about every change we make to the
+            platform, no matter how small.
+          </p>
         </header>
 
         {entries.length === 0 ? (
-          <div className="border border-rule p-12 text-center">
-            <p className="text-sm text-ink-secondary">
-              No changelog entries yet. Stay tuned!
+          <div className="border border-rule p-12">
+            <h2 className="text-center font-serif text-2xl font-bold text-ink">
+              Updates Are on the Way
+            </h2>
+            <p className="mt-4 text-sm leading-relaxed text-ink-secondary">
+              We haven&apos;t published our first changelog entry yet, but
+              that&apos;s about to change. Our team is actively building and
+              refining Optic Rank, and this page will soon be filled with a
+              detailed record of every release.
+            </p>
+
+            <h3 className="mt-6 font-serif text-lg font-bold text-ink">
+              What You&apos;ll Find Here
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-ink-secondary">
+              Each changelog entry is categorized so you can quickly scan for
+              what matters to you:
+            </p>
+            <ul className="mt-3 space-y-2 text-sm text-ink-secondary">
+              <li className="flex items-start gap-2">
+                <span className="mt-0.5 shrink-0 rounded bg-editorial-green/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-editorial-green">Feature</span>
+                Brand-new capabilities added to the platform, such as new
+                dashboards, integrations, or tracking modules.
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-0.5 shrink-0 rounded bg-editorial-gold/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-editorial-gold">Improvement</span>
+                Enhancements to existing features — faster load times, better
+                accuracy, refined user interfaces, and workflow optimizations.
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-0.5 shrink-0 rounded bg-editorial-red/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-editorial-red">Fix</span>
+                Bug fixes and reliability patches that keep your data accurate
+                and your experience smooth.
+              </li>
+            </ul>
+
+            <h3 className="mt-6 font-serif text-lg font-bold text-ink">
+              Stay in the Loop
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-ink-secondary">
+              You don&apos;t have to check this page manually. Subscribe to
+              email notifications in your{" "}
+              <Link href="/dashboard/settings" className="text-editorial-red underline underline-offset-2 hover:text-editorial-red/80">
+                account settings
+              </Link>{" "}
+              and we&apos;ll send you a summary every time we publish a new
+              release. You can also visit our{" "}
+              <Link href="/roadmap" className="text-editorial-red underline underline-offset-2 hover:text-editorial-red/80">
+                public roadmap
+              </Link>{" "}
+              to see upcoming features and vote on the improvements you want
+              most. Your feedback directly shapes what we build next.
             </p>
           </div>
         ) : (

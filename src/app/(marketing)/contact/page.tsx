@@ -91,6 +91,85 @@ export default function ContactPage() {
             </div>
           </div>
         </div>
+
+        {/* FAQ Section */}
+        <section className="mt-16">
+          <h2 className="mb-8 text-center font-serif text-2xl font-bold text-ink">
+            Frequently Asked Questions
+          </h2>
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="border border-rule p-6">
+              <h3 className="font-serif text-lg font-bold text-ink">
+                What&apos;s included in the free trial?
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">
+                Every free trial includes full access to keyword tracking, site
+                audits, AI visibility monitoring, and backlink analysis for 14
+                days. You can track up to 100 keywords across Google, ChatGPT,
+                Perplexity, and Gemini with no credit card required to start.
+              </p>
+            </div>
+
+            <div className="border border-rule p-6">
+              <h3 className="font-serif text-lg font-bold text-ink">
+                Can I cancel anytime?
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">
+                Absolutely. All Optic Rank plans are billed monthly with no
+                long-term contracts. You can cancel directly from your account
+                settings at any time, and you will retain access until the end of
+                your current billing cycle. We never charge cancellation fees.
+              </p>
+            </div>
+
+            <div className="border border-rule p-6">
+              <h3 className="font-serif text-lg font-bold text-ink">
+                Do you offer agency plans?
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">
+                Yes. Our agency plans support multiple client workspaces under a
+                single account with consolidated billing, white-label reporting,
+                and team member permissions. Reach out to our partnerships team at
+                the email above to discuss volume pricing and custom onboarding.
+              </p>
+            </div>
+
+            <div className="border border-rule p-6">
+              <h3 className="font-serif text-lg font-bold text-ink">
+                How fast is support?
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">
+                We respond to all inquiries within one to two business days.
+                Customers on paid plans receive priority support with a guaranteed
+                response time of four hours during business hours. Enterprise
+                customers also get a dedicated account manager and private Slack
+                channel.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Community Section */}
+        <section className="mt-16 mb-4">
+          <div className="border-2 border-ink p-10 text-center">
+            <h2 className="font-serif text-2xl font-bold text-ink">
+              Join the Community
+            </h2>
+            <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-ink-secondary">
+              Connect with other SEO professionals, marketers, and founders who
+              are navigating the shift to AI-powered search. Our community is the
+              best place to share strategies, get platform tips, hear about new
+              feature releases, and stay ahead of the latest changes across
+              Google, ChatGPT, Perplexity, and other search surfaces.
+            </p>
+            <a
+              href="/signup"
+              className="mt-6 inline-flex h-11 items-center justify-center bg-editorial-red px-8 text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-editorial-red/90"
+            >
+              Get Started Free
+            </a>
+          </div>
+        </section>
       </div>
     </>
   );

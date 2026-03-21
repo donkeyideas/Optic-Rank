@@ -59,8 +59,15 @@ export default function CookiesPage() {
                   Essential Cookies
                 </h3>
                 <p className="mt-1">
-                  Required for the Service to function. These handle authentication,
-                  security, and session management. Cannot be disabled.
+                  Required for the Service to function. These handle
+                  authentication, security, and session management. Cannot be
+                  disabled. Specific examples include Supabase session tokens
+                  (<code className="font-mono text-xs text-ink">sb-access-token</code>,{" "}
+                  <code className="font-mono text-xs text-ink">sb-refresh-token</code>)
+                  used to keep you signed in, and CSRF protection tokens that
+                  guard against cross-site request forgery. Session tokens
+                  typically expire at the end of your browser session or after 7
+                  days if you select &ldquo;Remember me&rdquo; during sign-in.
                 </p>
               </div>
 
@@ -69,9 +76,16 @@ export default function CookiesPage() {
                   Analytics Cookies
                 </h3>
                 <p className="mt-1">
-                  Help us understand how visitors interact with the Service. We use
-                  Google Analytics 4 to collect anonymized usage data including pages
-                  visited, time on site, and traffic sources.
+                  Help us understand how visitors interact with the Service. We
+                  use Google Analytics 4 to collect anonymized usage data
+                  including pages visited, time on site, and traffic sources.
+                  GA4 sets cookies such as{" "}
+                  <code className="font-mono text-xs text-ink">_ga</code> (used
+                  to distinguish unique users, lasting up to 2 years) and{" "}
+                  <code className="font-mono text-xs text-ink">_ga_XXXXXXX</code>{" "}
+                  (used to persist session state, also lasting up to 2 years).
+                  These cookies contain randomly generated identifiers and do not
+                  store personally identifiable information.
                 </p>
               </div>
 
@@ -119,6 +133,30 @@ export default function CookiesPage() {
               cookies or delete them after visiting our site. Note that disabling
               essential cookies may prevent you from using certain features of the
               Service.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="font-serif text-xl font-bold text-ink">
+              Your Rights
+            </h2>
+            <p>
+              Depending on your location, you may have specific rights regarding
+              cookies and tracking technologies under privacy regulations such as
+              the General Data Protection Regulation (GDPR) and the California
+              Consumer Privacy Act (CCPA). These rights may include the right to
+              access data collected through cookies, the right to request
+              deletion of that data, and the right to opt out of non-essential
+              cookies such as analytics and functional cookies. To exercise any
+              of these rights, please contact us at{" "}
+              <a
+                href="mailto:info@donkeyideas.com"
+                className="text-editorial-red hover:underline"
+              >
+                info@donkeyideas.com
+              </a>{" "}
+              and we will respond within the timeframe required by applicable
+              law.
             </p>
           </section>
 

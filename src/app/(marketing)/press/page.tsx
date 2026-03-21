@@ -85,6 +85,34 @@ export default function PressPage() {
           </div>
         </section>
 
+        {/* Key Facts */}
+        <section className="mb-16">
+          <h2 className="mb-6 font-serif text-2xl font-bold text-ink">
+            Key Facts
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              { label: "Founded", value: "2025" },
+              { label: "Launched", value: "March 2026" },
+              { label: "Headquarters", value: "Remote-first" },
+              { label: "Focus", value: "AI-powered SEO intelligence" },
+              {
+                label: "Key Markets",
+                value: "Startups, Agencies, Enterprise",
+              },
+            ].map((fact) => (
+              <div key={fact.label} className="border border-rule p-4">
+                <p className="text-xs font-bold uppercase tracking-widest text-ink-muted">
+                  {fact.label}
+                </p>
+                <p className="mt-1 text-sm font-semibold text-ink">
+                  {fact.value}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* Typography */}
         <section className="mb-16">
           <h2 className="mb-6 font-serif text-2xl font-bold text-ink">
@@ -166,9 +194,41 @@ export default function PressPage() {
             citation monitoring into a single dashboard designed for modern search
             marketers.
           </p>
+          <p className="mt-3 text-sm leading-relaxed text-ink-secondary">
+            Unlike traditional SEO tools, Optic Rank tracks brand visibility
+            across both conventional search results and AI-powered answer
+            engines including ChatGPT, Perplexity, and Google Gemini. This
+            dual-tracking approach gives marketing teams a complete picture of
+            how their content surfaces in the evolving search landscape. The
+            platform&apos;s editorial-inspired dashboard design prioritizes
+            data density and readability, presenting complex SEO metrics in a
+            clean, newspaper-style layout that makes analysis intuitive for
+            teams of any size.
+          </p>
           <p className="mt-3 text-sm italic text-ink-muted">
             Feel free to use this text when writing about Optic Rank.
           </p>
+        </section>
+
+        {/* Usage Guidelines */}
+        <section className="mb-16">
+          <h2 className="mb-6 font-serif text-2xl font-bold text-ink">
+            Usage Guidelines
+          </h2>
+          <div className="border border-rule p-6 text-sm leading-relaxed text-ink-secondary">
+            <p>
+              You are welcome to use the Optic Rank name, logo, and brand assets
+              provided above in editorial content, press coverage, blog posts,
+              and partnership materials. Please use the official wordmark as
+              supplied&nbsp;&mdash; do not alter the logo colors, proportions, or
+              typeface. Do not combine the Optic Rank name or logo with other
+              brand marks in a way that implies co-branding, endorsement, or
+              sponsorship without prior written permission. When referencing the
+              platform, use &ldquo;Optic Rank&rdquo; as two words with both
+              capitalized. If you have questions about permitted use, contact our
+              media team before publishing.
+            </p>
+          </div>
         </section>
 
         {/* Media Contact */}

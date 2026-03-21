@@ -69,6 +69,19 @@ export default async function RoadmapPage() {
             Transparency is a core value. Here&apos;s what we&apos;re working on
             and what&apos;s coming next.
           </p>
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-ink-secondary">
+            We build in public because transparency builds trust. This roadmap
+            reflects our current priorities based on user feedback, market
+            trends, and our product vision. Have a feature request? We&apos;d
+            love to hear from you&nbsp;&mdash; reach out via our{" "}
+            <a
+              href="/contact"
+              className="text-editorial-red hover:underline"
+            >
+              contact page
+            </a>
+            .
+          </p>
         </header>
 
         <div className="grid gap-6 lg:grid-cols-3">
@@ -92,7 +105,9 @@ export default async function RoadmapPage() {
                 <div className="space-y-3">
                   {statusItems.length === 0 ? (
                     <div className="border border-dashed border-rule p-6 text-center text-xs text-ink-muted">
-                      Nothing here yet
+                      Nothing here yet. Check back soon&nbsp;&mdash; we update
+                      this roadmap regularly as priorities shift and new items
+                      move through our pipeline.
                     </div>
                   ) : (
                     statusItems.map((item) => (
@@ -129,6 +144,40 @@ export default async function RoadmapPage() {
               </div>
             );
           })}
+        </div>
+
+        {/* How We Prioritize */}
+        <div className="mt-12 border border-rule p-6">
+          <h2 className="mb-4 font-serif text-xl font-bold text-ink">
+            How We Prioritize
+          </h2>
+          <p className="mb-3 text-sm leading-relaxed text-ink-secondary">
+            Every item on this roadmap is evaluated against three criteria before
+            it enters our development pipeline:
+          </p>
+          <ul className="ml-6 list-disc space-y-2 text-sm leading-relaxed text-ink-secondary">
+            <li>
+              <strong className="text-ink">
+                User feedback and feature requests
+              </strong>{" "}
+              &mdash; the most consistent signal we use to shape what gets built
+              next
+            </li>
+            <li>
+              <strong className="text-ink">
+                Impact on search visibility and ROI
+              </strong>{" "}
+              &mdash; we focus on features that deliver measurable value to your
+              SEO and AEO workflows
+            </li>
+            <li>
+              <strong className="text-ink">
+                Technical feasibility and platform stability
+              </strong>{" "}
+              &mdash; we balance ambition with reliability to keep the platform
+              fast and dependable
+            </li>
+          </ul>
         </div>
       </div>
     </>

@@ -48,6 +48,15 @@ export default function AboutPage() {
               the platform that tracks, analyzes, and optimizes your presence across
               every surface where people search.
             </p>
+            <p className="mt-3 text-sm leading-relaxed text-ink-secondary">
+              Traditional SEO tools were built for a single channel: Google rankings.
+              But today, your customers discover brands through ChatGPT recommendations,
+              Perplexity research summaries, Gemini overviews, Google SGE snapshots,
+              and classic organic results — often in the same session. Optic Rank is the
+              first unified search intelligence platform that monitors your visibility
+              across all of these surfaces in one dashboard, giving you a complete
+              picture of how and where your brand appears in the modern search landscape.
+            </p>
           </div>
         </section>
 
@@ -61,17 +70,17 @@ export default function AboutPage() {
               {
                 title: "Data-Driven",
                 description:
-                  "Every recommendation is backed by real data, not guesswork. We believe in transparent metrics and actionable insights.",
+                  "Every recommendation is backed by real data, not guesswork. We believe in transparent metrics and actionable insights. Our platform pulls live data from search engines, AI models, and backlink indexes so you can make decisions based on what is actually happening — not assumptions or outdated reports.",
               },
               {
                 title: "Innovation First",
                 description:
-                  "We track what others don't — AI citations, answer engine visibility, and generative search presence alongside traditional SEO.",
+                  "We track what others don't — AI citations, answer engine visibility, and generative search presence alongside traditional SEO. As new AI models and search surfaces emerge, we integrate them into the platform within weeks, ensuring you are never blind to where your audience is moving next.",
               },
               {
                 title: "Accessible to All",
                 description:
-                  "Enterprise-grade intelligence shouldn't require an enterprise budget. Our tools are designed for teams of every size.",
+                  "Enterprise-grade intelligence shouldn't require an enterprise budget. Our tools are designed for teams of every size. From solo founders running their first site to marketing departments managing hundreds of domains, every plan includes the same core analytics engine with no artificial feature gates.",
               },
             ].map((value) => (
               <div
@@ -155,7 +164,7 @@ export default function AboutPage() {
                 date: "Q2 2026",
                 title: "What's Next",
                 description:
-                  "Expanding integrations, multi-language support, and custom reporting for agencies.",
+                  "Expanding integrations, multi-language support, and custom reporting for agencies. Our roadmap includes full multi-language keyword tracking for over 30 languages, white-label dashboards so agencies can deliver branded reports to their clients, and a public REST API that lets developers build custom workflows on top of Optic Rank data.",
               },
             ].map((event) => (
               <div
