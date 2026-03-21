@@ -49,7 +49,9 @@ export default async function ChangelogPage() {
             What&apos;s New
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-ink-secondary">
-            A log of every feature, improvement, and fix we ship.
+            A complete log of every feature, improvement, and fix we ship to the
+            Optic Rank platform. Stay informed about what changed, when it
+            launched, and how it affects your workflow.
           </p>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-ink-secondary">
             We ship updates weekly. Every feature, improvement, and bug fix is
@@ -58,7 +60,9 @@ export default async function ChangelogPage() {
             and prioritize the features that matter most to your SEO workflow.
             Transparency is a core value at Optic Rank, and this changelog is
             our way of keeping you informed about every change we make to the
-            platform, no matter how small.
+            platform, no matter how small. Each release is tested across
+            multiple environments before going live, and we monitor error rates
+            and performance metrics after every deployment to ensure stability.
           </p>
         </header>
 
@@ -71,7 +75,11 @@ export default async function ChangelogPage() {
               We haven&apos;t published our first changelog entry yet, but
               that&apos;s about to change. Our team is actively building and
               refining Optic Rank, and this page will soon be filled with a
-              detailed record of every release.
+              detailed record of every release. We believe in building in
+              public, which means you will see every change we make — from
+              major feature launches and dashboard redesigns to small quality
+              of life improvements and behind-the-scenes infrastructure
+              upgrades that make the platform faster and more reliable.
             </p>
 
             <h3 className="mt-6 font-serif text-lg font-bold text-ink">
@@ -85,17 +93,20 @@ export default async function ChangelogPage() {
               <li className="flex items-start gap-2">
                 <span className="mt-0.5 shrink-0 rounded bg-editorial-green/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-editorial-green">Feature</span>
                 Brand-new capabilities added to the platform, such as new
-                dashboards, integrations, or tracking modules.
+                dashboards, integrations, tracking modules, or entirely new
+                tools like AI visibility monitoring and app store optimization.
               </li>
               <li className="flex items-start gap-2">
                 <span className="mt-0.5 shrink-0 rounded bg-editorial-gold/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-editorial-gold">Improvement</span>
                 Enhancements to existing features — faster load times, better
-                accuracy, refined user interfaces, and workflow optimizations.
+                data accuracy, refined user interfaces, improved reporting,
+                and workflow optimizations that save you time every day.
               </li>
               <li className="flex items-start gap-2">
                 <span className="mt-0.5 shrink-0 rounded bg-editorial-red/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-editorial-red">Fix</span>
                 Bug fixes and reliability patches that keep your data accurate
-                and your experience smooth.
+                and your experience smooth, including performance improvements,
+                data synchronization fixes, and cross-browser compatibility updates.
               </li>
             </ul>
 

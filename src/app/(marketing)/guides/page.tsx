@@ -57,7 +57,9 @@ export default async function GuidesPage() {
               </h3>
               <p className="mt-1 text-sm leading-relaxed text-ink-secondary">
                 Discover high-value keywords, analyze search intent, and build
-                data-driven keyword strategies that drive qualified organic traffic.
+                data-driven keyword strategies that drive qualified organic
+                traffic. Learn how to use Optic Rank to find low-competition
+                opportunities and track your ranking progress over time.
               </p>
             </div>
             <div className="border border-rule p-4">
@@ -67,6 +69,8 @@ export default async function GuidesPage() {
               <p className="mt-1 text-sm leading-relaxed text-ink-secondary">
                 Master site audits, fix crawl errors, optimize Core Web Vitals,
                 and ensure your website meets modern search engine standards.
+                Our guides walk you through diagnosing performance bottlenecks,
+                resolving indexing issues, and improving page speed scores.
               </p>
             </div>
             <div className="border border-rule p-4">
@@ -76,6 +80,8 @@ export default async function GuidesPage() {
               <p className="mt-1 text-sm leading-relaxed text-ink-secondary">
                 Track how your brand appears in AI-generated answers from
                 ChatGPT, Gemini, Perplexity, and other large language models.
+                Understand what makes AI engines cite your content and how to
+                optimize for answer engine optimization.
               </p>
             </div>
             <div className="border border-rule p-4">
@@ -84,7 +90,9 @@ export default async function GuidesPage() {
               </h3>
               <p className="mt-1 text-sm leading-relaxed text-ink-secondary">
                 Monitor competitor rankings, uncover their top-performing
-                content, and identify gaps in your own SEO strategy.
+                content, and identify gaps in your own SEO strategy. Learn to
+                benchmark your domain authority and discover the keywords your
+                competitors rank for that you are missing.
               </p>
             </div>
             <div className="border border-rule p-4">
@@ -93,7 +101,9 @@ export default async function GuidesPage() {
               </h3>
               <p className="mt-1 text-sm leading-relaxed text-ink-secondary">
                 Plan, create, and optimize content that ranks — from topic
-                clusters and editorial calendars to on-page optimization.
+                clusters and editorial calendars to on-page optimization. Our
+                tutorials cover content gap analysis, internal linking
+                strategies, and building topical authority in your niche.
               </p>
             </div>
             <div className="border border-rule p-4">
@@ -103,7 +113,8 @@ export default async function GuidesPage() {
               <p className="mt-1 text-sm leading-relaxed text-ink-secondary">
                 Improve your app&apos;s visibility on the Apple App Store and
                 Google Play with keyword optimization, rating strategies, and
-                conversion insights.
+                conversion insights. Track your app&apos;s rankings and compare
+                performance against competing apps in your category.
               </p>
             </div>
           </div>
