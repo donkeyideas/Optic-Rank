@@ -239,10 +239,13 @@ function generateCrawlIssues(pages: CrawledPage[], auditId: string, skipSpaFalse
   }> = [];
 
   for (const page of pages) {
-    // For SPA sites without JS rendering, skip issues that are almost
-    // certainly false positives (the content exists after JS executes).
-    // Only skip for pages that weren't individually JS-rendered.
-    const isUnrenderedSpaPage = skipSpaFalsePositives && !page.jsRendered;
+    // Suppress false positives for SPA pages whose content can't be crawled.
+    // This includes: (a) unrendered SPA pages (no JS renderer available), and
+    // (b) pages that were JS-rendered but are still thin — meaning the content
+    // is loaded dynamically from APIs and can't be captured by any crawler.
+    const isUnrenderedSpaPage =
+      (skipSpaFalsePositives && !page.jsRendered) ||
+      (page.detectedAsSPA && page.jsRendered && page.wordCount < 300);
 
     // Missing title
     if (!page.title && !(isUnrenderedSpaPage && SPA_FALSE_POSITIVE_RULES.has("missing-title"))) {

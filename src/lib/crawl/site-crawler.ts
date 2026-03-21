@@ -749,9 +749,17 @@ export async function crawlSite(
     }
   }
 
+  // JS rendering is only considered "used" if it actually improved content.
+  // If pages are still thin after rendering, issues are still false positives
+  // from unrenderable client-side content (API-loaded data, auth-gated, etc.).
+  const jsRenderingActuallyHelped =
+    siteNeedsJsRendering &&
+    useScrapingBee &&
+    results.some((p) => p.jsRendered && p.wordCount >= 300);
+
   return {
     pages: results,
     siteIsSPA: siteNeedsJsRendering,
-    jsRenderingUsed: siteNeedsJsRendering && useScrapingBee,
+    jsRenderingUsed: jsRenderingActuallyHelped,
   };
 }
