@@ -9,6 +9,7 @@ import {
   ExternalLink,
   Plus,
   ChevronRight,
+  ChevronLeft,
   Target,
   Pencil,
   Trash2,
@@ -173,6 +174,13 @@ export function ContentClient({
   const [isRunningBriefs, setIsRunningBriefs] = useState(false);
   const [isGeneratingCalendar, setIsGeneratingCalendar] = useState(false);
   const [calendarGenMsg, setCalendarGenMsg] = useState<string | null>(null);
+
+  // Calendar month view state
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   function handleAddContent(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -343,11 +351,11 @@ export function ContentClient({
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="inventory"><FileText size={12} className="mr-1.5" />Inventory</TabsTrigger>
+          <TabsTrigger value="briefs"><Lightbulb size={12} className="mr-1.5" />Briefs</TabsTrigger>
+          <TabsTrigger value="calendar"><Calendar size={12} className="mr-1.5" />Calendar</TabsTrigger>
           <TabsTrigger value="decay"><TrendingDown size={12} className="mr-1.5" />Decay</TabsTrigger>
           <TabsTrigger value="cannibalization"><Copy size={12} className="mr-1.5" />Cannibalization</TabsTrigger>
           <TabsTrigger value="links"><Link2 size={12} className="mr-1.5" />Internal Links</TabsTrigger>
-          <TabsTrigger value="calendar"><Calendar size={12} className="mr-1.5" />Calendar</TabsTrigger>
-          <TabsTrigger value="briefs"><Lightbulb size={12} className="mr-1.5" />Briefs</TabsTrigger>
         </TabsList>
 
         {/* ── Inventory Tab ── */}
@@ -542,7 +550,25 @@ export function ContentClient({
         {/* ── Calendar Tab ── */}
         <TabsContent value="calendar">
           <div className="mb-4 flex items-center justify-between">
-            <p className="text-sm text-ink-secondary">Plan and schedule your content pipeline.</p>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}
+                className="rounded p-1 text-ink-muted transition-colors hover:bg-surface-raised hover:text-ink"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <h3 className="min-w-[140px] text-center font-serif text-lg font-bold text-ink">
+                {calendarMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}
+                className="rounded p-1 text-ink-muted transition-colors hover:bg-surface-raised hover:text-ink"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
@@ -565,53 +591,175 @@ export function ContentClient({
             </div>
           </div>
           {calendarGenMsg && <div className="mb-3 border border-rule bg-surface-raised px-3 py-2 text-[12px] text-ink-secondary">{calendarGenMsg}</div>}
-          {calendarEntries.length === 0 ? (
-            <EmptyState icon={Calendar} title="Empty Editorial Calendar" description="Generate entries from your content briefs or add them manually." />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Target Keyword</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Notes</TableHead>
-                  <TableHead className="w-10" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {calendarEntries.map((entry) => (
-                  <TableRow key={entry.id}>
-                    <TableCell className="font-sans text-sm font-semibold text-ink">{entry.title ?? "Untitled"}</TableCell>
-                    <TableCell className="font-mono text-xs text-ink-secondary">{entry.target_keyword ?? "---"}</TableCell>
-                    <TableCell className="font-mono text-xs text-ink-muted">{entry.target_date ?? "---"}</TableCell>
-                    <TableCell>
-                      <select
-                        value={entry.status ?? "planned"}
-                        disabled={isPending}
-                        onChange={(e) => { startTransition(async () => { await updateCalendarEntryStatus(entry.id, e.target.value); }); }}
-                        className={`cursor-pointer border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.1em] transition-colors focus:outline-none ${
-                          entry.status === "published" ? "border-editorial-green/40 bg-editorial-green/5 text-editorial-green"
-                            : entry.status === "in_progress" ? "border-editorial-gold/40 bg-editorial-gold/5 text-editorial-gold"
-                              : "border-rule bg-surface-card text-ink-muted"
+
+          {/* ── Month Grid ── */}
+          {(() => {
+            const year = calendarMonth.getFullYear();
+            const month = calendarMonth.getMonth();
+            const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const todayStr = new Date().toISOString().slice(0, 10);
+            const cells: (number | null)[] = [];
+            for (let i = 0; i < firstDay; i++) cells.push(null);
+            for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+            // Group entries by date for this month
+            const entriesByDate = new Map<string, typeof calendarEntries>();
+            for (const entry of calendarEntries) {
+              if (!entry.target_date) continue;
+              const d = entry.target_date as string;
+              if (!entriesByDate.has(d)) entriesByDate.set(d, []);
+              entriesByDate.get(d)!.push(entry);
+            }
+
+            const statusColor: Record<string, string> = {
+              planned: "bg-ink-muted",
+              in_progress: "bg-editorial-gold",
+              review: "bg-blue-500",
+              published: "bg-editorial-green",
+              postponed: "bg-editorial-red",
+            };
+
+            return (
+              <div className="mb-6 border border-rule">
+                {/* Day-of-week headers */}
+                <div className="grid grid-cols-7 border-b border-rule bg-surface-raised">
+                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+                    <div key={d} className="px-1 py-2 text-center text-[10px] font-bold uppercase tracking-widest text-ink-muted">
+                      {d}
+                    </div>
+                  ))}
+                </div>
+                {/* Day cells */}
+                <div className="grid grid-cols-7">
+                  {cells.map((day, i) => {
+                    if (day === null) {
+                      return <div key={`empty-${i}`} className="min-h-[72px] border-b border-r border-rule bg-surface-card/50" />;
+                    }
+                    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                    const dayEntries = entriesByDate.get(dateStr) ?? [];
+                    const isToday = dateStr === todayStr;
+                    const isSelected = dateStr === selectedDay;
+
+                    return (
+                      <button
+                        key={dateStr}
+                        type="button"
+                        onClick={() => setSelectedDay(isSelected ? null : dateStr)}
+                        className={`relative min-h-[72px] border-b border-r border-rule p-1.5 text-left transition-colors hover:bg-surface-raised ${
+                          isSelected ? "bg-editorial-red/5 ring-1 ring-inset ring-editorial-red/30" : ""
                         }`}
                       >
-                        {CALENDAR_STATUS_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                      </select>
-                    </TableCell>
-                    <TableCell className="max-w-[200px] truncate text-xs text-ink-muted">{entry.notes ?? "---"}</TableCell>
-                    <TableCell>
-                      <button type="button" title="Delete entry" disabled={isPending}
-                        onClick={() => { if (!confirm(`Delete "${entry.title}"?`)) return; startTransition(async () => { await deleteCalendarEntry(entry.id); }); }}
-                        className="rounded p-1 text-ink-muted transition-colors hover:bg-editorial-red/10 hover:text-editorial-red disabled:opacity-40">
-                        <Trash2 size={14} />
+                        <span className={`inline-flex h-5 w-5 items-center justify-center text-[11px] font-mono ${
+                          isToday ? "rounded-full bg-editorial-red text-white font-bold" : "text-ink-muted"
+                        }`}>
+                          {day}
+                        </span>
+                        {dayEntries.length > 0 && (
+                          <div className="mt-1 flex flex-col gap-0.5">
+                            {dayEntries.slice(0, 3).map((entry) => (
+                              <div
+                                key={entry.id}
+                                className="flex items-center gap-1 truncate"
+                                title={entry.title ?? "Untitled"}
+                              >
+                                <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${statusColor[entry.status ?? "planned"] ?? statusColor.planned}`} />
+                                <span className="truncate text-[9px] leading-tight text-ink-secondary">
+                                  {entry.title ?? "Untitled"}
+                                </span>
+                              </div>
+                            ))}
+                            {dayEntries.length > 3 && (
+                              <span className="text-[9px] text-ink-muted">+{dayEntries.length - 3} more</span>
+                            )}
+                          </div>
+                        )}
                       </button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                    );
+                  })}
+                </div>
+                {/* Legend */}
+                <div className="flex flex-wrap gap-3 border-t border-rule px-3 py-2">
+                  {CALENDAR_STATUS_OPTIONS.map((opt) => (
+                    <div key={opt.value} className="flex items-center gap-1.5">
+                      <span className={`inline-block h-2 w-2 rounded-full ${statusColor[opt.value] ?? statusColor.planned}`} />
+                      <span className="text-[10px] text-ink-muted">{opt.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── Table View ── */}
+          {selectedDay && (
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-xs text-ink-muted">
+                Showing entries for <span className="font-mono font-bold text-ink">{selectedDay}</span>
+              </span>
+              <button type="button" onClick={() => setSelectedDay(null)} className="text-[10px] font-bold uppercase tracking-widest text-editorial-red hover:text-editorial-red/80">
+                Clear filter
+              </button>
+            </div>
           )}
+          {(() => {
+            const filtered = selectedDay
+              ? calendarEntries.filter((e) => e.target_date === selectedDay)
+              : calendarEntries;
+
+            if (filtered.length === 0 && calendarEntries.length === 0) {
+              return <EmptyState icon={Calendar} title="Empty Editorial Calendar" description="Generate entries from your content briefs or add them manually." />;
+            }
+            if (filtered.length === 0 && selectedDay) {
+              return <p className="py-6 text-center text-sm text-ink-muted">No entries scheduled for this date.</p>;
+            }
+
+            return (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Target Keyword</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Notes</TableHead>
+                    <TableHead className="w-10" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((entry) => (
+                    <TableRow key={entry.id}>
+                      <TableCell className="font-sans text-sm font-semibold text-ink">{entry.title ?? "Untitled"}</TableCell>
+                      <TableCell className="font-mono text-xs text-ink-secondary">{entry.target_keyword ?? "---"}</TableCell>
+                      <TableCell className="font-mono text-xs text-ink-muted">{entry.target_date ?? "---"}</TableCell>
+                      <TableCell>
+                        <select
+                          value={entry.status ?? "planned"}
+                          disabled={isPending}
+                          onChange={(e) => { startTransition(async () => { await updateCalendarEntryStatus(entry.id, e.target.value); }); }}
+                          className={`cursor-pointer border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.1em] transition-colors focus:outline-none ${
+                            entry.status === "published" ? "border-editorial-green/40 bg-editorial-green/5 text-editorial-green"
+                              : entry.status === "in_progress" ? "border-editorial-gold/40 bg-editorial-gold/5 text-editorial-gold"
+                                : "border-rule bg-surface-card text-ink-muted"
+                          }`}
+                        >
+                          {CALENDAR_STATUS_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                        </select>
+                      </TableCell>
+                      <TableCell className="max-w-[200px] truncate text-xs text-ink-muted">{entry.notes ?? "---"}</TableCell>
+                      <TableCell>
+                        <button type="button" title="Delete entry" disabled={isPending}
+                          onClick={() => { if (!confirm(`Delete "${entry.title}"?`)) return; startTransition(async () => { await deleteCalendarEntry(entry.id); }); }}
+                          className="rounded p-1 text-ink-muted transition-colors hover:bg-editorial-red/10 hover:text-editorial-red disabled:opacity-40">
+                          <Trash2 size={14} />
+                        </button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            );
+          })()}
         </TabsContent>
 
         {/* ── Briefs Tab ── */}
