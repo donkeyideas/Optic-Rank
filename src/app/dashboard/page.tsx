@@ -271,21 +271,85 @@ export default async function DashboardPage() {
     return sum + Math.round(vol * ctr);
   }, 0);
 
-  // Build a 30-day trend by simulating gradual growth toward current estimate
-  const trafficTrendData: { date: string; traffic: number }[] = [];
+  // Build a 30-day traffic trend from real keyword_ranks history.
+  // For each day, sum CTR-weighted search volume across all keywords
+  // using the position recorded on that day.
   const today = new Date();
-  const baseTraffic = Math.round(currentEstTraffic * 0.75);
-  for (let i = 29; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const progress = (30 - i) / 30;
-    const traffic = Math.round(
-      baseTraffic + (currentEstTraffic - baseTraffic) * (progress * progress)
-    );
-    trafficTrendData.push({
-      date: d.toISOString().slice(0, 10),
-      traffic,
-    });
+  const thirtyDaysAgo = new Date(today);
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  // Fetch keyword IDs with search volume for the active project
+  const kwIdsForTraffic = (trafficKeywords ?? []).length > 0
+    ? await supabase
+        .from("keywords")
+        .select("id, search_volume")
+        .eq("project_id", project.id)
+        .eq("is_active", true)
+        .not("search_volume", "is", null)
+    : { data: [] };
+
+  const kwVolumeMap = new Map<string, number>();
+  for (const kw of kwIdsForTraffic.data ?? []) {
+    kwVolumeMap.set(kw.id, kw.search_volume as number);
+  }
+
+  let trafficTrendData: { date: string; traffic: number }[] = [];
+
+  if (kwVolumeMap.size > 0) {
+    // Fetch rank history for the last 30 days
+    const { data: rankHistory } = await supabase
+      .from("keyword_ranks")
+      .select("keyword_id, position, checked_at")
+      .in("keyword_id", Array.from(kwVolumeMap.keys()))
+      .gte("checked_at", thirtyDaysAgo.toISOString())
+      .order("checked_at", { ascending: true });
+
+    if (rankHistory && rankHistory.length > 0) {
+      // Group by date, use last position per keyword per day
+      const dailyPositions = new Map<string, Map<string, number>>();
+      for (const r of rankHistory) {
+        const day = new Date(r.checked_at).toISOString().slice(0, 10);
+        if (!dailyPositions.has(day)) dailyPositions.set(day, new Map());
+        dailyPositions.get(day)!.set(r.keyword_id, r.position);
+      }
+
+      // Build trend: for each of the last 30 days, compute traffic
+      const lastKnownPositions = new Map<string, number>();
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().slice(0, 10);
+
+        // Update positions for this day (carry forward from previous day if no data)
+        const dayData = dailyPositions.get(dateStr);
+        if (dayData) {
+          for (const [kwId, pos] of dayData) lastKnownPositions.set(kwId, pos);
+        }
+
+        // Sum estimated traffic for all keywords with known positions
+        let dayTraffic = 0;
+        for (const [kwId, pos] of lastKnownPositions) {
+          const vol = kwVolumeMap.get(kwId);
+          if (!vol) continue;
+          const ctr = pos <= 10 ? (CTR_CURVE[pos] ?? 0.01) : 0.005;
+          dayTraffic += Math.round(vol * ctr);
+        }
+
+        trafficTrendData.push({ date: dateStr, traffic: dayTraffic });
+      }
+    }
+  }
+
+  // Fallback: if no rank history, show today's estimate as a flat line
+  if (trafficTrendData.length === 0) {
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      trafficTrendData.push({
+        date: d.toISOString().slice(0, 10),
+        traffic: currentEstTraffic,
+      });
+    }
   }
 
   const projectDomain = (project.domain ?? project.name ?? "").replace(/^https?:\/\//, "");

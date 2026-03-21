@@ -33,11 +33,23 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Project not found." }, { status: 404, headers: corsHeaders() });
   }
 
+  // rank_predictions is keyed by keyword_id, not project_id.
+  // First get keyword IDs for this project, then fetch predictions.
+  const { data: kwIds } = await supabase
+    .from("keywords")
+    .select("id")
+    .eq("project_id", projectId);
+
+  const keywordIds = (kwIds ?? []).map((k) => k.id);
+  if (keywordIds.length === 0) {
+    return NextResponse.json({ data: [] }, { headers: corsHeaders() });
+  }
+
   const { data, error } = await supabase
-    .from("keyword_predictions")
-    .select("id, keyword_id, predicted_position, current_position, confidence, direction, factors, predicted_at")
-    .eq("project_id", projectId)
-    .order("predicted_at", { ascending: false })
+    .from("rank_predictions")
+    .select("id, keyword_id, predicted_position, confidence, prediction_date, actual_position, features_used, model_version, created_at")
+    .in("keyword_id", keywordIds)
+    .order("prediction_date", { ascending: false })
     .limit(100);
 
   if (error) {

@@ -36,9 +36,9 @@ export async function GET(request: Request) {
   // Get latest audit
   const { data: audit, error: auditError } = await supabase
     .from("site_audits")
-    .select("id, health_score, pages_scanned, passed_checks, issues_count, performance_score, seo_score, accessibility_score, created_at")
+    .select("id, health_score, pages_crawled, issues_found, performance_score, seo_score, accessibility_score, content_score, started_at, completed_at")
     .eq("project_id", projectId)
-    .order("created_at", { ascending: false })
+    .order("started_at", { ascending: false })
     .limit(1)
     .single();
 
@@ -49,8 +49,8 @@ export async function GET(request: Request) {
   // Get issues for this audit
   const { data: issues } = await supabase
     .from("audit_issues")
-    .select("id, title, issue_type, severity, category, affected_pages, recommendation")
-    .eq("project_id", projectId)
+    .select("id, title, rule_id, severity, category, affected_url, recommendation, description")
+    .eq("audit_id", audit.id)
     .order("severity", { ascending: true })
     .limit(50);
 

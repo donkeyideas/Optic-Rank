@@ -23,7 +23,7 @@ export async function GET(request: Request) {
   // Verify project belongs to org
   let query = supabase
     .from("keywords")
-    .select("id, keyword, current_position, previous_position, search_volume, keyword_difficulty, device, ranking_url, updated_at", { count: "exact" });
+    .select("id, keyword, current_position, previous_position, search_volume, difficulty, device, location, updated_at", { count: "exact" });
 
   if (projectId) {
     // Verify ownership

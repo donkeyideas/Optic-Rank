@@ -4,6 +4,8 @@ import { generateReportPDF, type ReportTemplate } from "@/lib/pdf/generate-repor
 import { sendEmailWithAttachment } from "@/lib/email/resend";
 import { reportEmail } from "@/lib/email/templates/report";
 
+export const maxDuration = 60;
+
 /**
  * Cron endpoint: generate and queue scheduled reports.
  * Protected by CRON_SECRET bearer token.

@@ -7,6 +7,14 @@
     {
       "path": "/api/cron/trial-emails",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/rank-check",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/collect-data",
+      "schedule": "0 4 * * 1"
     }
   ],
   "functions": {
@@ -21,6 +29,22 @@
     "src/app/api/mobile/route.ts": {
       "maxDuration": 60,
       "memory": 512
+    },
+    "src/app/api/cron/rank-check/route.ts": {
+      "maxDuration": 300,
+      "memory": 512
+    },
+    "src/app/api/cron/collect-data/route.ts": {
+      "maxDuration": 300,
+      "memory": 512
+    },
+    "src/app/api/cron/send-reports/route.ts": {
+      "maxDuration": 60,
+      "memory": 512
+    },
+    "src/app/api/cron/trial-emails/route.ts": {
+      "maxDuration": 30,
+      "memory": 256
     }
   }
 }

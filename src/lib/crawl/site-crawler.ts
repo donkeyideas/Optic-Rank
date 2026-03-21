@@ -5,9 +5,10 @@
  * then fetches each page to extract on-page SEO signals.
  *
  * Strategy:
- * 1. Try fast plain fetch() first with a realistic User-Agent
- * 2. Detect SPA/JS-heavy pages (low content despite 200 status)
- * 3. Re-fetch sparse pages with JS rendering (self-hosted Chromium or ScrapingBee)
+ * 1. Fetch and respect robots.txt disallow rules
+ * 2. Try fast plain fetch() first with a realistic User-Agent
+ * 3. Detect SPA/JS-heavy pages (low content despite 200 status)
+ * 4. Re-fetch sparse pages via self-hosted Chromium JS renderer
  */
 
 import * as cheerio from "cheerio";
@@ -48,7 +49,7 @@ export interface CrawledPage {
   imageCount: number;
   imagesWithoutAlt: number;
   loadTimeMs: number;
-  /** Whether this page was rendered via ScrapingBee JS rendering */
+  /** Whether this page was rendered via JS rendering (self-hosted Chromium) */
   jsRendered?: boolean;
   /** Whether the page was detected as a SPA/JS-heavy page (regardless of rendering) */
   detectedAsSPA?: boolean;
@@ -187,6 +188,64 @@ function isSparseResult(page: CrawledPage): boolean {
 }
 
 // ================================================================
+// Robots.txt Parsing
+// ================================================================
+
+/**
+ * Fetch and parse robots.txt for the given domain.
+ * Extracts Disallow paths for User-agent: * (and our bot UA).
+ * Returns an array of disallowed path prefixes.
+ */
+async function fetchRobotsTxtRules(domain: string): Promise<string[]> {
+  const disallowed: string[] = [];
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const resp = await fetch(`https://${domain}/robots.txt`, {
+      signal: controller.signal,
+      headers: { "User-Agent": BOT_UA },
+    });
+    clearTimeout(timeout);
+
+    if (!resp.ok) return [];
+
+    const text = await resp.text();
+    const lines = text.split("\n");
+
+    let inRelevantBlock = false;
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line || line.startsWith("#")) continue;
+
+      const lower = line.toLowerCase();
+      if (lower.startsWith("user-agent:")) {
+        const agent = lower.replace("user-agent:", "").trim();
+        inRelevantBlock = agent === "*" || agent.includes("opticrank");
+      } else if (lower.startsWith("disallow:") && inRelevantBlock) {
+        const path = line.replace(/^disallow:\s*/i, "").trim();
+        if (path) disallowed.push(path);
+      }
+    }
+  } catch {
+    // robots.txt not available — proceed without restrictions
+  }
+  return disallowed;
+}
+
+/**
+ * Check if a URL is blocked by robots.txt disallow rules.
+ */
+function isBlockedByRobots(url: string, disallowedPaths: string[]): boolean {
+  if (disallowedPaths.length === 0) return false;
+  try {
+    const { pathname } = new URL(url);
+    return disallowedPaths.some((rule) => pathname.startsWith(rule));
+  } catch {
+    return false;
+  }
+}
+
+// ================================================================
 // Sitemap Discovery
 // ================================================================
 
@@ -222,8 +281,8 @@ async function fetchSitemapUrls(domain: string): Promise<string[]> {
         .map((_, el) => $(el).text().trim())
         .get();
       if (sitemapRefs.length > 0) {
-        // Fetch first 3 sub-sitemaps
-        for (const subUrl of sitemapRefs.slice(0, 3)) {
+        // Fetch first 10 sub-sitemaps
+        for (const subUrl of sitemapRefs.slice(0, 10)) {
           try {
             const subCtrl = new AbortController();
             const subTimeout = setTimeout(() => subCtrl.abort(), 10000);
@@ -522,7 +581,7 @@ async function fetchPageHtml(
 }
 
 // ================================================================
-// Single Page Fetch via ScrapingBee (JS rendering)
+// Single Page Fetch via JS Rendering (self-hosted Chromium)
 // ================================================================
 
 async function fetchPageWithJsRendering(
@@ -552,7 +611,7 @@ async function fetchPageWithJsRendering(
 async function analyzePage(
   url: string,
   timeoutMs: number = 15000,
-  useScrapingBee: boolean = false
+  useJsRendering: boolean = false
 ): Promise<CrawledPage | null> {
   // Step 1: Try plain fetch first
   const plainResult = await fetchPageHtml(url, timeoutMs);
@@ -584,7 +643,7 @@ async function analyzePage(
   page.detectedAsSPA = needsJsRendering;
 
   // Step 3: If sparse/SPA and ScrapingBee is available, re-fetch with JS rendering
-  if (needsJsRendering && useScrapingBee) {
+  if (needsJsRendering && useJsRendering) {
     const jsResult = await fetchPageWithJsRendering(url);
     if (jsResult && jsResult.html) {
       const jsPage = extractPageSignals(
@@ -618,7 +677,7 @@ export interface CrawlResult {
   pages: CrawledPage[];
   /** Whether the site was detected as a JS-heavy SPA */
   siteIsSPA: boolean;
-  /** Whether ScrapingBee JS rendering was used */
+  /** Whether JS rendering (self-hosted Chromium) was used */
   jsRenderingUsed: boolean;
 }
 
@@ -630,13 +689,19 @@ export async function crawlSite(
   const results: CrawledPage[] = [];
   const visited = new Set<string>();
   const queue: string[] = [];
-  const useScrapingBee = isJsRenderingAvailable();
+  const useJsRendering = isJsRenderingAvailable();
 
   // Normalize domain
   const cleanDomain = domain
     .replace(/^https?:\/\//, "")
     .replace(/\/$/, "");
   const rootUrl = `https://${cleanDomain}`;
+
+  // 0. Fetch robots.txt rules to respect Disallow directives
+  const disallowedPaths = await fetchRobotsTxtRules(cleanDomain);
+  if (disallowedPaths.length > 0) {
+    console.log(`[crawler] Loaded ${disallowedPaths.length} robots.txt disallow rules for ${cleanDomain}`);
+  }
 
   // 1. Try sitemap discovery first
   const sitemapUrls = await fetchSitemapUrls(cleanDomain);
@@ -670,7 +735,7 @@ export async function crawlSite(
   const rootNormalized = rootUrl.replace(/\/$/, "");
   visited.add(rootNormalized);
 
-  const rootPage = await analyzePage(rootUrl, timeoutMs, useScrapingBee);
+  const rootPage = await analyzePage(rootUrl, timeoutMs, useJsRendering);
   if (rootPage) {
     results.push(rootPage);
     // Flag site as SPA if the homepage was DETECTED as SPA (not just rendered)
@@ -698,12 +763,12 @@ export async function crawlSite(
   if (rootIdx !== -1) queue.splice(rootIdx, 1);
 
   // 3. Crawl remaining pages with concurrency control
-  // If root needed JS rendering, use ScrapingBee for all pages on this site
-  // but limit to fewer pages to conserve credits
+  // If root needed JS rendering, use it for all pages on this site
+  // but limit to fewer pages to conserve resources
   const effectiveMax = siteNeedsJsRendering
     ? Math.min(maxPages, 10)
     : maxPages;
-  // Lower concurrency for ScrapingBee to avoid rate limits
+  // Lower concurrency for JS rendering to avoid overloading renderer
   const effectiveConcurrency = siteNeedsJsRendering
     ? Math.min(concurrency, 2)
     : concurrency;
@@ -715,11 +780,14 @@ export async function crawlSite(
       if (visited.has(normalized)) return null;
       visited.add(normalized);
 
-      // If the site was detected as SPA, use ScrapingBee for all pages
+      // Skip URLs blocked by robots.txt
+      if (isBlockedByRobots(url, disallowedPaths)) return null;
+
+      // If the site was detected as SPA, use JS rendering for all pages
       return analyzePage(
         url,
         timeoutMs,
-        siteNeedsJsRendering && useScrapingBee
+        siteNeedsJsRendering && useJsRendering
       );
     });
 
@@ -754,7 +822,7 @@ export async function crawlSite(
   // from unrenderable client-side content (API-loaded data, auth-gated, etc.).
   const jsRenderingActuallyHelped =
     siteNeedsJsRendering &&
-    useScrapingBee &&
+    useJsRendering &&
     results.some((p) => p.jsRendered && p.wordCount >= 300);
 
   return {

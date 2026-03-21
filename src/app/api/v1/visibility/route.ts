@@ -33,10 +33,22 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Project not found." }, { status: 404, headers: corsHeaders() });
   }
 
+  // ai_visibility_checks is keyed by keyword_id, not project_id.
+  // First get keyword IDs for this project, then fetch checks.
+  const { data: kwIds } = await supabase
+    .from("keywords")
+    .select("id")
+    .eq("project_id", projectId);
+
+  const keywordIds = (kwIds ?? []).map((k) => k.id);
+  if (keywordIds.length === 0) {
+    return NextResponse.json({ data: [] }, { headers: corsHeaders() });
+  }
+
   const { data, error } = await supabase
     .from("ai_visibility_checks")
-    .select("id, keyword, ai_engine, visibility_score, is_cited, citation_url, position_in_response, checked_at")
-    .eq("project_id", projectId)
+    .select("id, keyword_id, query_text, llm_provider, response_text, brand_mentioned, mention_position, url_cited, sentiment, checked_at")
+    .in("keyword_id", keywordIds)
     .order("checked_at", { ascending: false })
     .limit(100);
 

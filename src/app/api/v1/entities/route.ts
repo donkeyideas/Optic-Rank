@@ -34,10 +34,10 @@ export async function GET(request: Request) {
   }
 
   const { data, error } = await supabase
-    .from("entity_tracking")
-    .select("id, entity_name, entity_type, knowledge_panel_present, avg_sentiment, mention_count, sources, checked_at")
+    .from("entities")
+    .select("id, name, entity_type, description, relevance_score, source, knowledge_panel_data, created_at, updated_at")
     .eq("project_id", projectId)
-    .order("checked_at", { ascending: false })
+    .order("updated_at", { ascending: false })
     .limit(100);
 
   if (error) {

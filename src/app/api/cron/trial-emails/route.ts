@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/resend";
 import { trialExpiringEmail, trialExpiredEmail } from "@/lib/email/templates/trial";
 
+export const maxDuration = 30;
+
 /**
  * Cron endpoint: send trial-expiring and trial-expired emails.
  * Runs daily. Protected by CRON_SECRET bearer token.

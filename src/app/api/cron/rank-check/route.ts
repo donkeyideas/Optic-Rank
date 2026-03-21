@@ -10,6 +10,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { checkSERP, hasDataForSEOCredentials } from "@/lib/api/dataforseo";
 import { logAPICall } from "@/lib/api/api-logger";
 
+export const maxDuration = 300;
+
 const CRON_SECRET = process.env.CRON_SECRET;
 const BATCH_SIZE = 10;
 
