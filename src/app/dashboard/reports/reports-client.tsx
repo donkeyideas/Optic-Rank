@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatDate } from "@/lib/utils/format-date";
 import {
   FileDown,
   Clock,
@@ -58,6 +60,7 @@ export function ReportsClient({
   scheduledReports,
   projectId,
 }: ReportsClientProps) {
+  const timezone = useTimezone();
   const [activeTab, setActiveTab] = useState("generate");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -277,7 +280,7 @@ export function ReportsClient({
                           {schedule.next_run && (
                             <span className="flex items-center gap-1">
                               <Calendar size={10} />
-                              Next: {new Date(schedule.next_run).toLocaleDateString()}
+                              Next: {formatDate(schedule.next_run, timezone)}
                             </span>
                           )}
                           {recipients.length > 0 && (

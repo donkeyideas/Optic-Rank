@@ -26,6 +26,8 @@ import { generateReviewReply } from "@/lib/actions/app-store";
 import { extractReviewTopics, bulkGenerateReplies } from "@/lib/actions/app-store-reviews-intel";
 import type { AppStoreListing } from "@/types";
 import type { AppReview, ReviewTopic } from "@/lib/dal/app-store";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatDate } from "@/lib/utils/format-date";
 
 interface ReviewsTabProps {
   listings: AppStoreListing[];
@@ -73,6 +75,7 @@ const TOPIC_LABELS: Record<string, string> = {
 };
 
 export function ReviewsTab({ listings, reviews, topics }: ReviewsTabProps) {
+  const timezone = useTimezone();
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [actionId, setActionId] = useState<string | null>(null);
@@ -298,7 +301,7 @@ export function ReviewsTab({ listings, reviews, topics }: ReviewsTabProps) {
                 <div className="mt-1.5 flex items-center gap-3 text-[10px] text-ink-muted">
                   <span>{review.author ?? "Anonymous"}</span>
                   <span>&middot;</span>
-                  <span>{review.review_date ? new Date(review.review_date).toLocaleDateString() : ""}</span>
+                  <span>{review.review_date ? formatDate(review.review_date, timezone) : ""}</span>
                 </div>
                 {existingReply && (
                   <div className="mt-2 border-l-2 border-editorial-green/40 bg-editorial-green/5 px-3 py-2">

@@ -7,6 +7,8 @@ import { BottomBar } from "@/components/editorial/bottom-bar";
 import { ProjectSelector } from "@/components/shared/project-selector";
 import { GenerateAllButton } from "@/components/shared/generate-all-button";
 import { TrialBanner } from "@/components/shared/trial-banner";
+import { TimezoneProvider } from "@/lib/context/timezone-context";
+import { formatDateLine } from "@/lib/utils/format-date";
 import { createClient } from "@/lib/supabase/server";
 
 function TrialExpiredLockout() {
@@ -58,13 +60,6 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const today = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-
   // Fetch user's projects for the selector
   const supabase = await createClient();
   const {
@@ -75,13 +70,16 @@ export default async function DashboardLayout({
   let trialEndsAt: string | null = null;
   let subscriptionStatus: string | null = null;
   let plan: string | null = null;
+  let userTimezone = "UTC";
 
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("organization_id")
+      .select("organization_id, timezone")
       .eq("id", user.id)
       .single();
+
+    userTimezone = profile?.timezone || "UTC";
 
     if (profile?.organization_id) {
       const [projectsRes, orgRes] = await Promise.all([
@@ -118,38 +116,41 @@ export default async function DashboardLayout({
   // Lock out all pages except settings when trial expired on free plan
   const showLockout = isTrialExpired && plan === "free" && !isSettingsPage;
 
+  const today = formatDateLine(new Date(), userTimezone);
   const activeProject = projects.find((p) => p.is_active) ?? null;
 
   return (
-    <div className="flex min-h-screen flex-col bg-surface-cream">
-      <Masthead
-        showLogout
-        leftSlot={projects.length > 0 ? <ProjectSelector projects={projects} /> : undefined}
-        actions={activeProject ? <GenerateAllButton projectId={activeProject.id} /> : undefined}
-      />
+    <TimezoneProvider timezone={userTimezone}>
+      <div className="flex min-h-screen flex-col bg-surface-cream">
+        <Masthead
+          showLogout
+          leftSlot={projects.length > 0 ? <ProjectSelector projects={projects} /> : undefined}
+          actions={activeProject ? <GenerateAllButton projectId={activeProject.id} /> : undefined}
+        />
 
-      <PaperHeader
-        dateLine={`${today} — Weekly Edition`}
-        title="Optic Rank"
-        accentText="Pulse"
-        tagline="AI-Powered SEO Intelligence · Competitive Analysis · Revenue Attribution"
-      />
+        <PaperHeader
+          dateLine={`${today} — Weekly Edition`}
+          title="Optic Rank"
+          accentText="Pulse"
+          tagline="AI-Powered SEO Intelligence · Competitive Analysis · Revenue Attribution"
+        />
 
-      <PaperNav items={dashboardNavItems} />
+        <PaperNav items={dashboardNavItems} />
 
-      {/* Trial banner — shown during trial or when expired */}
-      {subscriptionStatus === "trialing" && trialEndsAt && (
-        <TrialBanner trialEndsAt={trialEndsAt} isExpired={!!isTrialExpired} />
-      )}
+        {/* Trial banner — shown during trial or when expired */}
+        {subscriptionStatus === "trialing" && trialEndsAt && (
+          <TrialBanner trialEndsAt={trialEndsAt} isExpired={!!isTrialExpired} />
+        )}
 
-      <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 md:px-6 lg:px-8">
-        {showLockout ? <TrialExpiredLockout /> : children}
-      </main>
+        <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 md:px-6 lg:px-8">
+          {showLockout ? <TrialExpiredLockout /> : children}
+        </main>
 
-      <BottomBar
-        leftText="Optic Rank — Intelligence Report"
-        rightText={`${(plan ?? "free").charAt(0).toUpperCase() + (plan ?? "free").slice(1)} Plan — Last sync: just now`}
-      />
-    </div>
+        <BottomBar
+          leftText="Optic Rank — Intelligence Report"
+          rightText={`${(plan ?? "free").charAt(0).toUpperCase() + (plan ?? "free").slice(1)} Plan — Last sync: just now`}
+        />
+      </div>
+    </TimezoneProvider>
   );
 }

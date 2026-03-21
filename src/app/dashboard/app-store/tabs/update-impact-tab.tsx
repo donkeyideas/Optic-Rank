@@ -21,6 +21,8 @@ import {
 } from "@/lib/actions/app-store-versions";
 import type { AppStoreListing } from "@/types";
 import type { AppStoreVersion, AppStoreSnapshot } from "@/lib/dal/app-store";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatDate } from "@/lib/utils/format-date";
 
 interface UpdateImpactTabProps {
   listings: AppStoreListing[];
@@ -29,6 +31,7 @@ interface UpdateImpactTabProps {
 }
 
 export function UpdateImpactTab({ listings, versions, snapshots }: UpdateImpactTabProps) {
+  const timezone = useTimezone();
   const { toast } = useToast();
   const [selectedListing, setSelectedListing] = useState<string>(listings[0]?.id ?? "");
   const [, startTransition] = useTransition();
@@ -194,7 +197,7 @@ export function UpdateImpactTab({ listings, versions, snapshots }: UpdateImpactT
                     <div>
                       <h4 className="font-serif text-[15px] font-bold text-ink">v{version.version}</h4>
                       <span className="text-[11px] text-ink-muted">
-                        {version.detected_at ? new Date(version.detected_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "Unknown date"}
+                        {version.detected_at ? formatDate(version.detected_at, timezone) : "Unknown date"}
                       </span>
                     </div>
                     <Button

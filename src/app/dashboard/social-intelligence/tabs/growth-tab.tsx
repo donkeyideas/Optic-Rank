@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { analyzeSocialProfile } from "@/lib/actions/social-intelligence";
 import type { SocialProfile, SocialAnalysis, SocialGrowthTip } from "@/types";
 import { getPlatformConfig } from "@/lib/social/platform-config";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatDate } from "@/lib/utils/format-date";
 
 interface GrowthTabProps {
   profile: SocialProfile;
@@ -28,6 +30,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 export function GrowthTab({ profile, analyses }: GrowthTabProps) {
+  const timezone = useTimezone();
   const [isPending, startTransition] = useTransition();
 
   const growthAnalysis = analyses.find((a) => a.analysis_type === "growth");
@@ -99,9 +102,9 @@ export function GrowthTab({ profile, analyses }: GrowthTabProps) {
 
       {growthAnalysis && (
         <p className="text-xs text-ink-muted">
-          Generated {new Date(growthAnalysis.created_at).toLocaleDateString()}.
+          Generated {formatDate(growthAnalysis.created_at, timezone)}.
           {growthAnalysis.expires_at &&
-            ` Expires ${new Date(growthAnalysis.expires_at).toLocaleDateString()}.`}
+            ` Expires ${formatDate(growthAnalysis.expires_at, timezone)}.`}
         </p>
       )}
     </div>

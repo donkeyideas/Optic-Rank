@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useTimezone } from "@/lib/context/timezone-context";
 
 interface TrialBannerProps {
   trialEndsAt: string;
@@ -32,22 +33,23 @@ function getTimeRemaining(trialEndsAt: string) {
 }
 
 /**
- * Format the trial end date in Eastern timezone for display.
+ * Format the trial end date in the user's timezone.
  */
-function formatEndDateET(trialEndsAt: string): string {
+function formatEndDate(trialEndsAt: string, timezone: string): string {
   const end = new Date(trialEndsAt);
   return end.toLocaleString("en-US", {
-    timeZone: "America/New_York",
+    timeZone: timezone,
     month: "short",
     day: "numeric",
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
-  }) + " ET";
+  });
 }
 
 export function TrialBanner({ trialEndsAt, isExpired }: TrialBannerProps) {
+  const timezone = useTimezone();
   const [timeLeft, setTimeLeft] = useState(getTimeRemaining(trialEndsAt));
   const [mounted, setMounted] = useState(false);
 
@@ -80,7 +82,7 @@ export function TrialBanner({ trialEndsAt, isExpired }: TrialBannerProps) {
               Trial Expired
             </span>
             <span className="font-sans text-sm text-ink-secondary">
-              — Your 14-day free trial ended on {formatEndDateET(trialEndsAt)}.
+              — Your 14-day free trial ended on {formatEndDate(trialEndsAt, timezone)}.
               Upgrade to continue using Optic Rank.
             </span>
           </div>
@@ -115,7 +117,7 @@ export function TrialBanner({ trialEndsAt, isExpired }: TrialBannerProps) {
             <strong className={isUrgent ? "text-editorial-red" : isWarning ? "text-editorial-gold" : "text-editorial-green"}>
               Free Trial
             </strong>
-            {" "}— Ends {formatEndDateET(trialEndsAt)}
+            {" "}— Ends {formatEndDate(trialEndsAt, timezone)}
           </span>
         </div>
 

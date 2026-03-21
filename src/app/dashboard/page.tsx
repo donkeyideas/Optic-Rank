@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { formatShortDate } from "@/lib/utils/format-date";
 import { HeadlineBar } from "@/components/editorial/headline-bar";
 import { NewspaperGrid } from "@/components/editorial/newspaper-grid";
 import { AIStory } from "@/components/editorial/ai-story";
@@ -812,7 +813,7 @@ export default async function DashboardPage() {
                       </span>
                       <span className="block text-[9px] text-ink-muted">
                         {latestBrief
-                          ? `Latest: ${new Date(latestBrief.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+                          ? `Latest: ${formatShortDate(latestBrief.created_at, profile.timezone ?? "UTC")}`
                           : "Generate intelligence reports"}
                       </span>
                     </div>

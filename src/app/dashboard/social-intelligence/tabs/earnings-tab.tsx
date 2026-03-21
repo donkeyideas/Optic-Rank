@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { DollarSign, TrendingUp, AlertTriangle } from "lucide-react";
 import { analyzeSocialProfile } from "@/lib/actions/social-intelligence";
 import type { SocialProfile, SocialAnalysis, EarningsForecast } from "@/types";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatDate } from "@/lib/utils/format-date";
 
 interface EarningsTabProps {
   profile: SocialProfile;
@@ -14,6 +16,7 @@ interface EarningsTabProps {
 }
 
 export function EarningsTab({ profile, analyses }: EarningsTabProps) {
+  const timezone = useTimezone();
   const [isPending, startTransition] = useTransition();
 
   const earningsAnalysis = analyses.find((a) => a.analysis_type === "earnings_forecast");
@@ -185,9 +188,9 @@ export function EarningsTab({ profile, analyses }: EarningsTabProps) {
 
       {earningsAnalysis && (
         <p className="text-xs text-ink-muted">
-          Forecast generated {new Date(earningsAnalysis.created_at).toLocaleDateString()}.
+          Forecast generated {formatDate(earningsAnalysis.created_at, timezone)}.
           {earningsAnalysis.expires_at &&
-            ` Refreshes ${new Date(earningsAnalysis.expires_at).toLocaleDateString()}.`}
+            ` Refreshes ${formatDate(earningsAnalysis.expires_at, timezone)}.`}
         </p>
       )}
     </div>

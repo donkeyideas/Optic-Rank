@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { createApiKey, revokeApiKey, type ApiKeyPublic } from "@/lib/actions/api-keys";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatDate } from "@/lib/utils/format-date";
 
 const AVAILABLE_SCOPES = [
   { id: "projects:read", label: "Projects (read)" },
@@ -33,6 +35,7 @@ interface ApiKeysTabProps {
 }
 
 export function ApiKeysTab({ initialKeys }: ApiKeysTabProps) {
+  const timezone = useTimezone();
   const [keys, setKeys] = useState(initialKeys);
   const [showCreate, setShowCreate] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
@@ -158,12 +161,12 @@ export function ApiKeysTab({ initialKeys }: ApiKeysTabProps) {
                   ))}
                 </div>
                 <div className="mt-1.5 flex gap-4 text-[10px] text-ink-muted">
-                  <span>Created {new Date(key.created_at).toLocaleDateString()}</span>
+                  <span>Created {formatDate(key.created_at, timezone)}</span>
                   {key.last_used_at && (
-                    <span>Last used {new Date(key.last_used_at).toLocaleDateString()}</span>
+                    <span>Last used {formatDate(key.last_used_at, timezone)}</span>
                   )}
                   {key.expires_at && (
-                    <span>Expires {new Date(key.expires_at).toLocaleDateString()}</span>
+                    <span>Expires {formatDate(key.expires_at, timezone)}</span>
                   )}
                 </div>
               </div>

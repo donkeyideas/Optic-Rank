@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { getPageSpeedData } from "@/lib/api/pagespeed";
 import { processPageSpeedAudit } from "@/lib/actions/audit-utils";
-import { crawlSite, type CrawledPage } from "@/lib/crawl/site-crawler";
+import { crawlSite, type CrawledPage, type CrawlResult } from "@/lib/crawl/site-crawler";
 
 /**
  * Run a new site audit for a project.
@@ -59,7 +59,10 @@ export async function runSiteAudit(
 
   try {
     // Step 1: Multi-page crawl (discover and analyze up to 25 pages)
-    const crawledPages = await crawlSite(domain, { maxPages: 25, timeoutMs: 15000, concurrency: 3 });
+    const crawlResult = await crawlSite(domain, { maxPages: 25, timeoutMs: 15000, concurrency: 3 });
+    const crawledPages = crawlResult.pages;
+    const siteIsSPA = crawlResult.siteIsSPA;
+    const jsRenderingUsed = crawlResult.jsRenderingUsed;
 
     // Step 2: Get PageSpeed CWV for the homepage
     const pageSpeedResult = await getPageSpeedData(targetUrl, "mobile");
@@ -68,7 +71,7 @@ export async function runSiteAudit(
       // Even if PageSpeed fails, we still have crawled pages
       // Create a basic audit from crawled data
       if (crawledPages.length > 0) {
-        await finalizeCrawlOnlyAudit(supabase, projectId, audit.id, crawledPages);
+        await finalizeCrawlOnlyAudit(supabase, projectId, audit.id, crawledPages, siteIsSPA, jsRenderingUsed);
         revalidatePath("/dashboard/site-audit");
         revalidatePath("/dashboard/search-ai");
         revalidatePath("/dashboard");
@@ -87,12 +90,13 @@ export async function runSiteAudit(
     // Step 3: Process PageSpeed data into the audit (scores + CWV issues)
     await processPageSpeedAudit(supabase, projectId, pageSpeedResult.data, audit.id, targetUrl);
 
-    // Step 4: Update audit with actual crawl count and insert all crawled pages
+    // Step 4: Update audit with actual crawl count, SPA flag, and insert all crawled pages
     await supabase
       .from("site_audits")
       .update({
         pages_crawled: crawledPages.length,
         pages_total: crawledPages.length,
+        is_spa: siteIsSPA,
       })
       .eq("id", audit.id);
 
@@ -149,7 +153,8 @@ export async function runSiteAudit(
     }
 
     // Step 6: Generate additional SEO issues from crawled pages
-    const crawlIssues = generateCrawlIssues(crawledPages, audit.id);
+    // If site is SPA and wasn't JS-rendered, skip false-positive issues
+    const crawlIssues = generateCrawlIssues(crawledPages, audit.id, siteIsSPA && !jsRenderingUsed);
 
     // Step 7: Generate AEO/GEO signal entries (stored as audit_issues for retrieval)
     const signalIssues = generatePageSignals(crawledPages, audit.id);
@@ -208,7 +213,20 @@ function countPageIssues(page: CrawledPage): number {
   return issues;
 }
 
-function generateCrawlIssues(pages: CrawledPage[], auditId: string) {
+function generateCrawlIssues(pages: CrawledPage[], auditId: string, skipSpaFalsePositives: boolean = false) {
+  // Rules that are known false positives on JS-rendered sites where
+  // the crawler couldn't execute JavaScript (no ScrapingBee).
+  // These elements exist in the DOM after JS renders but are invisible to the HTML crawler.
+  const SPA_FALSE_POSITIVE_RULES = new Set([
+    "missing-title",
+    "missing-meta-description",
+    "missing-h1",
+    "thin-content",
+    "missing-schema",
+    "missing-canonical",
+    "missing-alt-text",
+  ]);
+
   const issues: Array<{
     audit_id: string;
     category: string;
@@ -221,8 +239,13 @@ function generateCrawlIssues(pages: CrawledPage[], auditId: string) {
   }> = [];
 
   for (const page of pages) {
+    // For SPA sites without JS rendering, skip issues that are almost
+    // certainly false positives (the content exists after JS executes).
+    // Only skip for pages that weren't individually JS-rendered.
+    const isUnrenderedSpaPage = skipSpaFalsePositives && !page.jsRendered;
+
     // Missing title
-    if (!page.title) {
+    if (!page.title && !(isUnrenderedSpaPage && SPA_FALSE_POSITIVE_RULES.has("missing-title"))) {
       issues.push({
         audit_id: auditId,
         category: "seo",
@@ -236,7 +259,7 @@ function generateCrawlIssues(pages: CrawledPage[], auditId: string) {
     }
 
     // Missing meta description
-    if (!page.metaDescription) {
+    if (!page.metaDescription && !(isUnrenderedSpaPage && SPA_FALSE_POSITIVE_RULES.has("missing-meta-description"))) {
       issues.push({
         audit_id: auditId,
         category: "seo",
@@ -250,7 +273,7 @@ function generateCrawlIssues(pages: CrawledPage[], auditId: string) {
     }
 
     // Missing H1
-    if (!page.h1) {
+    if (!page.h1 && !(isUnrenderedSpaPage && SPA_FALSE_POSITIVE_RULES.has("missing-h1"))) {
       issues.push({
         audit_id: auditId,
         category: "seo",
@@ -264,7 +287,7 @@ function generateCrawlIssues(pages: CrawledPage[], auditId: string) {
     }
 
     // Thin content
-    if (page.wordCount < 300 && page.statusCode === 200) {
+    if (page.wordCount < 300 && page.statusCode === 200 && !(isUnrenderedSpaPage && SPA_FALSE_POSITIVE_RULES.has("thin-content"))) {
       issues.push({
         audit_id: auditId,
         category: "content",
@@ -278,7 +301,7 @@ function generateCrawlIssues(pages: CrawledPage[], auditId: string) {
     }
 
     // Missing schema
-    if (!page.hasSchema) {
+    if (!page.hasSchema && !(isUnrenderedSpaPage && SPA_FALSE_POSITIVE_RULES.has("missing-schema"))) {
       issues.push({
         audit_id: auditId,
         category: "seo",
@@ -292,7 +315,7 @@ function generateCrawlIssues(pages: CrawledPage[], auditId: string) {
     }
 
     // Images without alt text
-    if (page.imagesWithoutAlt > 0) {
+    if (page.imagesWithoutAlt > 0 && !(isUnrenderedSpaPage && SPA_FALSE_POSITIVE_RULES.has("missing-alt-text"))) {
       issues.push({
         audit_id: auditId,
         category: "accessibility",
@@ -306,7 +329,7 @@ function generateCrawlIssues(pages: CrawledPage[], auditId: string) {
     }
 
     // Missing canonical
-    if (!page.hasCanonical) {
+    if (!page.hasCanonical && !(isUnrenderedSpaPage && SPA_FALSE_POSITIVE_RULES.has("missing-canonical"))) {
       issues.push({
         audit_id: auditId,
         category: "seo",
@@ -319,7 +342,7 @@ function generateCrawlIssues(pages: CrawledPage[], auditId: string) {
       });
     }
 
-    // 4xx/5xx status codes
+    // 4xx/5xx status codes — always report these, never a false positive
     if (page.statusCode >= 400) {
       issues.push({
         audit_id: auditId,
@@ -377,7 +400,9 @@ async function finalizeCrawlOnlyAudit(
   supabase: ReturnType<typeof createAdminClient>,
   projectId: string,
   auditId: string,
-  pages: CrawledPage[]
+  pages: CrawledPage[],
+  siteIsSPA: boolean = false,
+  jsRenderingUsed: boolean = false
 ) {
   // Compute basic scores from crawl data
   const pagesOk = pages.filter((p) => p.statusCode === 200);
@@ -391,7 +416,8 @@ async function finalizeCrawlOnlyAudit(
   );
   const healthScore = Math.min(100, seoScore);
 
-  const issues = generateCrawlIssues(pages, auditId);
+  const skipFalsePositives = siteIsSPA && !jsRenderingUsed;
+  const issues = generateCrawlIssues(pages, auditId, skipFalsePositives);
 
   await supabase.from("site_audits").update({
     status: "completed",
@@ -400,9 +426,11 @@ async function finalizeCrawlOnlyAudit(
     issues_found: issues.length,
     health_score: healthScore,
     seo_score: seoScore,
-    performance_score: 0,
-    accessibility_score: 0,
+    // Store null instead of 0 when PageSpeed wasn't available — UI shows "N/A"
+    performance_score: null,
+    accessibility_score: null,
     content_score: Math.round((pagesOk.filter((p) => p.wordCount >= 300).length / total) * 100),
+    is_spa: siteIsSPA,
     completed_at: new Date().toISOString(),
   }).eq("id", auditId);
 

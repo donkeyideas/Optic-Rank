@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition, useCallback } from "react";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatDate, formatDateTime } from "@/lib/utils/format-date";
 import {
   Shield,
   RefreshCw,
@@ -20,6 +22,7 @@ import {
   ExternalLink,
   ClipboardCopy,
   Check,
+  Code2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -74,11 +77,29 @@ function ScoreCircle({
   color,
   size = "lg",
 }: {
-  score: number;
+  score: number | null;
   label: string;
   color: "red" | "green" | "gold" | "blue" | "dark";
   size?: "sm" | "lg";
 }) {
+  // Show "N/A" when score is null (not measured, e.g. PageSpeed unavailable)
+  if (score === null || score === undefined) {
+    const sizeClasses = size === "lg"
+      ? { container: "h-32 w-32", text: "text-[32px]" }
+      : { container: "h-20 w-20", text: "text-[18px]" };
+    return (
+      <div className="flex flex-col items-center gap-2">
+        <div className={`relative flex ${sizeClasses.container} items-center justify-center`}>
+          <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="45" fill="none" strokeWidth={size === "lg" ? 4 : 5} className="stroke-rule" />
+          </svg>
+          <span className={`font-serif ${sizeClasses.text} font-bold leading-none text-ink-muted`}>N/A</span>
+        </div>
+        <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">{label}</span>
+        {size === "sm" && <Progress value={0} color="dark" size="sm" className="w-full" />}
+      </div>
+    );
+  }
   const colorMap = {
     red: "text-editorial-red border-editorial-red",
     green: "text-editorial-green border-editorial-green",
@@ -264,6 +285,7 @@ export function SiteAuditClient({
   history,
   projectId,
 }: SiteAuditClientProps) {
+  const timezone = useTimezone();
   const [categoryFilter, setCategoryFilter] = useState<IssueCategory | "all">("all");
   const [severityFilter, setSeverityFilter] = useState<IssueSeverity | "all">("all");
   const [isPending, startTransition] = useTransition();
@@ -278,7 +300,7 @@ export function SiteAuditClient({
     }
 
     const lines: string[] = [
-      `Site Audit Report — ${latestAudit?.completed_at ? new Date(latestAudit.completed_at).toLocaleDateString() : "N/A"}`,
+      `Site Audit Report — ${latestAudit?.completed_at ? formatDate(latestAudit.completed_at, timezone) : "N/A"}`,
       `Health: ${latestAudit?.health_score ?? "N/A"} | SEO: ${latestAudit?.seo_score ?? "N/A"} | Performance: ${latestAudit?.performance_score ?? "N/A"} | Accessibility: ${latestAudit?.accessibility_score ?? "N/A"}`,
       `Pages crawled: ${latestAudit?.pages_crawled ?? 0} | Issues found: ${realIssues.length}`,
       "",
@@ -370,15 +392,7 @@ export function SiteAuditClient({
     };
   }
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+  const fmtDate = (dateStr: string) => formatDateTime(dateStr, timezone);
 
   const getScoreColor = (score: number): "red" | "green" | "gold" => {
     if (score >= 80) return "green";
@@ -393,7 +407,7 @@ export function SiteAuditClient({
         <div>
           <h1 className="font-serif text-2xl font-bold text-ink">Site Audit</h1>
           <p className="mt-1 text-sm text-ink-secondary">
-            Last audit completed {latestAudit.completed_at ? formatDate(latestAudit.completed_at) : "N/A"}
+            Last audit completed {latestAudit.completed_at ? fmtDate(latestAudit.completed_at) : "N/A"}
             {" "}&middot; {latestAudit.pages_crawled.toLocaleString()} pages crawled
             {" "}&middot; {latestAudit.issues_found} issues found
           </p>
@@ -407,6 +421,38 @@ export function SiteAuditClient({
       {auditError && (
         <div className="border border-editorial-red/30 bg-editorial-red/5 px-4 py-3 text-sm text-editorial-red">
           {auditError}
+        </div>
+      )}
+
+      {/* SPA / JS-heavy site warning */}
+      {latestAudit.is_spa && (
+        <div className="flex items-start gap-3 border border-editorial-gold/30 bg-editorial-gold/5 px-4 py-3">
+          <Code2 size={18} className="mt-0.5 shrink-0 text-editorial-gold" />
+          <div>
+            <p className="text-sm font-semibold text-ink">
+              JavaScript-rendered site detected
+            </p>
+            <p className="mt-0.5 text-[13px] leading-relaxed text-ink-secondary">
+              This site uses client-side rendering (React, Next.js, Vue, etc.). Our crawler
+              cannot execute JavaScript, so some SEO issues may be false positives &mdash;
+              elements like titles, headings, and content that render after JS loads are not
+              visible to the HTML crawler. For the most accurate results, use{" "}
+              <span className="font-semibold">Google Lighthouse</span> or{" "}
+              <span className="font-semibold">PageSpeed Insights</span> which execute JavaScript.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Performance/Accessibility not measured warning */}
+      {latestAudit.performance_score == null && latestAudit.accessibility_score == null && (
+        <div className="flex items-start gap-3 border border-rule bg-surface-raised px-4 py-3">
+          <Gauge size={18} className="mt-0.5 shrink-0 text-ink-muted" />
+          <p className="text-[13px] leading-relaxed text-ink-secondary">
+            <span className="font-semibold text-ink">Performance &amp; Accessibility scores unavailable.</span>{" "}
+            Google PageSpeed Insights could not be reached for this site. These scores require
+            PageSpeed data to calculate. The SEO and Health scores are based on crawl data only.
+          </p>
         </div>
       )}
 
@@ -427,13 +473,13 @@ export function SiteAuditClient({
               size="sm"
             />
             <ScoreCircle
-              score={latestAudit.performance_score ?? 0}
+              score={latestAudit.performance_score ?? null}
               label="Performance"
               color={getScoreColor(latestAudit.performance_score ?? 0)}
               size="sm"
             />
             <ScoreCircle
-              score={latestAudit.accessibility_score ?? 0}
+              score={latestAudit.accessibility_score ?? null}
               label="Accessibility"
               color={getScoreColor(latestAudit.accessibility_score ?? 0)}
               size="sm"
@@ -740,7 +786,7 @@ export function SiteAuditClient({
                     {history.map((audit) => (
                       <TableRow key={audit.id} className="cursor-pointer">
                         <TableCell className="font-sans text-sm text-ink">
-                          {formatDate(audit.started_at)}
+                          {fmtDate(audit.started_at)}
                         </TableCell>
                         <TableCell>
                           <Badge

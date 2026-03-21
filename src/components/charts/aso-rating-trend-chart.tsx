@@ -9,6 +9,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatShortDate } from "@/lib/utils/format-date";
 
 interface RatingDataPoint {
   date: string;
@@ -23,6 +25,8 @@ interface AsoRatingTrendChartProps {
 }
 
 export function AsoRatingTrendChart({ data, height = 120, showAxis = true }: AsoRatingTrendChartProps) {
+  const timezone = useTimezone();
+
   if (data.length === 0) {
     return (
       <div className="flex items-center justify-center border border-dashed border-rule" style={{ height }}>
@@ -34,7 +38,7 @@ export function AsoRatingTrendChart({ data, height = 120, showAxis = true }: Aso
   }
 
   const formatted = data.map((d) => ({
-    date: new Date(d.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    date: formatShortDate(d.date, timezone),
     rating: d.rating,
     reviews: d.reviews_count,
   }));

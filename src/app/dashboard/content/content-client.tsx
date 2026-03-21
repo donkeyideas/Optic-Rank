@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatDate } from "@/lib/utils/format-date";
 import {
   FileText,
   Lightbulb,
@@ -49,6 +51,7 @@ import {
   updateCalendarEntryStatus,
   deleteCalendarEntry,
   generateContentBriefs,
+  generateCalendarEntries,
 } from "@/lib/actions/content";
 
 /* ------------------------------------------------------------------
@@ -99,6 +102,7 @@ interface ContentClientProps {
   contentBriefs: ContentBrief[];
   calendarEntries: CalendarEntry[];
   projectId: string;
+  hasKeywords?: boolean;
 }
 
 /* ------------------------------------------------------------------
@@ -148,7 +152,9 @@ export function ContentClient({
   contentBriefs,
   calendarEntries,
   projectId,
+  hasKeywords = false,
 }: ContentClientProps) {
+  const timezone = useTimezone();
   const [activeTab, setActiveTab] = useState("inventory");
   const [showAddContent, setShowAddContent] = useState(false);
   const [showAddCalendar, setShowAddCalendar] = useState(false);
@@ -165,6 +171,8 @@ export function ContentClient({
   const [isRunningCannibal, setIsRunningCannibal] = useState(false);
   const [isRunningLinks, setIsRunningLinks] = useState(false);
   const [isRunningBriefs, setIsRunningBriefs] = useState(false);
+  const [isGeneratingCalendar, setIsGeneratingCalendar] = useState(false);
+  const [calendarGenMsg, setCalendarGenMsg] = useState<string | null>(null);
 
   function handleAddContent(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -348,6 +356,12 @@ export function ContentClient({
             <EmptyState icon={FileText} title="No Content Pages" description="No content pages have been indexed for this project yet." actionLabel="Run Site Audit" actionHref="/dashboard/site-audit" />
           ) : (
             <>
+              {!hasKeywords && (
+                <div className="mb-3 flex items-center gap-2 border border-editorial-gold/30 bg-editorial-gold/5 px-4 py-2.5 text-sm text-editorial-gold">
+                  <Target size={14} className="shrink-0" />
+                  <span>Track keywords on the <a href="/dashboard/keywords" className="font-semibold underline underline-offset-2 hover:text-editorial-gold/80">Keywords</a> page to see estimated organic traffic.</span>
+                </div>
+              )}
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -379,9 +393,9 @@ export function ContentClient({
                             </div>
                           ) : <span className="text-ink-muted">---</span>}
                         </TableCell>
-                        <TableCell>{page.organic_traffic != null ? page.organic_traffic.toLocaleString() : "---"}</TableCell>
+                        <TableCell>{page.organic_traffic != null ? page.organic_traffic.toLocaleString() : <span className="text-ink-muted text-[11px]" title={!hasKeywords ? "Track keywords to see traffic estimates" : "No rank data yet"}>{!hasKeywords ? "No keywords" : "—"}</span>}</TableCell>
                         <TableCell>{page.word_count != null ? page.word_count.toLocaleString() : "---"}</TableCell>
-                        <TableCell className="font-mono text-xs text-ink-muted">{page.last_modified ? new Date(page.last_modified).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : page.updated_at ? new Date(page.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "---"}</TableCell>
+                        <TableCell className="font-mono text-xs text-ink-muted">{page.last_modified ? formatDate(page.last_modified, timezone) : page.updated_at ? formatDate(page.updated_at, timezone) : "---"}</TableCell>
                         <TableCell>
                           <select
                             value={page.status ?? "published"}
@@ -446,8 +460,8 @@ export function ContentClient({
                         </div>
                       </TableCell>
                       <TableCell><Badge variant={db.variant}>{db.label}</Badge></TableCell>
-                      <TableCell>{page.organic_traffic != null ? page.organic_traffic.toLocaleString() : "---"}</TableCell>
-                      <TableCell className="font-mono text-xs text-ink-muted">{page.last_modified ? new Date(page.last_modified).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : page.updated_at ? new Date(page.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "---"}</TableCell>
+                      <TableCell>{page.organic_traffic != null ? page.organic_traffic.toLocaleString() : <span className="text-ink-muted text-[11px]" title={!hasKeywords ? "Track keywords to see traffic estimates" : "No rank data yet"}>{!hasKeywords ? "No keywords" : "—"}</span>}</TableCell>
+                      <TableCell className="font-mono text-xs text-ink-muted">{page.last_modified ? formatDate(page.last_modified, timezone) : page.updated_at ? formatDate(page.updated_at, timezone) : "---"}</TableCell>
                     </TableRow>
                   );
                 })}
@@ -529,10 +543,30 @@ export function ContentClient({
         <TabsContent value="calendar">
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-ink-secondary">Plan and schedule your content pipeline.</p>
-            {addCalendarDialog}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isGeneratingCalendar || isPending}
+                onClick={() => {
+                  setIsGeneratingCalendar(true);
+                  setCalendarGenMsg(null);
+                  startTransition(async () => {
+                    const r = await generateCalendarEntries(projectId);
+                    setCalendarGenMsg("error" in r ? r.error : `Generated ${r.generated} calendar entries from your content briefs.`);
+                    setIsGeneratingCalendar(false);
+                  });
+                }}
+              >
+                {isGeneratingCalendar ? <Loader2 size={12} className="mr-1.5 animate-spin" /> : <Calendar size={12} className="mr-1.5" />}
+                Generate Calendar
+              </Button>
+              {addCalendarDialog}
+            </div>
           </div>
+          {calendarGenMsg && <div className="mb-3 border border-rule bg-surface-raised px-3 py-2 text-[12px] text-ink-secondary">{calendarGenMsg}</div>}
           {calendarEntries.length === 0 ? (
-            <EmptyState icon={Calendar} title="Empty Editorial Calendar" description="Add entries to plan your content pipeline and track publishing deadlines." />
+            <EmptyState icon={Calendar} title="Empty Editorial Calendar" description="Generate entries from your content briefs or add them manually." />
           ) : (
             <Table>
               <TableHeader>

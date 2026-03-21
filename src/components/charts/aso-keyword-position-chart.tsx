@@ -9,6 +9,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatShortDate } from "@/lib/utils/format-date";
 
 interface PositionDataPoint {
   date: string;
@@ -22,6 +24,8 @@ interface AsoKeywordPositionChartProps {
 }
 
 export function AsoKeywordPositionChart({ data, keyword, height = 180 }: AsoKeywordPositionChartProps) {
+  const timezone = useTimezone();
+
   if (data.length === 0) {
     return (
       <div className="flex items-center justify-center border border-dashed border-rule" style={{ height }}>
@@ -33,7 +37,7 @@ export function AsoKeywordPositionChart({ data, keyword, height = 180 }: AsoKeyw
   }
 
   const formatted = data.map((d) => ({
-    date: new Date(d.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    date: formatShortDate(d.date, timezone),
     position: d.position,
   }));
 

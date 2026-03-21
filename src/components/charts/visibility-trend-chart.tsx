@@ -10,6 +10,8 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatShortDate } from "@/lib/utils/format-date";
 
 interface VisibilityDataPoint {
   date: string;
@@ -34,6 +36,8 @@ export function VisibilityTrendChart({
   data,
   title = "Visibility Score Trend",
 }: VisibilityTrendChartProps) {
+  const timezone = useTimezone();
+
   if (data.length === 0) {
     return (
       <div className="flex h-[200px] items-center justify-center border border-dashed border-rule">
@@ -47,10 +51,7 @@ export function VisibilityTrendChart({
   // Group by date and compute average score
   const byDate = new Map<string, number[]>();
   for (const d of data) {
-    const dateKey = new Date(d.date).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
+    const dateKey = formatShortDate(d.date, timezone);
     const existing = byDate.get(dateKey) ?? [];
     existing.push(d.score);
     byDate.set(dateKey, existing);

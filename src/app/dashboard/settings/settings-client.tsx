@@ -66,6 +66,8 @@ import type { ApiKeyPublic } from "@/lib/actions/api-keys";
 import type { IntegrationSettings } from "@/lib/actions/integrations";
 import type { Profile, Organization } from "@/types";
 import type { GatedResource } from "@/lib/stripe/plan-gate";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatDate } from "@/lib/utils/format-date";
 
 const TIMEZONES = [
   "America/New_York",
@@ -220,6 +222,7 @@ export function SettingsClient({
   apiKeys = [],
   integrationSettings,
 }: SettingsClientProps) {
+  const timezone = useTimezone();
   const [activeTab, setActiveTab] = useState("general");
   const [showAddProject, setShowAddProject] = useState(false);
   const [projectError, setProjectError] = useState<string | null>(null);
@@ -788,7 +791,7 @@ export function SettingsClient({
                           </TableCell>
                           <TableCell className="font-mono text-xs text-ink-muted">
                             {(member.created_at as string)
-                              ? new Date(member.created_at as string).toLocaleDateString()
+                              ? formatDate(member.created_at as string, timezone)
                               : "---"}
                           </TableCell>
                           <TableCell>
@@ -840,7 +843,7 @@ export function SettingsClient({
                               </TableCell>
                               <TableCell className="font-mono text-xs text-ink-muted">
                                 {(invite.created_at as string)
-                                  ? new Date(invite.created_at as string).toLocaleDateString()
+                                  ? formatDate(invite.created_at as string, timezone)
                                   : "---"}
                               </TableCell>
                               <TableCell>

@@ -10,12 +10,16 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import type { SocialMetric } from "@/types";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatShortDate } from "@/lib/utils/format-date";
 
 interface EngagementChartProps {
   metrics: SocialMetric[];
 }
 
 export function EngagementChart({ metrics }: EngagementChartProps) {
+  const timezone = useTimezone();
+
   if (metrics.length < 2) {
     return (
       <div className="flex h-[200px] items-center justify-center text-sm text-ink-muted">
@@ -25,7 +29,7 @@ export function EngagementChart({ metrics }: EngagementChartProps) {
   }
 
   const data = metrics.map((m) => ({
-    date: new Date(m.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    date: formatShortDate(m.date, timezone),
     engagement: m.engagement_rate ?? 0,
     likes: m.avg_likes ?? 0,
     comments: m.avg_comments ?? 0,

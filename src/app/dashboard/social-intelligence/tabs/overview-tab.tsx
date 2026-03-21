@@ -16,6 +16,8 @@ import type {
   ContentStrategy,
 } from "@/types";
 import { getPlatformConfig } from "@/lib/social/platform-config";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatDate } from "@/lib/utils/format-date";
 
 interface OverviewTabProps {
   profile: SocialProfile;
@@ -48,6 +50,7 @@ const PRIORITY_COLORS = {
 };
 
 export function OverviewTab({ profile, metrics, analyses }: OverviewTabProps) {
+  const timezone = useTimezone();
   const pConfig = getPlatformConfig(profile.platform);
 
   // --- Compute derived data ---
@@ -418,9 +421,9 @@ export function OverviewTab({ profile, metrics, analyses }: OverviewTabProps) {
           10. Footer
           ---------------------------------------------------------------- */}
       <p className="text-xs text-ink-muted">
-        Profile added {new Date(profile.created_at).toLocaleDateString()}.
+        Profile added {formatDate(profile.created_at, timezone)}.
         {profile.last_synced_at &&
-          ` Last synced ${new Date(profile.last_synced_at).toLocaleDateString()}.`}
+          ` Last synced ${formatDate(profile.last_synced_at, timezone)}.`}
         {" "}Stats are manually entered. Update them anytime via the edit form.
       </p>
     </div>
@@ -527,6 +530,7 @@ function AnalysisStatusCard({
   label: string;
   analysis?: SocialAnalysis;
 }) {
+  const timezone = useTimezone();
   const isExpired = analysis?.expires_at && new Date(analysis.expires_at) < new Date();
   return (
     <Card>
@@ -545,7 +549,7 @@ function AnalysisStatusCard({
         </div>
         {analysis && (
           <p className="mt-1 text-[10px] text-ink-muted">
-            {new Date(analysis.created_at).toLocaleDateString()}
+            {formatDate(analysis.created_at, timezone)}
           </p>
         )}
       </CardContent>

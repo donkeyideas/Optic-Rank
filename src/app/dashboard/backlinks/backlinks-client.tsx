@@ -18,6 +18,8 @@ import {
   Loader2,
 } from "lucide-react";
 
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatDate } from "@/lib/utils/format-date";
 import { HeadlineBar } from "@/components/editorial/headline-bar";
 import { ColumnHeader } from "@/components/editorial/column-header";
 import { Input } from "@/components/ui/input";
@@ -105,12 +107,8 @@ function truncateUrl(url: string, maxLength = 50): string {
   return clean.substring(0, maxLength) + "...";
 }
 
-function formatDate(isoDate: string): string {
-  return new Date(isoDate).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+function formatBacklinkDate(isoDate: string, timezone: string): string {
+  return formatDate(isoDate, timezone);
 }
 
 /* ------------------------------------------------------------------
@@ -123,6 +121,7 @@ export function BacklinksPageClient({
   totalCount,
   stats,
 }: BacklinksPageClientProps) {
+  const timezone = useTimezone();
   const [searchQuery, setSearchQuery] = useState("");
   const [linkTypeFilter, setLinkTypeFilter] = useState<
     "all" | Backlink["link_type"]
@@ -570,7 +569,7 @@ export function BacklinksPageClient({
 
                       {/* First Seen */}
                       <TableCell className="font-sans text-[12px] text-ink-secondary">
-                        {formatDate(bl.first_seen)}
+                        {formatBacklinkDate(bl.first_seen, timezone)}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -661,7 +660,7 @@ export function BacklinksPageClient({
                       </p>
                       <p className="mt-1 flex items-center gap-1 text-[11px] text-ink-muted">
                         <Calendar size={10} />
-                        First seen {formatDate(bl.first_seen)}
+                        First seen {formatBacklinkDate(bl.first_seen, timezone)}
                       </p>
                     </div>
                   </div>
@@ -728,7 +727,7 @@ export function BacklinksPageClient({
                       </p>
                       <p className="mt-1 flex items-center gap-1 text-[11px] text-ink-muted">
                         <Calendar size={10} />
-                        Last seen {formatDate(bl.last_seen)}
+                        Last seen {formatBacklinkDate(bl.last_seen, timezone)}
                       </p>
                     </div>
                     <div className="shrink-0">

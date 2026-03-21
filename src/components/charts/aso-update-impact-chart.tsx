@@ -11,6 +11,8 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatShortDate } from "@/lib/utils/format-date";
 
 interface SnapshotPoint {
   date: string;
@@ -30,6 +32,8 @@ interface AsoUpdateImpactChartProps {
 }
 
 export function AsoUpdateImpactChart({ snapshots, versions, height = 220 }: AsoUpdateImpactChartProps) {
+  const timezone = useTimezone();
+
   if (snapshots.length === 0) {
     return (
       <div className="flex items-center justify-center border border-dashed border-rule" style={{ height }}>
@@ -41,7 +45,7 @@ export function AsoUpdateImpactChart({ snapshots, versions, height = 220 }: AsoU
   }
 
   const formatted = snapshots.map((s) => ({
-    date: new Date(s.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    date: formatShortDate(s.date, timezone),
     rawDate: s.date,
     rating: s.rating,
     reviews: s.reviews_count,

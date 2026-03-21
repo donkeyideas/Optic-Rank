@@ -31,6 +31,8 @@ import {
   deleteWebhook,
   type IntegrationSettings,
 } from "@/lib/actions/integrations";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatDate } from "@/lib/utils/format-date";
 
 const WEBHOOK_EVENTS = [
   { id: "keyword.rank_changed", label: "Keyword Rank Changed" },
@@ -45,6 +47,7 @@ interface IntegrationsTabProps {
 }
 
 export function IntegrationsTab({ settings }: IntegrationsTabProps) {
+  const timezone = useTimezone();
   const [slackUrl, setSlackUrl] = useState(settings.slackWebhookUrl ?? "");
   const [slackSaved, setSlackSaved] = useState(false);
   const [slackTested, setSlackTested] = useState(false);
@@ -299,7 +302,7 @@ export function IntegrationsTab({ settings }: IntegrationsTabProps) {
                     ))}
                   </div>
                   <span className="mt-1 block text-[10px] text-ink-muted">
-                    Added {new Date(wh.created_at).toLocaleDateString()}
+                    Added {formatDate(wh.created_at, timezone)}
                   </span>
                 </div>
                 <Button

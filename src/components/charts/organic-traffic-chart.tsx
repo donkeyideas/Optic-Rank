@@ -9,6 +9,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatShortDate } from "@/lib/utils/format-date";
 
 interface TrafficDataPoint {
   date: string;
@@ -27,6 +29,8 @@ function formatTraffic(value: number): string {
 }
 
 export function OrganicTrafficChart({ data, domain }: OrganicTrafficChartProps) {
+  const timezone = useTimezone();
+
   if (data.length === 0) {
     return (
       <div className="flex h-[220px] items-center justify-center border border-dashed border-rule bg-surface-raised">
@@ -38,10 +42,7 @@ export function OrganicTrafficChart({ data, domain }: OrganicTrafficChartProps) 
   }
 
   const formatted = data.map((d) => ({
-    date: new Date(d.date).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    }),
+    date: formatShortDate(d.date, timezone),
     traffic: d.traffic,
   }));
 

@@ -116,6 +116,8 @@ export interface SiteAudit {
   accessibility_score: number | null;
   started_at: string;
   completed_at: string | null;
+  /** Whether the site was detected as a JS-heavy SPA (issues may be false positives) */
+  is_spa?: boolean;
 }
 
 export type IssueSeverity = "critical" | "warning" | "info";

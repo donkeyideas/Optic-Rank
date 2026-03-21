@@ -26,6 +26,8 @@ import { AsoKeywordPositionChart } from "@/components/charts/aso-keyword-positio
 import { generateAppKeywords, refreshKeywordRankings } from "@/lib/actions/app-store";
 import type { AppStoreListing } from "@/types";
 import type { AppStoreRanking, KeywordHistoryPoint } from "@/lib/dal/app-store";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatDate } from "@/lib/utils/format-date";
 
 interface KeywordsTabProps {
   listings: AppStoreListing[];
@@ -34,6 +36,7 @@ interface KeywordsTabProps {
 }
 
 export function KeywordsTab({ listings, rankings, keywordHistory }: KeywordsTabProps) {
+  const timezone = useTimezone();
   const { toast } = useToast();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
@@ -268,7 +271,7 @@ export function KeywordsTab({ listings, rankings, keywordHistory }: KeywordsTabP
                   </TableCell>
                   <TableCell className="text-sm text-ink-secondary">{r.listing?.app_name ?? "—"}</TableCell>
                   <TableCell className="font-mono text-xs text-ink-muted">
-                    {new Date(r.checked_at).toLocaleDateString()}
+                    {formatDate(r.checked_at, timezone)}
                   </TableCell>
                 </TableRow>
                 {isExpanded && (

@@ -24,6 +24,8 @@ import { getStripePromise } from "@/lib/stripe/client";
 import type { Organization } from "@/types";
 import type { PlanId } from "@/lib/stripe/client";
 import type { GatedResource } from "@/lib/stripe/plan-gate";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatDate } from "@/lib/utils/format-date";
 
 interface BillingTabProps {
   organization: Organization;
@@ -211,6 +213,7 @@ function UsageBar({ label, current, limit }: { label: string; current: number; l
    ------------------------------------------------------------------ */
 
 export function BillingTab({ organization, usage, billingEvents }: BillingTabProps) {
+  const timezone = useTimezone();
   const [isPending, startTransition] = useTransition();
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [checkoutData, setCheckoutData] = useState<{
@@ -390,7 +393,7 @@ export function BillingTab({ organization, usage, billingEvents }: BillingTabPro
                       {ev.event_type.replace(/\./g, " ").replace(/_/g, " ")}
                     </span>
                     <span className="ml-2 font-mono text-[10px] text-ink-muted">
-                      {new Date(ev.created_at).toLocaleDateString()}
+                      {formatDate(ev.created_at, timezone)}
                     </span>
                   </div>
                 </div>

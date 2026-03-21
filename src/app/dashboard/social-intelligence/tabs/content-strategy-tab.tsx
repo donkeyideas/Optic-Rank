@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { analyzeSocialProfile } from "@/lib/actions/social-intelligence";
 import type { SocialProfile, SocialAnalysis, ContentStrategy } from "@/types";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatDate } from "@/lib/utils/format-date";
 
 interface ContentStrategyTabProps {
   profile: SocialProfile;
@@ -15,6 +17,7 @@ interface ContentStrategyTabProps {
 const DAY_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 export function ContentStrategyTab({ profile, analyses }: ContentStrategyTabProps) {
+  const timezone = useTimezone();
   const [isPending, startTransition] = useTransition();
 
   const csAnalysis = analyses.find((a) => a.analysis_type === "content_strategy");
@@ -152,7 +155,7 @@ export function ContentStrategyTab({ profile, analyses }: ContentStrategyTabProp
 
       {csAnalysis && (
         <p className="text-xs text-ink-muted">
-          Generated {new Date(csAnalysis.created_at).toLocaleDateString()}.
+          Generated {formatDate(csAnalysis.created_at, timezone)}.
         </p>
       )}
     </div>

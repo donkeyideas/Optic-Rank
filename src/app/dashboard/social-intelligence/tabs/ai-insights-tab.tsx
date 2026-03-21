@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { AiMarkdown } from "@/components/shared/ai-markdown";
 import { analyzeSocialProfile } from "@/lib/actions/social-intelligence";
 import type { SocialProfile, SocialAnalysis } from "@/types";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatDate } from "@/lib/utils/format-date";
 
 interface AIInsightsTabProps {
   profile: SocialProfile;
@@ -13,6 +15,7 @@ interface AIInsightsTabProps {
 }
 
 export function AIInsightsTab({ profile, analyses }: AIInsightsTabProps) {
+  const timezone = useTimezone();
   const [isPending, startTransition] = useTransition();
 
   const insightAnalysis = analyses.find((a) => a.analysis_type === "insights");
@@ -103,9 +106,9 @@ export function AIInsightsTab({ profile, analyses }: AIInsightsTabProps) {
       {(insightAnalysis || planAnalysis) && (
         <p className="text-xs text-ink-muted">
           {insightAnalysis &&
-            `Insights generated ${new Date(insightAnalysis.created_at).toLocaleDateString()}.`}
+            `Insights generated ${formatDate(insightAnalysis.created_at, timezone)}.`}
           {planAnalysis &&
-            ` Plan generated ${new Date(planAnalysis.created_at).toLocaleDateString()}.`}
+            ` Plan generated ${formatDate(planAnalysis.created_at, timezone)}.`}
         </p>
       )}
     </div>

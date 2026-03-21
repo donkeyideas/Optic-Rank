@@ -7,14 +7,14 @@
  * Strategy:
  * 1. Try fast plain fetch() first with a realistic User-Agent
  * 2. Detect SPA/JS-heavy pages (low content despite 200 status)
- * 3. Re-fetch sparse pages through ScrapingBee with JS rendering
+ * 3. Re-fetch sparse pages with JS rendering (self-hosted Chromium or ScrapingBee)
  */
 
 import * as cheerio from "cheerio";
 import {
-  fetchWithScrapingBee,
-  isScrapingBeeConfigured,
-} from "@/lib/api/scrapingbee";
+  fetchWithJsRendering,
+  isJsRenderingAvailable,
+} from "@/lib/crawl/js-renderer";
 
 // ================================================================
 // Types
@@ -50,6 +50,8 @@ export interface CrawledPage {
   loadTimeMs: number;
   /** Whether this page was rendered via ScrapingBee JS rendering */
   jsRendered?: boolean;
+  /** Whether the page was detected as a SPA/JS-heavy page (regardless of rendering) */
+  detectedAsSPA?: boolean;
 }
 
 interface CrawlOptions {
@@ -71,27 +73,77 @@ const BOT_UA = "OpticRank-Bot/1.0 (SEO Audit)";
 /**
  * Heuristic to detect if a page is JS-heavy and needs rendering.
  * Returns true if the HTML appears to be a mostly-empty shell.
+ *
+ * Common false-negative scenario: Next.js/Nuxt sites where the layout
+ * (nav, sidebar, footer) is server-rendered but page content is client-
+ * rendered. The layout text can be 100-200 words, passing old thresholds.
  */
 function isLikelySPA(html: string, $: cheerio.CheerioAPI): boolean {
-  // Check for common SPA root containers with no content
-  const rootDiv = $("#root, #app, #__next, #__nuxt, #__vue-root");
-  if (rootDiv.length > 0) {
-    // If root container exists but has very little text, likely SPA
-    const rootText = rootDiv.text().replace(/\s+/g, " ").trim();
-    if (rootText.length < 50) return true;
-  }
-
-  // Very low body text despite having a title (JS renders the real content)
   const bodyText = $("body").text().replace(/\s+/g, " ").trim();
   const wordCount = bodyText ? bodyText.split(/\s+/).length : 0;
+  const scriptTags = $("script[src]").length;
+
+  // ---------------------------------------------------------------
+  // 1. Framework-specific detection (definitive markers)
+  // ---------------------------------------------------------------
+
+  // Next.js: __NEXT_DATA__ script or #__next container
+  const isNextJs =
+    $('script#__NEXT_DATA__').length > 0 || $("#__next").length > 0;
+
+  // Nuxt: #__nuxt container or window.__NUXT__
+  const isNuxt =
+    $("#__nuxt").length > 0 || html.includes("window.__NUXT__");
+
+  // Generic SPA: #root, #app, [data-reactroot], #__vue-root
+  const hasFrameworkRoot =
+    $("#root, #app, [data-reactroot], #__vue-root").length > 0;
+
+  const isKnownFramework = isNextJs || isNuxt;
+
+  // ---------------------------------------------------------------
+  // 2. Content analysis for framework sites
+  // ---------------------------------------------------------------
+
+  if (isKnownFramework) {
+    // Known framework detected. These sites often have SSR layouts
+    // (nav, footer = 100-200 words) but client-rendered page content.
+    // If body word count is low relative to a real content page, flag it.
+    // A real content page typically has 300+ words of actual content
+    // PLUS layout text. Under 250 total words means content is likely
+    // client-rendered.
+    if (wordCount < 250) return true;
+
+    // Even with more words, if there are many script bundles and the
+    // main content area (<main>, [role="main"], article) is nearly
+    // empty, it's a SPA with SSR layout.
+    const mainContent = $("main, [role='main'], article").text().replace(/\s+/g, " ").trim();
+    const mainWordCount = mainContent ? mainContent.split(/\s+/).length : 0;
+    if (mainWordCount < 50 && scriptTags > 3) return true;
+  }
+
+  // ---------------------------------------------------------------
+  // 3. Generic SPA root with minimal content
+  // ---------------------------------------------------------------
+
+  if (hasFrameworkRoot) {
+    const rootDiv = $("#root, #app, [data-reactroot], #__vue-root");
+    const rootText = rootDiv.text().replace(/\s+/g, " ").trim();
+    // Raised from 50 to 100 chars to catch layouts with nav text
+    if (rootText.length < 100) return true;
+  }
+
+  // ---------------------------------------------------------------
+  // 4. General heuristics (non-framework sites)
+  // ---------------------------------------------------------------
+
   const title = $("title").text().trim();
 
   // Has a title but almost no body text = SPA shell
   if (title && wordCount < 30) return true;
 
   // Large amount of JS bundles relative to content
-  const scriptTags = $("script[src]").length;
-  if (scriptTags > 5 && wordCount < 50) return true;
+  if (scriptTags > 5 && wordCount < 100) return true;
 
   // Noscript tag telling user to enable JS
   const noscript = $("noscript").text().toLowerCase();
@@ -122,6 +174,12 @@ function isSparseResult(page: CrawledPage): boolean {
     !page.hasSchema &&
     page.statusCode === 200
   ) {
+    return true;
+  }
+
+  // Page with title but thin content and no H1 = likely client-rendered
+  // (SSR layouts provide the title but H1/content comes from client JS)
+  if (page.title && !page.h1 && page.wordCount < 200 && page.statusCode === 200) {
     return true;
   }
 
@@ -471,22 +529,18 @@ async function fetchPageWithJsRendering(
   url: string
 ): Promise<{ html: string; statusCode: number; loadTimeMs: number } | null> {
   try {
-    const start = Date.now();
-    const result = await fetchWithScrapingBee(url, {
-      renderJs: true,
-      waitMs: 5000,
-      premiumProxy: false,
+    const result = await fetchWithJsRendering(url, {
+      waitMs: 0,
       timeoutMs: 30000,
-      blockAds: true,
     });
-    const loadTimeMs = Date.now() - start;
+    if (!result) return null;
     return {
       html: result.html,
       statusCode: result.statusCode,
-      loadTimeMs,
+      loadTimeMs: result.loadTimeMs,
     };
   } catch (err) {
-    console.warn(`ScrapingBee JS rendering failed for ${url}:`, err);
+    console.warn(`JS rendering failed for ${url}:`, err);
     return null;
   }
 }
@@ -526,6 +580,9 @@ async function analyzePage(
   const needsJsRendering =
     isLikelySPA(plainResult.html, $) || isSparseResult(page);
 
+  // Always mark whether SPA was detected (even if we can't render it)
+  page.detectedAsSPA = needsJsRendering;
+
   // Step 3: If sparse/SPA and ScrapingBee is available, re-fetch with JS rendering
   if (needsJsRendering && useScrapingBee) {
     const jsResult = await fetchPageWithJsRendering(url);
@@ -537,6 +594,7 @@ async function analyzePage(
         jsResult.loadTimeMs,
         true
       );
+      jsPage.detectedAsSPA = true;
 
       // Only use JS-rendered result if it's actually richer
       if (
@@ -556,15 +614,23 @@ async function analyzePage(
 // Multi-Page Crawl
 // ================================================================
 
+export interface CrawlResult {
+  pages: CrawledPage[];
+  /** Whether the site was detected as a JS-heavy SPA */
+  siteIsSPA: boolean;
+  /** Whether ScrapingBee JS rendering was used */
+  jsRenderingUsed: boolean;
+}
+
 export async function crawlSite(
   domain: string,
   options: CrawlOptions
-): Promise<CrawledPage[]> {
+): Promise<CrawlResult> {
   const { maxPages, timeoutMs = 15000, concurrency = 3 } = options;
   const results: CrawledPage[] = [];
   const visited = new Set<string>();
   const queue: string[] = [];
-  const useScrapingBee = isScrapingBeeConfigured();
+  const useScrapingBee = isJsRenderingAvailable();
 
   // Normalize domain
   const cleanDomain = domain
@@ -607,7 +673,8 @@ export async function crawlSite(
   const rootPage = await analyzePage(rootUrl, timeoutMs, useScrapingBee);
   if (rootPage) {
     results.push(rootPage);
-    siteNeedsJsRendering = rootPage.jsRendered === true;
+    // Flag site as SPA if the homepage was DETECTED as SPA (not just rendered)
+    siteNeedsJsRendering = rootPage.detectedAsSPA === true;
 
     // Extract links for discovery if no sitemap
     if (sitemapUrls.length === 0) {
@@ -664,5 +731,27 @@ export async function crawlSite(
     }
   }
 
-  return results;
+  // Post-crawl heuristic: if the homepage didn't trigger SPA detection
+  // but a majority of inner pages look like empty shells, flag the site.
+  // This catches cases where the homepage is SSG but inner pages are CSR.
+  if (!siteNeedsJsRendering && results.length >= 3) {
+    const okPages = results.filter((p) => p.statusCode === 200);
+    const thinPages = okPages.filter(
+      (p) => p.wordCount < 300 && !p.h1
+    );
+    // If >50% of pages are thin with no H1, site is very likely SPA
+    if (thinPages.length > okPages.length * 0.5) {
+      siteNeedsJsRendering = true;
+    }
+    // Also check if any page was individually detected as SPA
+    if (results.some((p) => p.detectedAsSPA)) {
+      siteNeedsJsRendering = true;
+    }
+  }
+
+  return {
+    pages: results,
+    siteIsSPA: siteNeedsJsRendering,
+    jsRenderingUsed: siteNeedsJsRendering && useScrapingBee,
+  };
 }

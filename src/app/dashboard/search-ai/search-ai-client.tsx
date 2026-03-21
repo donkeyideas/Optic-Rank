@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo, useTransition } from "react";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatShortDate } from "@/lib/utils/format-date";
 import {
   Search,
   MessageSquare,
@@ -468,6 +470,7 @@ function SummaryTab({
   contentPages: ContentPage[];
   schemaAudit: SchemaAuditData;
 }) {
+  const timezone = useTimezone();
   const pagesInSitemap = auditPages.length;
   const blogPosts = contentPages.length;
   const schemaTypes = schemaAudit.pagesWithSchema;
@@ -477,10 +480,7 @@ function SummaryTab({
     .slice(0, 12)
     .reverse()
     .map((a) => ({
-      date: new Date(a.completed_at ?? a.started_at).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-      }),
+      date: formatShortDate(a.completed_at ?? a.started_at, timezone),
       seo: a.seo_score ?? 0,
       health: a.health_score ?? 0,
       performance: a.performance_score ?? 0,

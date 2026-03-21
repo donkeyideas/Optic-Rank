@@ -9,6 +9,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatShortDate } from "@/lib/utils/format-date";
 
 interface RankDataPoint {
   date: string;
@@ -21,6 +23,8 @@ interface RankHistoryChartProps {
 }
 
 export function RankHistoryChart({ data, keyword }: RankHistoryChartProps) {
+  const timezone = useTimezone();
+
   if (data.length === 0) {
     return (
       <div className="flex h-[200px] items-center justify-center border border-dashed border-rule">
@@ -32,10 +36,7 @@ export function RankHistoryChart({ data, keyword }: RankHistoryChartProps) {
   }
 
   const formatted = data.map((d) => ({
-    date: new Date(d.date).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    }),
+    date: formatShortDate(d.date, timezone),
     position: d.position,
   }));
 

@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { analyzeSocialProfile } from "@/lib/actions/social-intelligence";
 import type { SocialProfile, SocialAnalysis, HashtagRecommendation } from "@/types";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatDate } from "@/lib/utils/format-date";
 
 interface HashtagsTabProps {
   profile: SocialProfile;
@@ -19,6 +21,7 @@ const VOLUME_COLORS = {
 };
 
 export function HashtagsTab({ profile, analyses }: HashtagsTabProps) {
+  const timezone = useTimezone();
   const [isPending, startTransition] = useTransition();
 
   const hashAnalysis = analyses.find((a) => a.analysis_type === "hashtags");
@@ -127,7 +130,7 @@ export function HashtagsTab({ profile, analyses }: HashtagsTabProps) {
 
       {hashAnalysis && (
         <p className="text-xs text-ink-muted">
-          Generated {new Date(hashAnalysis.created_at).toLocaleDateString()}.
+          Generated {formatDate(hashAnalysis.created_at, timezone)}.
         </p>
       )}
     </div>

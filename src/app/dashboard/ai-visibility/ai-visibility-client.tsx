@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatShortDate, formatDate, formatDateTime } from "@/lib/utils/format-date";
 import {
   Eye,
   Search,
@@ -89,6 +91,7 @@ export function AIVisibilityClient({
   projectId,
   projectDomain,
 }: AIVisibilityClientProps) {
+  const timezone = useTimezone();
   const [providerFilter, setProviderFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
@@ -133,16 +136,10 @@ export function AIVisibilityClient({
     {
       label: "Last Check",
       value: stats.lastChecked
-        ? new Date(stats.lastChecked).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-          })
+        ? formatShortDate(stats.lastChecked, timezone)
         : "Never",
       delta: stats.lastChecked
-        ? new Date(stats.lastChecked).toLocaleTimeString("en-US", {
-            hour: "2-digit",
-            minute: "2-digit",
-          })
+        ? formatDateTime(stats.lastChecked, timezone)
         : "Run your first check",
       direction: "neutral" as const,
     },
@@ -463,9 +460,7 @@ export function AIVisibilityClient({
                                     </p>
                                     <p className="mt-2 flex items-center gap-1 font-mono text-[9px] text-ink-muted">
                                       <Clock size={9} />
-                                      {new Date(
-                                        check.checked_at
-                                      ).toLocaleDateString()}
+                                      {formatDate(check.checked_at, timezone)}
                                     </p>
                                   </div>
                                 );

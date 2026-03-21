@@ -10,6 +10,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import type { SocialMetric } from "@/types";
+import { useTimezone } from "@/lib/context/timezone-context";
+import { formatShortDate } from "@/lib/utils/format-date";
 
 interface FollowerGrowthChartProps {
   metrics: SocialMetric[];
@@ -17,6 +19,8 @@ interface FollowerGrowthChartProps {
 }
 
 export function FollowerGrowthChart({ metrics, label }: FollowerGrowthChartProps) {
+  const timezone = useTimezone();
+
   if (metrics.length < 2) {
     return (
       <div className="flex h-[200px] items-center justify-center text-sm text-ink-muted">
@@ -26,7 +30,7 @@ export function FollowerGrowthChart({ metrics, label }: FollowerGrowthChartProps
   }
 
   const data = metrics.map((m) => ({
-    date: new Date(m.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    date: formatShortDate(m.date, timezone),
     followers: m.followers ?? 0,
     engagement: m.engagement_rate ?? 0,
   }));
