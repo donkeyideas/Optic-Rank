@@ -13,6 +13,14 @@
     "src/app/api/internal/render/route.ts": {
       "maxDuration": 55,
       "memory": 1024
+    },
+    "src/app/dashboard/site-audit/page.tsx": {
+      "maxDuration": 60,
+      "memory": 1024
+    },
+    "src/app/api/mobile/route.ts": {
+      "maxDuration": 60,
+      "memory": 512
     }
   }
 }

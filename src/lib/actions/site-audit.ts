@@ -68,6 +68,7 @@ export async function runSiteAudit(
     const pageSpeedResult = await getPageSpeedData(targetUrl, "mobile");
 
     if (pageSpeedResult.error || !pageSpeedResult.data) {
+      console.error(`[runSiteAudit] PageSpeed failed for ${targetUrl}: ${pageSpeedResult.error ?? "No data returned"}`);
       // Even if PageSpeed fails, we still have crawled pages
       // Create a basic audit from crawled data
       if (crawledPages.length > 0) {
@@ -170,7 +171,14 @@ export async function runSiteAudit(
       }
     }
 
-    // Update total issues count (exclude metric & signal entries)
+    // Recalculate scores from actual crawl data (overrides heuristic scores from processPageSpeedAudit)
+    const { seoScore, contentScore, healthScore } = computeScoresFromCrawl(
+      crawledPages,
+      pageSpeedResult.data.performance_score,
+      pageSpeedResult.data.accessibility_score
+    );
+
+    // Update total issues count (exclude metric & signal entries) and crawl-based scores
     const { count } = await supabase
       .from("audit_issues")
       .select("id", { count: "exact" })
@@ -178,9 +186,12 @@ export async function runSiteAudit(
       .not("rule_id", "like", "cwv-metric-%")
       .not("rule_id", "like", "page-%-signals");
 
-    if (count != null) {
-      await supabase.from("site_audits").update({ issues_found: count }).eq("id", audit.id);
-    }
+    await supabase.from("site_audits").update({
+      issues_found: count ?? 0,
+      seo_score: seoScore,
+      content_score: contentScore,
+      health_score: healthScore,
+    }).eq("id", audit.id);
   } catch (err) {
     await supabase
       .from("site_audits")
@@ -195,6 +206,61 @@ export async function runSiteAudit(
   revalidatePath("/dashboard/search-ai");
   revalidatePath("/dashboard");
   return { success: true };
+}
+
+// ================================================================
+// Scoring
+// ================================================================
+
+/**
+ * Compute SEO, Content, and Health scores from actual crawl data.
+ * These scores reflect real on-page SEO quality, not heuristics.
+ */
+function computeScoresFromCrawl(
+  pages: CrawledPage[],
+  performanceScore: number | null,
+  accessibilityScore: number | null
+): { seoScore: number; contentScore: number; healthScore: number } {
+  const ok = pages.filter((p) => p.statusCode === 200);
+  const total = ok.length || 1;
+
+  // SEO score components (each 0-100, weighted)
+  const withTitle = ok.filter((p) => p.title).length;
+  const withMeta = ok.filter((p) => p.metaDescription).length;
+  const withH1 = ok.filter((p) => p.h1).length;
+  const withCanonical = ok.filter((p) => p.hasCanonical).length;
+  const withSchema = ok.filter((p) => p.hasSchema).length;
+  const noErrors = pages.filter((p) => p.statusCode < 400).length;
+  const errorPenalty = pages.length > 0 ? (noErrors / pages.length) : 1;
+
+  const seoScore = Math.round(
+    (withTitle / total) * 25 +       // 25% weight: title tags
+    (withMeta / total) * 20 +        // 20% weight: meta descriptions
+    (withH1 / total) * 15 +          // 15% weight: H1 headings
+    (withCanonical / total) * 15 +   // 15% weight: canonical URLs
+    (withSchema / total) * 15 +      // 15% weight: structured data
+    errorPenalty * 10                // 10% weight: no HTTP errors
+  );
+
+  // Content score: based on word count adequacy
+  const withAdequateContent = ok.filter((p) => p.wordCount >= 300).length;
+  const avgWordCount = ok.reduce((sum, p) => sum + p.wordCount, 0) / total;
+  const wordCountBonus = Math.min(1, avgWordCount / 500); // bonus for avg 500+ words
+  const contentScore = Math.round(
+    (withAdequateContent / total) * 80 + // 80% weight: pages with 300+ words
+    wordCountBonus * 20                  // 20% weight: average word count depth
+  );
+
+  // Health score: weighted average of all available scores
+  const perf = performanceScore ?? 0;
+  const access = accessibilityScore ?? 0;
+  const hasPageSpeed = performanceScore != null;
+
+  const healthScore = hasPageSpeed
+    ? Math.round(seoScore * 0.3 + perf * 0.25 + access * 0.15 + contentScore * 0.3)
+    : Math.round(seoScore * 0.5 + contentScore * 0.5);
+
+  return { seoScore, contentScore, healthScore };
 }
 
 // ================================================================
@@ -407,20 +473,11 @@ async function finalizeCrawlOnlyAudit(
   siteIsSPA: boolean = false,
   jsRenderingUsed: boolean = false
 ) {
-  // Compute basic scores from crawl data
-  const pagesOk = pages.filter((p) => p.statusCode === 200);
-  const withTitle = pagesOk.filter((p) => p.title).length;
-  const withSchema = pagesOk.filter((p) => p.hasSchema).length;
-  const withMeta = pagesOk.filter((p) => p.metaDescription).length;
-  const total = pagesOk.length || 1;
-
-  const seoScore = Math.round(
-    ((withTitle / total) * 30 + (withSchema / total) * 30 + (withMeta / total) * 20 + 20) // base 20
-  );
-  const healthScore = Math.min(100, seoScore);
-
   const skipFalsePositives = siteIsSPA && !jsRenderingUsed;
   const issues = generateCrawlIssues(pages, auditId, skipFalsePositives);
+
+  // Compute scores from actual crawl data (no PageSpeed available)
+  const { seoScore, contentScore, healthScore } = computeScoresFromCrawl(pages, null, null);
 
   await supabase.from("site_audits").update({
     status: "completed",
@@ -432,7 +489,7 @@ async function finalizeCrawlOnlyAudit(
     // Store null instead of 0 when PageSpeed wasn't available — UI shows "N/A"
     performance_score: null,
     accessibility_score: null,
-    content_score: Math.round((pagesOk.filter((p) => p.wordCount >= 300).length / total) * 100),
+    content_score: contentScore,
     is_spa: siteIsSPA,
     completed_at: new Date().toISOString(),
   }).eq("id", auditId);

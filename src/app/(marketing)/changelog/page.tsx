@@ -116,6 +116,20 @@ export default async function ChangelogPage() {
               to see upcoming features and vote on the improvements you want
               most. Your feedback directly shapes what we build next.
             </p>
+
+            <h3 className="mt-6 font-serif text-lg font-bold text-ink">
+              Our Release Process
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-ink-secondary">
+              We follow a continuous deployment model, releasing updates as
+              soon as they pass our automated test suite and internal review.
+              Major features go through a beta period with select users before
+              general availability. Critical bug fixes are deployed
+              immediately, while larger improvements are grouped into weekly
+              releases to give you a clear picture of what changed and why.
+              Every entry on this page links back to the relevant documentation
+              so you can start using new capabilities right away.
+            </p>
           </div>
         ) : (
           <div className="space-y-0">

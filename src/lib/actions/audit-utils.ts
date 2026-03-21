@@ -7,6 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 interface CWVData {
   performance_score: number;
+  accessibility_score: number;
   lcp_ms: number;
   cls: number;
   inp_ms: number;
@@ -40,10 +41,11 @@ export async function processPageSpeedAudit(
   auditedUrl?: string
 ): Promise<{ auditId: string; issues: number }> {
   const performanceScore = cwv.performance_score;
+  const accessibilityScore = cwv.accessibility_score;
 
-  // Compute heuristic scores from PageSpeed data
+  // Placeholder scores — will be overridden by crawl-based scoring in runSiteAudit.
+  // When called standalone (e.g., from collectPageSpeed), these serve as baseline estimates.
   const seoScore = Math.min(100, Math.round(performanceScore * 0.4 + 60));
-  const accessibilityScore = Math.min(100, Math.round(performanceScore * 0.3 + 70));
   const contentScore = Math.min(100, Math.round(performanceScore * 0.35 + 65));
   const healthScore = Math.round(
     (performanceScore + seoScore + accessibilityScore) / 3

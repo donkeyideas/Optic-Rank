@@ -4,6 +4,9 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Shield } from "lucide-react";
 import { SiteAuditClient } from "./site-audit-client";
 
+// Site audits crawl up to 25 pages + call PageSpeed API — needs extended timeout
+export const maxDuration = 60;
+
 export default async function SiteAuditPage() {
   const supabase = await createClient();
   const {

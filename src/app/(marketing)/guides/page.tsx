@@ -42,6 +42,14 @@ export default async function GuidesPage() {
           <h2 className="mb-6 font-serif text-2xl font-bold text-ink">
             Topics We Cover
           </h2>
+          <p className="mb-6 text-sm leading-relaxed text-ink-secondary">
+            Our guides cover the full spectrum of modern search optimization.
+            Whether you are building your first SEO strategy or fine-tuning an
+            enterprise campaign, each tutorial is written by practitioners who
+            have managed rankings for hundreds of domains. Every guide includes
+            actionable steps, real-world examples, and platform walkthroughs
+            so you can apply what you learn immediately inside Optic Rank.
+          </p>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <div className="border border-rule p-4">
               <h3 className="font-serif text-base font-bold text-ink">
@@ -120,6 +128,14 @@ export default async function GuidesPage() {
               and interpreting AI visibility scores. Whether you are just
               starting with SEO or looking to sharpen your expertise, there
               will be something here for every skill level.
+            </p>
+            <p className="mt-3 text-sm leading-relaxed text-ink-secondary">
+              Each guide is structured around a specific outcome — improving
+              your rank for a target keyword, diagnosing a traffic drop,
+              auditing technical health, or measuring your brand&apos;s presence
+              in AI-generated search results. We update guides regularly as
+              search algorithms evolve and new platform features launch, so the
+              advice you find here always reflects current best practices.
             </p>
             <p className="mt-4 text-center">
               <Link

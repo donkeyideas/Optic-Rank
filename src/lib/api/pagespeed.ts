@@ -1,7 +1,7 @@
 /**
  * Google PageSpeed Insights API Client
- * For Core Web Vitals and performance scoring.
- * Free API with rate limits.
+ * For Core Web Vitals, performance, and accessibility scoring.
+ * Free API with rate limits (~25,000 requests/day).
  */
 
 import { requireEnv, safeAPICall, type APIResponse } from "./base";
@@ -9,9 +9,13 @@ import { logAPICall } from "./api-logger";
 
 const BASE_URL = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed";
 
+/** Timeout for PageSpeed API calls (45 seconds — the API can be slow). */
+const PAGESPEED_TIMEOUT_MS = 45_000;
+
 export interface CoreWebVitals {
   url: string;
   performance_score: number;
+  accessibility_score: number;
   lcp_ms: number;
   cls: number;
   inp_ms: number;
@@ -29,18 +33,63 @@ export async function getPageSpeedData(
   return safeAPICall("PageSpeed Insights", async () => {
     const apiKey = requireEnv("PAGESPEED_API_KEY", "PageSpeed Insights");
 
+    // Build URL with multiple category params (URLSearchParams merges duplicates,
+    // so we append manually for the repeated "category" key).
     const params = new URLSearchParams({
       url,
       key: apiKey,
       strategy,
-      category: "performance",
     });
+    params.append("category", "performance");
+    params.append("category", "accessibility");
 
+    const requestUrl = `${BASE_URL}?${params}`;
     const start = Date.now();
-    const response = await fetch(`${BASE_URL}?${params}`);
+
+    // Add timeout to prevent hanging on slow responses
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), PAGESPEED_TIMEOUT_MS);
+
+    let response: Response;
+    try {
+      response = await fetch(requestUrl, { signal: controller.signal });
+    } catch (fetchErr) {
+      clearTimeout(timeout);
+      const responseTime = Date.now() - start;
+      const isTimeout = fetchErr instanceof DOMException && fetchErr.name === "AbortError";
+      const errorMsg = isTimeout
+        ? `Timeout after ${PAGESPEED_TIMEOUT_MS}ms`
+        : fetchErr instanceof Error ? fetchErr.message : "Network error";
+
+      logAPICall({
+        provider: "pagespeed",
+        endpoint: BASE_URL,
+        method: "GET",
+        status_code: isTimeout ? 408 : 0,
+        response_time_ms: responseTime,
+        is_success: false,
+        error_message: errorMsg,
+      });
+      console.error(`[PageSpeed] Fetch failed for ${url}: ${errorMsg}`);
+      throw new Error(`PageSpeed API error: ${errorMsg}`);
+    } finally {
+      clearTimeout(timeout);
+    }
+
     const responseTime = Date.now() - start;
 
     if (!response.ok) {
+      // Try to extract Google's error message for better diagnostics
+      let errorDetail = `${response.status}: ${response.statusText}`;
+      try {
+        const errorBody = await response.json();
+        if (errorBody?.error?.message) {
+          errorDetail = `${response.status}: ${errorBody.error.message}`;
+        }
+      } catch {
+        // Ignore parse errors on error response
+      }
+
       logAPICall({
         provider: "pagespeed",
         endpoint: BASE_URL,
@@ -48,9 +97,10 @@ export async function getPageSpeedData(
         status_code: response.status,
         response_time_ms: responseTime,
         is_success: false,
-        error_message: `${response.status}: ${response.statusText}`,
+        error_message: errorDetail,
       });
-      throw new Error(`PageSpeed API ${response.status}: ${response.statusText}`);
+      console.error(`[PageSpeed] API error for ${url}: ${errorDetail}`);
+      throw new Error(`PageSpeed API ${errorDetail}`);
     }
 
     logAPICall({
@@ -66,16 +116,23 @@ export async function getPageSpeedData(
     const lighthouse = data.lighthouseResult;
     const audits = lighthouse?.audits || {};
 
-    // Extract page title from document-title audit or final-screenshot
+    // Extract page title from document-title audit
     const pageTitle = (lighthouse?.finalUrl as string)
       ? (audits["document-title"]?.details?.items?.[0]?.title as string) ??
         (data.loadingExperience?.id as string) ??
         null
       : null;
 
+    // Real accessibility score from Lighthouse (falls back to heuristic if category missing)
+    const rawAccessibility = lighthouse?.categories?.accessibility?.score;
+    const accessibilityScore = rawAccessibility != null
+      ? Math.round(rawAccessibility * 100)
+      : Math.min(100, Math.round((lighthouse?.categories?.performance?.score || 0) * 100 * 0.3 + 70));
+
     return {
       url,
       performance_score: Math.round((lighthouse?.categories?.performance?.score || 0) * 100),
+      accessibility_score: accessibilityScore,
       lcp_ms: audits["largest-contentful-paint"]?.numericValue || 0,
       cls: audits["cumulative-layout-shift"]?.numericValue || 0,
       inp_ms: audits["interaction-to-next-paint"]?.numericValue || 0,
