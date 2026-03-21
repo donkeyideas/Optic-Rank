@@ -1,9 +1,9 @@
 /**
  * X (Twitter) public profile fetcher.
  * Uses multiple fallback approaches to fetch public profile data:
- * 1. FxTwitter API (most reliable, public proxy)
- * 2. Syndication embed endpoint
- * No API key required. Only works for public accounts.
+ * 1. Official X API v2 with Bearer Token (most reliable)
+ * 2. FxTwitter API (public proxy fallback)
+ * 3. Syndication embed endpoint (last resort)
  */
 
 import type { SocialFetchResult } from "./types";
@@ -43,11 +43,15 @@ export async function fetchTwitterProfile(input: string): Promise<SocialFetchRes
   }
 
   try {
-    // Method 1: Try FxTwitter API (most reliable public proxy)
+    // Method 1: Official X API v2 (most reliable, requires Bearer Token)
+    const officialResult = await fetchViaOfficialAPI(username);
+    if (officialResult) return officialResult;
+
+    // Method 2: Try FxTwitter API (public proxy fallback)
     const fxResult = await fetchViaFxTwitter(username);
     if (fxResult) return fxResult;
 
-    // Method 2: Try syndication embed
+    // Method 3: Try syndication embed (last resort)
     const syndicationResult = await fetchViaSyndication(username);
     if (syndicationResult) return syndicationResult;
 
@@ -64,8 +68,64 @@ export async function fetchTwitterProfile(input: string): Promise<SocialFetchRes
 }
 
 /**
+ * Fetch profile data via official X API v2 using Bearer Token.
+ * GET /2/users/by/username/{username} with public_metrics fields.
+ */
+async function fetchViaOfficialAPI(username: string): Promise<SocialFetchResult | null> {
+  const bearerToken = process.env.TWITTER_BEARER_TOKEN;
+  if (!bearerToken) return null;
+
+  try {
+    const fields = "id,name,username,description,profile_image_url,public_metrics,verified,location,url,protected,created_at";
+    const res = await fetch(
+      `https://api.x.com/2/users/by/username/${encodeURIComponent(username)}?user.fields=${fields}`,
+      {
+        headers: {
+          Authorization: `Bearer ${bearerToken}`,
+        },
+        next: { revalidate: 3600 },
+      }
+    );
+
+    if (!res.ok) return null;
+
+    const json = await res.json();
+    const user = json?.data;
+    if (!user) return null;
+
+    const metrics = user.public_metrics || {};
+
+    return {
+      success: true,
+      data: {
+        platform_user_id: user.id || "",
+        display_name: user.name || username,
+        handle: user.username || username,
+        avatar_url: user.profile_image_url?.replace("_normal", "_400x400") || null,
+        bio: user.description || null,
+        followers_count: metrics.followers_count ?? 0,
+        following_count: metrics.following_count ?? 0,
+        posts_count: metrics.tweet_count ?? 0,
+        engagement_rate: null,
+        verified: user.verified ?? false,
+        country: user.location || null,
+        extra: {
+          likes: metrics.like_count ?? 0,
+          listed_count: metrics.listed_count ?? 0,
+          joined: user.created_at,
+          website: user.url,
+          is_protected: user.protected ?? false,
+        },
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Fetch profile data via FxTwitter API (public Twitter proxy).
- * This is the most reliable method for public profiles.
+ * Fallback if official API is unavailable.
  */
 async function fetchViaFxTwitter(username: string): Promise<SocialFetchResult | null> {
   try {

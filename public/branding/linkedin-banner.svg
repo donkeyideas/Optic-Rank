@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2256 382">
+  <!-- Background -->
+  <rect width="2256" height="382" fill="#f5f2ed"/>
+
+  <!-- Subtle editorial grid lines -->
+  <line x1="0" y1="1" x2="2256" y2="1" stroke="#1a1a1a" stroke-width="2"/>
+  <line x1="0" y1="380" x2="2256" y2="380" stroke="#1a1a1a" stroke-width="2"/>
+  <line x1="0" y1="4" x2="2256" y2="4" stroke="#1a1a1a" stroke-width="0.5" opacity="0.3"/>
+  <line x1="0" y1="377" x2="2256" y2="377" stroke="#1a1a1a" stroke-width="0.5" opacity="0.3"/>
+
+  <!-- Left decorative column rule -->
+  <line x1="80" y1="30" x2="80" y2="352" stroke="#1a1a1a" stroke-width="0.5" opacity="0.15"/>
+
+  <!-- Logo mark area -->
+  <g transform="translate(120, 71)">
+    <!-- Logo circle -->
+    <circle cx="60" cy="60" r="52" fill="none" stroke="#1a1a1a" stroke-width="5"/>
+    <!-- Crosshair lines -->
+    <line x1="60" y1="0" x2="60" y2="120" stroke="#c0392b" stroke-width="2" opacity="0.3"/>
+    <line x1="0" y1="60" x2="120" y2="60" stroke="#c0392b" stroke-width="2" opacity="0.3"/>
+    <!-- Center dot -->
+    <circle cx="60" cy="60" r="7" fill="#c0392b"/>
+    <!-- R letter -->
+    <text x="88" y="90" font-family="Georgia, 'Playfair Display', serif" font-size="72" font-weight="900" fill="#c0392b">R</text>
+  </g>
+
+  <!-- Divider line after logo -->
+  <line x1="310" y1="60" x2="310" y2="322" stroke="#1a1a1a" stroke-width="1" opacity="0.2"/>
+
+  <!-- Main headline -->
+  <text x="350" y="145" font-family="Georgia, 'Playfair Display', serif" font-size="80" font-weight="700" fill="#1a1a1a" letter-spacing="-1">OPTIC</text>
+  <text x="640" y="145" font-family="Georgia, 'Playfair Display', serif" font-size="80" font-weight="700" fill="#c0392b" letter-spacing="-1">RANK</text>
+
+  <!-- Thin rule under headline -->
+  <line x1="350" y1="162" x2="820" y2="162" stroke="#1a1a1a" stroke-width="1" opacity="0.3"/>
+
+  <!-- Tagline -->
+  <text x="350" y="195" font-family="'IBM Plex Sans', 'Segoe UI', sans-serif" font-size="24" fill="#1a1a1a" opacity="0.7" letter-spacing="3">SEO INTELLIGENCE FOR THE AI SEARCH ERA</text>
+
+  <!-- Subtitle details -->
+  <text x="350" y="240" font-family="'IBM Plex Sans', 'Segoe UI', sans-serif" font-size="18" fill="#1a1a1a" opacity="0.45">Rank Tracking</text>
+  <circle cx="475" cy="235" r="2" fill="#c0392b" opacity="0.5"/>
+  <text x="488" y="240" font-family="'IBM Plex Sans', 'Segoe UI', sans-serif" font-size="18" fill="#1a1a1a" opacity="0.45">AI Visibility</text>
+  <circle cx="607" cy="235" r="2" fill="#c0392b" opacity="0.5"/>
+  <text x="620" y="240" font-family="'IBM Plex Sans', 'Segoe UI', sans-serif" font-size="18" fill="#1a1a1a" opacity="0.45">Technical Audits</text>
+  <circle cx="771" cy="235" r="2" fill="#c0392b" opacity="0.5"/>
+  <text x="784" y="240" font-family="'IBM Plex Sans', 'Segoe UI', sans-serif" font-size="18" fill="#1a1a1a" opacity="0.45">Backlink Analytics</text>
+
+  <!-- Right side - editorial data visualization accent -->
+  <g transform="translate(1580, 50)" opacity="0.12">
+    <!-- Mini bar chart -->
+    <rect x="0" y="180" width="24" height="100" fill="#1a1a1a"/>
+    <rect x="34" y="140" width="24" height="140" fill="#1a1a1a"/>
+    <rect x="68" y="100" width="24" height="180" fill="#1a1a1a"/>
+    <rect x="102" y="60" width="24" height="220" fill="#c0392b"/>
+    <rect x="136" y="80" width="24" height="200" fill="#1a1a1a"/>
+    <rect x="170" y="40" width="24" height="240" fill="#c0392b"/>
+    <rect x="204" y="20" width="24" height="260" fill="#1a1a1a"/>
+    <rect x="238" y="0" width="24" height="280" fill="#c0392b"/>
+    <rect x="272" y="30" width="24" height="250" fill="#1a1a1a"/>
+    <rect x="306" y="50" width="24" height="230" fill="#1a1a1a"/>
+    <rect x="340" y="70" width="24" height="210" fill="#1a1a1a"/>
+    <rect x="374" y="10" width="24" height="270" fill="#c0392b"/>
+    <rect x="408" y="45" width="24" height="235" fill="#1a1a1a"/>
+    <rect x="442" y="90" width="24" height="190" fill="#1a1a1a"/>
+    <rect x="476" y="55" width="24" height="225" fill="#c0392b"/>
+    <rect x="510" y="110" width="24" height="170" fill="#1a1a1a"/>
+    <rect x="544" y="130" width="24" height="150" fill="#1a1a1a"/>
+  </g>
+
+  <!-- Right column rule -->
+  <line x1="1560" y1="30" x2="1560" y2="352" stroke="#1a1a1a" stroke-width="0.5" opacity="0.15"/>
+
+  <!-- Edition line - bottom right, editorial style -->
+  <text x="2176" y="358" font-family="'IBM Plex Mono', 'Courier New', monospace" font-size="13" fill="#1a1a1a" opacity="0.3" text-anchor="end">opticrank.com</text>
+
+  <!-- Edition line - bottom left -->
+  <text x="90" y="358" font-family="'IBM Plex Mono', 'Courier New', monospace" font-size="13" fill="#1a1a1a" opacity="0.3">EST. 2025</text>
+</svg>

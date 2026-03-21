@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FileText } from "lucide-react";
 import { ContentClient } from "./content-client";
+import { scoreContent } from "@/lib/ai/score-content";
 
 export default async function ContentPage() {
   const supabase = await createClient();
@@ -54,7 +55,7 @@ export default async function ContentPage() {
     supabase.from("content_pages").select("*").eq("project_id", project.id),
     supabase.from("content_briefs").select("*").eq("project_id", project.id),
     supabase.from("content_calendar").select("*").eq("project_id", project.id).order("target_date", { ascending: true }),
-    supabase.from("keywords").select("id, search_volume, current_position").eq("project_id", project.id).eq("is_active", true).not("current_position", "is", null),
+    supabase.from("keywords").select("id, keyword, search_volume, current_position").eq("project_id", project.id).eq("is_active", true).not("current_position", "is", null),
   ]);
 
   // Auto-populate content_pages from latest site audit if empty
@@ -95,15 +96,46 @@ export default async function ContentPage() {
     }
   }
 
-  // Build keyword_ranks URL→traffic map to enrich content pages
+  // Auto-score any content pages that don't have a content_score yet
+  const unscoredPages = (contentPagesRes.data ?? []).filter((p) => p.content_score == null);
+  if (unscoredPages.length > 0) {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const admin = createAdminClient();
+    await Promise.all(
+      unscoredPages.map((page) => {
+        const scores = scoreContent({
+          url: page.url,
+          title: page.title,
+          wordCount: page.word_count,
+          primaryKeyword: page.primary_keyword,
+        });
+        return admin
+          .from("content_pages")
+          .update({
+            content_score: scores.contentScore,
+            readability_score: scores.readabilityScore,
+            freshness_score: scores.freshnessScore,
+          })
+          .eq("id", page.id);
+      })
+    );
+    // Re-fetch so the client receives the updated scores
+    contentPagesRes = await supabase
+      .from("content_pages")
+      .select("*")
+      .eq("project_id", project.id);
+  }
+
+  // Build estimated traffic for content pages
   const CTR: Record<number, number> = { 1: 0.284, 2: 0.155, 3: 0.11, 4: 0.081, 5: 0.062, 6: 0.047, 7: 0.038, 8: 0.031, 9: 0.026, 10: 0.022 };
   const getCtr = (pos: number) => (pos >= 1 && pos <= 10 ? CTR[pos] ?? 0.005 : pos > 10 ? 0.005 : 0);
 
-  // Fetch latest keyword_ranks to find which URLs rank for which keywords
-  const kwIds = (keywordsRes.data ?? []).map((k) => k.id);
-  let urlTrafficMap = new Map<string, number>();
+  const keywords = keywordsRes.data ?? [];
+  const kwIds = keywords.map((k) => k.id);
+  const urlTrafficMap = new Map<string, number>();
 
   if (kwIds.length > 0) {
+    // Strategy 1: Match via keyword_ranks URL field (if available)
     const { data: ranks } = await supabase
       .from("keyword_ranks")
       .select("keyword_id, position, url")
@@ -111,9 +143,8 @@ export default async function ContentPage() {
       .not("url", "is", null)
       .order("checked_at", { ascending: false });
 
-    // Use only the latest rank per keyword
     const kwMap = new Map<string, { search_volume: number }>();
-    for (const kw of keywordsRes.data ?? []) {
+    for (const kw of keywords) {
       kwMap.set(kw.id, { search_volume: kw.search_volume ?? 0 });
     }
 
@@ -126,6 +157,31 @@ export default async function ContentPage() {
       const traffic = Math.round(kw.search_volume * getCtr(rank.position));
       if (traffic > 0) {
         urlTrafficMap.set(rank.url, (urlTrafficMap.get(rank.url) ?? 0) + traffic);
+      }
+    }
+
+    // Strategy 2: If no content pages matched any keyword_ranks URLs,
+    // distribute total keyword traffic proportionally by word count
+    const pages = contentPagesRes.data ?? [];
+    const pageUrls = new Set(pages.map((p) => p.url));
+    const hasMatchingPages = [...urlTrafficMap.keys()].some((u) => pageUrls.has(u));
+    if (!hasMatchingPages) {
+      urlTrafficMap.clear();
+      // Calculate total estimated site traffic from all ranked keywords
+      let totalTraffic = 0;
+      for (const kw of keywords) {
+        if (!kw.current_position || !kw.search_volume) continue;
+        totalTraffic += Math.round(kw.search_volume * getCtr(kw.current_position));
+      }
+
+      if (totalTraffic > 0 && pages.length > 0) {
+        // Weight by word count — pages with more content get more traffic share
+        const totalWords = pages.reduce((sum, p) => sum + (p.word_count ?? 1), 0);
+        for (const page of pages) {
+          const weight = (page.word_count ?? 1) / totalWords;
+          const pageTraffic = Math.max(1, Math.round(totalTraffic * weight));
+          urlTrafficMap.set(page.url, pageTraffic);
+        }
       }
     }
   }
@@ -143,6 +199,7 @@ export default async function ContentPage() {
       contentBriefs={contentBriefsRes.data ?? []}
       calendarEntries={calendarRes.data ?? []}
       projectId={project.id}
+      hasKeywords={kwIds.length > 0}
     />
   );
 }
