@@ -68,16 +68,30 @@ export default async function SiteAuditPage() {
   let pages: any[] = [];
 
   if (latestAudit) {
-    const [issuesRes, pagesRes] = await Promise.all([
-      supabase.from("audit_issues").select("*").eq("audit_id", latestAudit.id).not("category", "like", "%-signal"),
-      supabase.from("audit_pages").select("*").eq("audit_id", latestAudit.id),
-    ]);
-    issues = issuesRes.data ?? [];
-    // Map load_time_ms (milliseconds) to load_time (seconds) for client compatibility
-    pages = (pagesRes.data ?? []).map((p: Record<string, unknown>) => ({
-      ...p,
-      load_time: p.load_time_ms != null ? (p.load_time_ms as number) / 1000 : null,
-    }));
+    try {
+      const [issuesRes, pagesRes] = await Promise.all([
+        supabase
+          .from("audit_issues")
+          .select("*")
+          .eq("audit_id", latestAudit.id)
+          .not("category", "like", "%-signal")
+          .order("severity", { ascending: true })
+          .limit(500),
+        supabase
+          .from("audit_pages")
+          .select("*")
+          .eq("audit_id", latestAudit.id)
+          .limit(100),
+      ]);
+      issues = issuesRes.data ?? [];
+      // Map load_time_ms (milliseconds) to load_time (seconds) for client compatibility
+      pages = (pagesRes.data ?? []).map((p: Record<string, unknown>) => ({
+        ...p,
+        load_time: p.load_time_ms != null ? (p.load_time_ms as number) / 1000 : null,
+      }));
+    } catch (err) {
+      console.error("[SiteAudit] Failed to fetch audit data:", err);
+    }
   }
 
   // Fetch audit history

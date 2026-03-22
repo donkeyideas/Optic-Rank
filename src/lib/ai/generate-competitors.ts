@@ -1,8 +1,8 @@
 /**
  * AI-powered competitor discovery.
  * Uses unified AI provider (DeepSeek > Gemini > env fallback).
- * Fetches site context to understand the business before generating.
- * Falls back to heuristic suggestions if no AI available.
+ * Fetches site context (title, description, headings, nav) to understand
+ * the business before generating competitor suggestions.
  */
 
 import { aiChat } from "./ai-provider";
@@ -15,7 +15,7 @@ interface CompetitorSuggestion {
 
 interface GenerateCompetitorsResult {
   competitors: CompetitorSuggestion[];
-  source: "ai" | "heuristic";
+  source: "ai";
 }
 
 export async function generateCompetitorSuggestions(
@@ -26,50 +26,54 @@ export async function generateCompetitorSuggestions(
   // Fetch site context to understand what the business does
   const siteContext = await fetchSiteContext(domain);
 
-  // Try AI generation first
-  try {
-    const result = await generateWithAI(domain, siteContext, existingDomains, count);
-    if (result.length > 0) {
-      return { competitors: result, source: "ai" };
-    }
-  } catch (err) {
-    console.error("[generateCompetitors] AI error, falling back to heuristic:", err);
-  }
-
-  // Fallback: heuristic competitor generation
-  return {
-    competitors: generateHeuristic(domain, siteContext, existingDomains, count),
-    source: "heuristic",
-  };
+  const result = await generateWithAI(domain, siteContext, existingDomains, count);
+  return { competitors: result, source: "ai" };
 }
 
 async function generateWithAI(
   domain: string,
-  siteContext: { title: string; description: string; industry: string },
+  siteContext: { title: string; description: string; industry: string; businessSummary: string },
   existingDomains: string[],
   count: number
 ): Promise<CompetitorSuggestion[]> {
   const existingList =
     existingDomains.length > 0
-      ? `\nAlready tracking: ${existingDomains.join(", ")}`
+      ? `\nAlready tracking (DO NOT suggest these): ${existingDomains.join(", ")}`
       : "";
 
-  const prompt = `You are an SEO competitive analysis expert. For the website "${domain}", suggest exactly ${count} direct competitors.
+  const businessContext = siteContext.businessSummary
+    ? `\nExtracted page content:\n${siteContext.businessSummary}`
+    : "";
 
-About this website:
-- Title: ${siteContext.title}
-- Description: ${siteContext.description}
-- Industry: ${siteContext.industry}
-${existingList}
+  const industryHint = siteContext.industry !== "general"
+    ? `\nDetected industry: ${siteContext.industry}`
+    : "";
 
-Requirements:
-- These should be REAL, well-known companies in the SAME industry (${siteContext.industry})
-- Competitors must offer similar products/services to "${siteContext.title}"
-- Do NOT include the domain itself or any already tracked domains
-- Return ONLY in this exact format, one per line: CompanyName|domain.com
-- No explanations, no numbering, no extra text`;
+  const prompt = `You are an expert SEO competitive analyst. Analyze the following website and identify its ${count} closest DIRECT business competitors.
 
-  const response = await aiChat(prompt, { temperature: 0.7, maxTokens: 512 });
+Website to analyze: ${domain}
+Page title: ${siteContext.title}
+Meta description: ${siteContext.description}${industryHint}${businessContext}${existingList}
+
+CRITICAL INSTRUCTIONS:
+1. First, determine what specific products or services this business offers based on the title, description, and page content above.
+2. Then find ${count} companies that sell the SAME or very similar products/services to the SAME target customers.
+3. Competitors MUST be in the same specific niche — not the same broad category.
+   - Example: A home warranty company → other home warranty companies (American Home Shield, Choice Home Warranty, etc.)
+   - Example: A WordPress hosting company → other WordPress hosting companies (not just any hosting)
+   - Example: A dog food brand → other dog food brands (not just pet stores)
+4. Competitors should be well-known, real companies with active websites.
+5. Do NOT include the analyzed domain (${domain}) itself.
+6. Do NOT include generic web companies like hosting providers, domain registrars, or website builders unless the analyzed site is actually in that business.
+
+Return ONLY in this exact format, one per line: CompanyName|domain.com
+No explanations, no numbering, no extra text.`;
+
+  const response = await aiChat(prompt, {
+    temperature: 0.3,
+    maxTokens: 512,
+    context: { feature: "competitor-discovery" },
+  });
   if (!response) return [];
 
   const competitors: CompetitorSuggestion[] = [];
@@ -83,6 +87,7 @@ Requirements:
       const dom = parts[1]
         .trim()
         .replace(/^https?:\/\//, "")
+        .replace(/^www\./, "")
         .replace(/\/+$/, "")
         .toLowerCase();
       if (name && dom && !existingDomains.includes(dom) && dom !== domain) {
@@ -92,84 +97,4 @@ Requirements:
   }
 
   return competitors.slice(0, count);
-}
-
-/**
- * Heuristic competitor generation based on site context and industry.
- */
-function generateHeuristic(
-  domain: string,
-  siteContext: { title: string; description: string; industry: string },
-  existingDomains: string[],
-  count: number
-): CompetitorSuggestion[] {
-  const excluded = new Set([domain, ...existingDomains]);
-  const suggestions: CompetitorSuggestion[] = [];
-
-  // Industry-based competitor suggestions
-  const industryMap: Record<string, CompetitorSuggestion[]> = {
-    fintech: [
-      { name: "Robinhood", domain: "robinhood.com" },
-      { name: "Acorns", domain: "acorns.com" },
-      { name: "Betterment", domain: "betterment.com" },
-      { name: "Wealthfront", domain: "wealthfront.com" },
-      { name: "Stash", domain: "stash.com" },
-      { name: "Public", domain: "public.com" },
-      { name: "M1 Finance", domain: "m1.com" },
-      { name: "SoFi", domain: "sofi.com" },
-      { name: "Webull", domain: "webull.com" },
-      { name: "Cash App", domain: "cash.app" },
-    ],
-    ecommerce: [
-      { name: "Shopify", domain: "shopify.com" },
-      { name: "Amazon", domain: "amazon.com" },
-      { name: "eBay", domain: "ebay.com" },
-      { name: "Etsy", domain: "etsy.com" },
-      { name: "WooCommerce", domain: "woocommerce.com" },
-    ],
-    saas: [
-      { name: "HubSpot", domain: "hubspot.com" },
-      { name: "Salesforce", domain: "salesforce.com" },
-      { name: "Zendesk", domain: "zendesk.com" },
-      { name: "Intercom", domain: "intercom.com" },
-      { name: "Monday.com", domain: "monday.com" },
-    ],
-    marketing: [
-      { name: "Ahrefs", domain: "ahrefs.com" },
-      { name: "Semrush", domain: "semrush.com" },
-      { name: "Moz", domain: "moz.com" },
-      { name: "HubSpot", domain: "hubspot.com" },
-      { name: "Mailchimp", domain: "mailchimp.com" },
-    ],
-    healthcare: [
-      { name: "WebMD", domain: "webmd.com" },
-      { name: "Healthline", domain: "healthline.com" },
-      { name: "Zocdoc", domain: "zocdoc.com" },
-      { name: "GoodRx", domain: "goodrx.com" },
-      { name: "Teladoc", domain: "teladoc.com" },
-    ],
-    education: [
-      { name: "Coursera", domain: "coursera.org" },
-      { name: "Udemy", domain: "udemy.com" },
-      { name: "Khan Academy", domain: "khanacademy.org" },
-      { name: "Skillshare", domain: "skillshare.com" },
-      { name: "edX", domain: "edx.org" },
-    ],
-    technology: [
-      { name: "TechCrunch", domain: "techcrunch.com" },
-      { name: "The Verge", domain: "theverge.com" },
-      { name: "Wired", domain: "wired.com" },
-      { name: "Ars Technica", domain: "arstechnica.com" },
-      { name: "CNET", domain: "cnet.com" },
-    ],
-  };
-
-  const competitors = industryMap[siteContext.industry] ?? [];
-  for (const comp of competitors) {
-    if (!excluded.has(comp.domain) && suggestions.length < count) {
-      suggestions.push(comp);
-    }
-  }
-
-  return suggestions.slice(0, count);
 }
