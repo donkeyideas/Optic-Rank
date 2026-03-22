@@ -388,7 +388,7 @@ export async function getSubscriptionDetails() {
   const details: SubDetail[] = [];
 
   // Fetch Stripe subscription details in parallel (batch of 5)
-  if (withStripe.length > 0) {
+  if (withStripe.length > 0 && process.env.STRIPE_SECRET_KEY) {
     const stripe = getStripe();
     const batchSize = 5;
     for (let i = 0; i < withStripe.length; i += batchSize) {
@@ -448,8 +448,9 @@ export async function getSubscriptionDetails() {
     }
   }
 
-  // Add paid orgs without Stripe subscription IDs (using plan pricing)
-  for (const org of withoutStripe) {
+  // Add paid orgs without Stripe subscription IDs or when Stripe key is unavailable
+  const fallbackOrgs = process.env.STRIPE_SECRET_KEY ? withoutStripe : paidOrgs.filter(o => !details.some(d => d.orgId === o.id));
+  for (const org of fallbackOrgs) {
     details.push({
       orgId: org.id,
       orgName: org.name,
