@@ -15,6 +15,8 @@ interface CompetitorSuggestion {
 interface GenerateCompetitorsResult {
   competitors: CompetitorSuggestion[];
   source: "ai";
+  /** Reason for failure if competitors is empty */
+  failReason?: string;
 }
 
 export async function generateCompetitorSuggestions(
@@ -39,10 +41,13 @@ export async function generateCompetitorSuggestions(
       count,
       projectName
     );
+    if (result.length === 0) {
+      return { competitors: [], source: "ai", failReason: "AI returned no results — check AI provider keys in Admin → API Management" };
+    }
     return { competitors: result, source: "ai" };
   } catch (err) {
     console.error("[generateCompetitors] AI generation failed:", err);
-    return { competitors: [], source: "ai" };
+    return { competitors: [], source: "ai", failReason: `AI error: ${err instanceof Error ? err.message : String(err)}` };
   }
 }
 

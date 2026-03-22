@@ -147,7 +147,7 @@ export async function generateCompetitorsAI(
   );
 
   if (result.competitors.length === 0) {
-    return { error: "Could not generate competitor suggestions. Try adding them manually." };
+    return { error: result.failReason ?? "Could not generate competitor suggestions. Try adding them manually." };
   }
 
   // Insert all suggested competitors
