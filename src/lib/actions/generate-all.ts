@@ -8,6 +8,7 @@ import { generateKeywordsAI } from "./keywords";
 import { generateCompetitorsAI } from "./competitors";
 import { generateInsightsForProject } from "./insights";
 import { generateBrief } from "./briefs";
+import { generateRecommendations } from "./recommendations";
 import { runVisibilityCheck } from "./ai-visibility";
 import { extractProjectEntities } from "./entities";
 import { generatePredictions } from "./predictions";
@@ -163,6 +164,9 @@ export async function runGenerateStep(
       case "brief":
         result = (await generateBrief(projectId, "on_demand")) as typeof result;
         break;
+      case "recommendations":
+        result = (await generateRecommendations(projectId)) as typeof result;
+        break;
 
       default:
         return { status: "error", message: "Unknown step" };
@@ -227,4 +231,5 @@ export async function revalidateAllDashboard() {
   revalidatePath("/dashboard/reports");
   revalidatePath("/dashboard/search-ai");
   revalidatePath("/dashboard/social-intelligence");
+  revalidatePath("/dashboard/recommendations");
 }

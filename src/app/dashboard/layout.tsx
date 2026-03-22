@@ -47,6 +47,7 @@ const dashboardNavItems = [
   { href: "/dashboard/content",       label: "Content" },
   { href: "/dashboard/backlinks",     label: "Backlinks" },
   { href: "/dashboard/site-audit",    label: "Site Audit" },
+  { href: "/dashboard/recommendations", label: "Recommendations" },
   { href: "/dashboard/app-store",     label: "App Store" },
   { href: "/dashboard/social-intelligence", label: "Social Intel" },
   { href: "/dashboard/advanced-ai",   label: "Advanced AI", matchPaths: ["/dashboard/ai-visibility", "/dashboard/predictions", "/dashboard/entities", "/dashboard/ai-briefs", "/dashboard/ai-insights"] },

@@ -496,6 +496,42 @@ export interface GeneratedContent {
   cta?: string;
 }
 
+// --- Recommendations ---
+export type RecommendationCategory =
+  | "quick_wins"
+  | "content"
+  | "technical"
+  | "backlinks"
+  | "ai_visibility"
+  | "revenue"
+  | "competitive"
+  | "performance";
+
+export type ImpactLevel = "high" | "medium" | "low";
+export type EffortLevel = "high" | "medium" | "low";
+
+export interface Recommendation {
+  id: string;
+  project_id: string;
+  category: RecommendationCategory;
+  title: string;
+  description: string;
+  expected_result: string | null;
+  impact: ImpactLevel;
+  effort: EffortLevel;
+  priority_score: number;
+  data_sources: string[];
+  linked_page: string | null;
+  linked_label: string | null;
+  metadata: Record<string, unknown>;
+  is_ai_enhanced: boolean;
+  ai_provider: string | null;
+  is_dismissed: boolean;
+  is_completed: boolean;
+  batch_id: string | null;
+  created_at: string;
+}
+
 // --- CRO ---
 export type ConversionGoalType =
   | "page_visit"

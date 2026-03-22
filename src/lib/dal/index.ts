@@ -74,6 +74,10 @@ export {
   getBriefById,
 } from "./briefs";
 export {
+  getRecommendations,
+  getRecommendationStats,
+} from "./recommendations";
+export {
   getGeoStats,
   getGeoScoresByPage,
   getCitationMatrix,
