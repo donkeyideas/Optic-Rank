@@ -58,19 +58,26 @@ export async function runSiteAudit(
   }
 
   try {
-    // Step 1: Multi-page crawl (discover and analyze up to 25 pages)
-    const crawlResult = await crawlSite(domain, { maxPages: 25, timeoutMs: 15000, concurrency: 3 });
+    // Step 1+2: Run crawl and PageSpeed in PARALLEL to stay within function timeout
+    const [crawlResult, pageSpeedResult] = await Promise.all([
+      crawlSite(domain, { maxPages: 25, timeoutMs: 15000, concurrency: 3 }),
+      getPageSpeedData(targetUrl, "mobile").catch((err) => {
+        console.error(`[runSiteAudit] PageSpeed threw for ${targetUrl}:`, err);
+        return { data: null, error: `PageSpeed error: ${err instanceof Error ? err.message : String(err)}` } as Awaited<ReturnType<typeof getPageSpeedData>>;
+      }),
+    ]);
+
     const crawledPages = crawlResult.pages;
     const siteIsSPA = crawlResult.siteIsSPA;
     const jsRenderingUsed = crawlResult.jsRenderingUsed;
 
-    // Step 2: Get PageSpeed CWV for the homepage
-    const pageSpeedResult = await getPageSpeedData(targetUrl, "mobile");
-
-    if (pageSpeedResult.error || !pageSpeedResult.data) {
+    const pageSpeedFailed = !!(pageSpeedResult.error || !pageSpeedResult.data);
+    if (pageSpeedFailed) {
       console.error(`[runSiteAudit] PageSpeed failed for ${targetUrl}: ${pageSpeedResult.error ?? "No data returned"}`);
-      // Even if PageSpeed fails, we still have crawled pages
-      // Create a basic audit from crawled data
+    }
+
+    // If PageSpeed failed, fall back to crawl-only audit
+    if (pageSpeedFailed) {
       if (crawledPages.length > 0) {
         await finalizeCrawlOnlyAudit(supabase, projectId, audit.id, crawledPages, siteIsSPA, jsRenderingUsed);
         revalidatePath("/dashboard/site-audit");
@@ -85,11 +92,12 @@ export async function runSiteAudit(
         .eq("id", audit.id);
 
       revalidatePath("/dashboard/site-audit");
-      return { error: pageSpeedResult.error ?? "Failed to fetch PageSpeed data." };
+      return { error: "Could not crawl the site or fetch PageSpeed data. Check the domain is accessible." };
     }
 
     // Step 3: Process PageSpeed data into the audit (scores + CWV issues)
-    await processPageSpeedAudit(supabase, projectId, pageSpeedResult.data, audit.id, targetUrl);
+    const psData = pageSpeedResult.data!;
+    await processPageSpeedAudit(supabase, projectId, psData, audit.id, targetUrl);
 
     // Step 4: Update audit with actual crawl count, SPA flag, and insert all crawled pages
     await supabase
@@ -174,8 +182,8 @@ export async function runSiteAudit(
     // Recalculate scores from actual crawl data (overrides heuristic scores from processPageSpeedAudit)
     const { seoScore, contentScore, healthScore } = computeScoresFromCrawl(
       crawledPages,
-      pageSpeedResult.data.performance_score,
-      pageSpeedResult.data.accessibility_score
+      psData.performance_score,
+      psData.accessibility_score
     );
 
     // Update total issues count (exclude metric & signal entries) and crawl-based scores

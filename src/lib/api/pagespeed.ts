@@ -9,8 +9,8 @@ import { logAPICall } from "./api-logger";
 
 const BASE_URL = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed";
 
-/** Timeout for PageSpeed API calls (45 seconds — the API can be slow). */
-const PAGESPEED_TIMEOUT_MS = 45_000;
+/** Timeout for PageSpeed API calls (20 seconds — must fit within Vercel function limits). */
+const PAGESPEED_TIMEOUT_MS = 20_000;
 
 export interface CoreWebVitals {
   url: string;
