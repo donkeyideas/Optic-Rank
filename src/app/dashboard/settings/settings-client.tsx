@@ -62,6 +62,7 @@ import {
 import { BillingTab } from "./billing-tab";
 import { ApiKeysTab } from "./api-keys-tab";
 import { IntegrationsTab } from "./integrations-tab";
+import { SecurityTab } from "./security-tab";
 import type { ApiKeyPublic } from "@/lib/actions/api-keys";
 import type { IntegrationSettings } from "@/lib/actions/integrations";
 import type { Profile, Organization } from "@/types";
@@ -164,6 +165,8 @@ interface SettingsClientProps {
   }>;
   apiKeys?: ApiKeyPublic[];
   integrationSettings?: IntegrationSettings;
+  mfaEnabled?: boolean;
+  mfaFactors?: Array<{ id: string; friendlyName: string | null; status: string }>;
 }
 
 /* ------------------------------------------------------------------
@@ -221,6 +224,8 @@ export function SettingsClient({
   billingEvents = [],
   apiKeys = [],
   integrationSettings,
+  mfaEnabled = false,
+  mfaFactors = [],
 }: SettingsClientProps) {
   const timezone = useTimezone();
   const [activeTab, setActiveTab] = useState("general");
@@ -382,6 +387,10 @@ export function SettingsClient({
           <TabsTrigger value="billing">
             <CreditCard size={12} className="mr-1.5" />
             Billing
+          </TabsTrigger>
+          <TabsTrigger value="security">
+            <Shield size={12} className="mr-1.5" />
+            Security
           </TabsTrigger>
         </TabsList>
 
@@ -1052,6 +1061,13 @@ export function SettingsClient({
               actionHref="/dashboard/settings"
             />
           )}
+        </TabsContent>
+
+        {/* ============================================================
+            TAB: Security
+            ============================================================ */}
+        <TabsContent value="security">
+          <SecurityTab initialEnabled={mfaEnabled} initialFactors={mfaFactors} />
         </TabsContent>
       </Tabs>
 

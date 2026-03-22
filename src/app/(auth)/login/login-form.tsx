@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 
 export function LoginForm() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const message = searchParams.get("message");
 
   const [showPassword, setShowPassword] = useState(false);
@@ -33,6 +34,10 @@ export function LoginForm() {
 
     startTransition(async () => {
       const result = await signIn(formData);
+      if (result && "requires2FA" in result) {
+        router.push("/verify-2fa");
+        return;
+      }
       if (result && "error" in result) {
         setError(result.error);
       }

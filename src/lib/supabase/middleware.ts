@@ -40,6 +40,7 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/signup") ||
     request.nextUrl.pathname.startsWith("/forgot-password");
 
+  const is2FARoute = request.nextUrl.pathname.startsWith("/verify-2fa");
   const isDashboardRoute = request.nextUrl.pathname.startsWith("/dashboard");
   const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
 
@@ -50,11 +51,44 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect logged-in users away from auth pages
-  if (user && isAuthRoute) {
+  // Enforce AAL2 for users with MFA enrolled
+  if (user && (isDashboardRoute || isAdminRoute)) {
+    const { data: aalData } =
+      await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+
+    if (
+      aalData &&
+      aalData.currentLevel === "aal1" &&
+      aalData.nextLevel === "aal2"
+    ) {
+      // User has MFA but hasn't verified — redirect to 2FA page
+      const url = request.nextUrl.clone();
+      url.pathname = "/verify-2fa";
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // Redirect logged-in users away from auth pages (but not from 2FA page)
+  if (user && isAuthRoute && !is2FARoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
+  }
+
+  // If user is on 2FA page but doesn't need 2FA, redirect to dashboard
+  if (user && is2FARoute) {
+    const { data: aalData } =
+      await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+
+    if (
+      !aalData ||
+      aalData.currentLevel === "aal2" ||
+      aalData.nextLevel !== "aal2"
+    ) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
   }
 
   // Set pathname header for layout components to read (e.g., trial lockout bypass)

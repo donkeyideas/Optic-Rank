@@ -7,6 +7,7 @@ import { getUserApiKeys, type UserApiKey } from "@/lib/actions/user-api-keys";
 import { getUsageSummary } from "@/lib/stripe/plan-gate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { IntegrationSettings } from "@/lib/actions/integrations";
+import { getMFAStatus } from "@/lib/actions/two-fa";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -132,6 +133,17 @@ export default async function SettingsPage() {
     }
   }
 
+  // Fetch MFA status
+  let mfaEnabled = false;
+  let mfaFactors: Array<{ id: string; friendlyName: string | null; status: string }> = [];
+  try {
+    const mfaStatus = await getMFAStatus();
+    mfaEnabled = mfaStatus.enabled;
+    mfaFactors = mfaStatus.factors;
+  } catch {
+    // MFA status fetch failed — non-critical
+  }
+
   // Fetch billing data
   let usage = undefined;
   let billingEvents: Array<{
@@ -171,6 +183,8 @@ export default async function SettingsPage() {
       billingEvents={billingEvents}
       apiKeys={apiKeys}
       integrationSettings={integrationSettings}
+      mfaEnabled={mfaEnabled}
+      mfaFactors={mfaFactors}
     />
   );
 }

@@ -106,7 +106,7 @@ export async function signUp(
  */
 export async function signIn(
   formData: FormData
-): Promise<{ error: string } | { success: true }> {
+): Promise<{ error: string } | { success: true } | { requires2FA: true }> {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
@@ -131,6 +131,21 @@ export async function signIn(
       return { error: "Unable to reach authentication service. Please try again in a moment." };
     }
     return { error: error.message };
+  }
+
+  // Check if user has TOTP MFA enrolled — redirect to 2FA verification
+  if (data.user) {
+    const { data: aalData } =
+      await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+
+    if (
+      aalData &&
+      aalData.currentLevel === "aal1" &&
+      aalData.nextLevel === "aal2"
+    ) {
+      // User has MFA enrolled but hasn't verified yet — send to 2FA page
+      return { requires2FA: true };
+    }
   }
 
   // Check if user is an admin — redirect to admin dashboard
