@@ -164,7 +164,12 @@ export function BacklinksPageClient({
   function handleDiscover() {
     setActionError(null);
     runAction(
-      { title: "Discovering Backlinks", description: "Crawling the web to find sites linking to you..." },
+      {
+        title: "Discovering Backlinks",
+        description: "Crawling the web to find sites linking to you...",
+        steps: ["Crawling target URLs", "Extracting link data", "Analyzing link quality", "Scoring domain authority", "Compiling results"],
+        estimatedDuration: 30,
+      },
       () => discoverBacklinks(projectId)
     );
   }

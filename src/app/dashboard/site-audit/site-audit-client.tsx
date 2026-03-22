@@ -330,7 +330,12 @@ export function SiteAuditClient({
   function handleRunAudit() {
     setAuditError(null);
     runAction(
-      { title: "Running Site Audit", description: "Crawling pages and analyzing technical SEO issues..." },
+      {
+        title: "Running Site Audit",
+        description: "Crawling pages and analyzing technical SEO issues...",
+        steps: ["Crawling website pages", "Running PageSpeed analysis", "Checking SEO issues", "Analyzing Core Web Vitals", "Generating audit report"],
+        estimatedDuration: 45,
+      },
       () => runSiteAudit(projectId)
     );
   }

@@ -202,21 +202,36 @@ export function ContentClient({
 
   function handleDetectDecay() {
     runAction(
-      { title: "Detecting Content Decay", description: "Analyzing content freshness and traffic patterns..." },
+      {
+        title: "Detecting Content Decay",
+        description: "Analyzing content freshness and traffic patterns...",
+        steps: ["Scanning content pages", "Analyzing traffic trends", "Identifying declining content", "Scoring decay severity", "Generating recovery suggestions"],
+        estimatedDuration: 20,
+      },
       () => detectContentDecay(projectId)
     );
   }
 
   function handleDetectCannibalization() {
     runAction(
-      { title: "Checking Cannibalization", description: "Scanning for keyword overlap between pages..." },
+      {
+        title: "Checking Cannibalization",
+        description: "Scanning for keyword overlap between pages...",
+        steps: ["Collecting page keywords", "Comparing keyword targets", "Detecting overlaps", "Ranking conflict severity", "Building recommendations"],
+        estimatedDuration: 15,
+      },
       () => detectCannibalization(projectId)
     );
   }
 
   function handleSuggestLinks() {
     runAction(
-      { title: "Suggesting Internal Links", description: "Analyzing content relationships for linking opportunities..." },
+      {
+        title: "Suggesting Internal Links",
+        description: "Analyzing content relationships for linking opportunities...",
+        steps: ["Mapping content topics", "Analyzing page relationships", "Identifying link opportunities", "Scoring link value", "Generating suggestions"],
+        estimatedDuration: 15,
+      },
       () => suggestInternalLinks(projectId)
     );
   }
@@ -757,7 +772,12 @@ export function ContentClient({
               disabled={isActionRunning}
               onClick={() => {
                 runAction(
-                  { title: "Generating Content Briefs", description: "Creating AI-powered content recommendations from your keywords..." },
+                  {
+                    title: "Generating Content Briefs",
+                    description: "Creating AI-powered content recommendations from your keywords...",
+                    steps: ["Analyzing keyword gaps", "Researching content topics", "Building brief outlines", "Generating recommendations", "Finalizing briefs"],
+                    estimatedDuration: 20,
+                  },
                   () => generateContentBriefs(projectId)
                 );
               }}

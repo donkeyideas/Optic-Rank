@@ -118,7 +118,12 @@ export function RecommendationsClient({
   function handleGenerate() {
     setError(null);
     runAction(
-      { title: "Generating Recommendations", description: "Analyzing your SEO data and generating actionable recommendations..." },
+      {
+        title: "Generating Recommendations",
+        description: "Analyzing your SEO data and generating actionable recommendations...",
+        steps: ["Collecting SEO metrics", "Analyzing keyword performance", "Evaluating site health", "Benchmarking competitors", "Generating action items"],
+        estimatedDuration: 30,
+      },
       async () => {
         const result = await generateRecommendations(projectId);
         if (!("error" in result)) {

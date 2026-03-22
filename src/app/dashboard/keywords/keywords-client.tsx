@@ -342,7 +342,12 @@ export function KeywordsPageClient({
               disabled={isActionRunning || isPending}
               onClick={() => {
                 runAction(
-                  { title: "Generating Keywords", description: "AI is researching and generating keyword suggestions..." },
+                  {
+                    title: "Generating Keywords",
+                    description: "AI is researching and generating keyword suggestions...",
+                    steps: ["Analyzing website content", "Researching keyword opportunities", "Evaluating search volume", "Assessing keyword difficulty", "Finalizing suggestions"],
+                    estimatedDuration: 20,
+                  },
                   () => generateKeywordsAI(projectId)
                 );
               }}

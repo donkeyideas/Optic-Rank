@@ -179,7 +179,12 @@ export function CompetitorsClient({
       disabled={isActionRunning || isPending}
       onClick={() => {
         runAction(
-          { title: "Discovering Competitors", description: "AI is analyzing your niche and finding competitors..." },
+          {
+            title: "Discovering Competitors",
+            description: "AI is analyzing your niche and finding competitors...",
+            steps: ["Fetching website data", "Analyzing business context", "Identifying industry niche", "Finding direct competitors", "Enriching competitor metrics"],
+            estimatedDuration: 25,
+          },
           () => generateCompetitorsAI(projectId)
         );
       }}

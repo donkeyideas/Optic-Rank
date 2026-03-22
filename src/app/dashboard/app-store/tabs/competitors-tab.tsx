@@ -118,7 +118,12 @@ export function CompetitorsTab({ listings, competitors }: CompetitorsTabProps) {
   function handleDiscover() {
     if (!selectedListing) return;
     runAction(
-      { title: "Discovering App Competitors", description: "Searching app stores for similar apps..." },
+      {
+        title: "Discovering App Competitors",
+        description: "Searching app stores for similar apps...",
+        steps: ["Searching app stores", "Analyzing app categories", "Comparing feature sets", "Ranking similarity scores", "Compiling results"],
+        estimatedDuration: 20,
+      },
       async () => {
         const result = await discoverCompetitors(selectedListing);
         if ("discovered" in result) {
@@ -133,7 +138,12 @@ export function CompetitorsTab({ listings, competitors }: CompetitorsTabProps) {
   function handleGapAnalysis() {
     if (!selectedListing) return;
     runAction(
-      { title: "Running Gap Analysis", description: "Comparing features and keywords with competitors..." },
+      {
+        title: "Running Gap Analysis",
+        description: "Comparing features and keywords with competitors...",
+        steps: ["Collecting competitor data", "Analyzing keyword gaps", "Comparing feature sets", "Scoring opportunities", "Building report"],
+        estimatedDuration: 25,
+      },
       async () => {
         const result = await analyzeCompetitorGap(selectedListing);
         if ("analysis" in result) {
