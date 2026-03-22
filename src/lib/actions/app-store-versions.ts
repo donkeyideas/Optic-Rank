@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { aiChat } from "@/lib/ai/ai-provider";
+import { calculateVisibility } from "@/lib/app-store/visibility";
 
 /**
  * Track a version change for a listing.
@@ -42,22 +43,47 @@ export async function recordSnapshot(
 ): Promise<void> {
   const supabase = createAdminClient();
 
-  const { data: listing } = await supabase
-    .from("app_store_listings")
-    .select("rating, reviews_count, downloads_estimate, aso_score")
-    .eq("id", listingId)
-    .single();
+  const [listingRes, rankingsRes] = await Promise.all([
+    supabase
+      .from("app_store_listings")
+      .select("rating, reviews_count, downloads_estimate, aso_score")
+      .eq("id", listingId)
+      .single(),
+    supabase
+      .from("app_store_rankings")
+      .select("keyword, position, search_volume")
+      .eq("listing_id", listingId),
+  ]);
 
+  const listing = listingRes.data;
   if (!listing) return;
 
-  await supabase.from("app_store_snapshots").upsert({
-    listing_id: listingId,
-    rating: listing.rating,
-    reviews_count: listing.reviews_count,
-    downloads_estimate: listing.downloads_estimate,
-    aso_score: listing.aso_score,
-    snapshot_date: new Date().toISOString().split("T")[0],
-  }, { onConflict: "listing_id,snapshot_date" });
+  // Calculate organic visibility score
+  const rankings = rankingsRes.data ?? [];
+  const visResult = calculateVisibility(
+    rankings.map((r) => ({
+      keyword: r.keyword,
+      position: r.position,
+      search_volume: r.search_volume,
+    }))
+  );
+
+  await Promise.all([
+    supabase.from("app_store_snapshots").upsert({
+      listing_id: listingId,
+      rating: listing.rating,
+      reviews_count: listing.reviews_count,
+      downloads_estimate: listing.downloads_estimate,
+      aso_score: listing.aso_score,
+      visibility_score: visResult.score,
+      snapshot_date: new Date().toISOString().split("T")[0],
+    }, { onConflict: "listing_id,snapshot_date" }),
+    // Cache on the listing for fast reads
+    supabase
+      .from("app_store_listings")
+      .update({ visibility_score: visResult.score })
+      .eq("id", listingId),
+  ]);
 }
 
 /**
@@ -128,7 +154,11 @@ Provide:
 
 Keep it concise (3-4 paragraphs).`;
 
-  const result = await aiChat(prompt, { temperature: 0.7, maxTokens: 500 });
+  const result = await aiChat(prompt, {
+    temperature: 0.7,
+    maxTokens: 500,
+    context: { feature: "aso_update_impact", sub_type: "version_analysis", metadata: { listingId, versionId, version: version.version } },
+  });
 
   return { success: true, analysis: result?.text ?? `Version ${version.version}: Rating ${ratingChange >= 0 ? "+" : ""}${ratingChange.toFixed(2)}, ${recentReviews.length} new reviews.` };
 }
@@ -212,6 +242,10 @@ IMPORTANT: Base recommendations ONLY on the app description and category provide
 
 Format as a structured, actionable list.`;
 
-  const result = await aiChat(prompt, { temperature: 0.7, maxTokens: 600 });
+  const result = await aiChat(prompt, {
+    temperature: 0.7,
+    maxTokens: 600,
+    context: { feature: "aso_update_recommendations", metadata: { listingId, app_name: listing.app_name } },
+  });
   return { success: true, recommendations: result?.text ?? "Unable to generate recommendations." };
 }

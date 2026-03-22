@@ -137,7 +137,11 @@ For each title:
 
 Return ONLY a JSON array: [{"title": "...", "score": 85, "reason": "Includes brand + primary keyword"}, ...]`;
 
-  const result = await aiChat(prompt, { temperature: 0.8, maxTokens: 600 });
+  const result = await aiChat(prompt, {
+    temperature: 0.8,
+    maxTokens: 600,
+    context: { feature: "aso_optimizer", sub_type: "title_variants", metadata: { listingId } },
+  });
 
   let variants: Array<{ title: string; score: number; reason: string }> = [];
   if (result?.text) {
@@ -205,7 +209,11 @@ Requirements:
 
 Return ONLY the optimized ${fieldName} text (no quotes, no explanation).`;
 
-  const result = await aiChat(prompt, { temperature: 0.8, maxTokens: 100 });
+  const result = await aiChat(prompt, {
+    temperature: 0.8,
+    maxTokens: 100,
+    context: { feature: "aso_optimizer", sub_type: "subtitle_variant", metadata: { listingId } },
+  });
   const subtitle = result?.text?.replace(/^["']|["']$/g, "").trim().slice(0, maxLen) ?? "";
 
   return { success: true, subtitle };
@@ -247,7 +255,11 @@ Requirements:
 
 Return ONLY the optimized description text.`;
 
-  const result = await aiChat(prompt, { temperature: 0.7, maxTokens: 2000 });
+  const result = await aiChat(prompt, {
+    temperature: 0.7,
+    maxTokens: 2000,
+    context: { feature: "aso_optimizer", sub_type: "description_variant", metadata: { listingId } },
+  });
   return { success: true, description: result?.text ?? "Unable to generate description. Please try again." };
 }
 
@@ -287,7 +299,11 @@ Rules:
 
 Return ONLY the keyword string (e.g., "fitness,workout,exercise,gym,training,health").`;
 
-  const result = await aiChat(prompt, { temperature: 0.7, maxTokens: 200 });
+  const result = await aiChat(prompt, {
+    temperature: 0.7,
+    maxTokens: 200,
+    context: { feature: "aso_optimizer", sub_type: "keyword_field", metadata: { listingId } },
+  });
   const keywords = result?.text?.replace(/["\n]/g, "").slice(0, 100) ?? "";
 
   return { success: true, keywords };

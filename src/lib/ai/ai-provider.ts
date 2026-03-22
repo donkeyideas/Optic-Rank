@@ -16,6 +16,16 @@ interface AIResponse {
   provider: string;
 }
 
+/** Context for logging full AI interactions to the knowledge base */
+export interface AIInteractionContext {
+  feature: string;         // e.g. 'content_generator', 'aso_optimizer', 'review_reply'
+  sub_type?: string;       // e.g. 'title_variant', 'hashtag_analysis', '30_day_plan'
+  project_id?: string;
+  user_id?: string;
+  organization_id?: string;
+  metadata?: Record<string, unknown>;
+}
+
 interface AIConfig {
   provider: string;
   api_key: string;
@@ -106,6 +116,51 @@ async function getUserAIConfigs(userId: string): Promise<AIConfig[]> {
   }
 }
 
+/**
+ * Log full AI interaction to the ai_interactions knowledge base.
+ * Fire-and-forget — never blocks the main flow.
+ */
+function logAIInteraction(params: {
+  prompt: string;
+  response: string | null;
+  provider: string;
+  model?: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  cost_usd: number;
+  response_time_ms: number;
+  is_success: boolean;
+  error_message?: string;
+  context?: AIInteractionContext;
+}) {
+  // Always log — use "uncategorized" when no explicit context provided
+  const ctx = params.context ?? { feature: "uncategorized" };
+  try {
+    const supabase = createAdminClient();
+    supabase.from("ai_interactions").insert({
+      organization_id: ctx.organization_id ?? null,
+      project_id: ctx.project_id ?? null,
+      user_id: ctx.user_id ?? null,
+      feature: ctx.feature,
+      sub_type: ctx.sub_type ?? null,
+      prompt_text: params.prompt,
+      response_text: params.response,
+      prompt_tokens: params.prompt_tokens,
+      completion_tokens: params.completion_tokens,
+      total_tokens: params.prompt_tokens + params.completion_tokens,
+      cost_usd: params.cost_usd,
+      provider: params.provider,
+      model: params.model ?? null,
+      response_time_ms: params.response_time_ms,
+      is_success: params.is_success,
+      error_message: params.error_message ?? null,
+      metadata: ctx.metadata ?? {},
+    }).then(() => {}, () => {});
+  } catch {
+    // Silent fail — logging should never break the main flow
+  }
+}
+
 // Provider priority order
 const PROVIDER_ORDER = ["deepseek", "openai", "anthropic", "gemini"] as const;
 
@@ -135,9 +190,28 @@ async function resolveCurrentUserId(): Promise<string | null> {
  */
 export async function aiChat(
   prompt: string,
-  options: { temperature?: number; maxTokens?: number; timeout?: number; userId?: string } = {}
+  options: { temperature?: number; maxTokens?: number; timeout?: number; userId?: string; context?: AIInteractionContext; jsonMode?: boolean } = {}
 ): Promise<AIResponse | null> {
-  const { temperature = 0.7, maxTokens = 1024, timeout = 30000 } = options;
+  const { temperature = 0.7, maxTokens = 1024, timeout = 30000, jsonMode = false } = options;
+
+  // Auto-inject learning context when feature context is provided
+  let enrichedPrompt = prompt;
+  const ctx = options.context;
+  if (ctx?.feature) {
+    try {
+      const { buildContextBlock } = await import("@/lib/ai/context-retrieval");
+      const contextBlock = await buildContextBlock(ctx.feature, {
+        projectId: ctx.project_id,
+        subType: ctx.sub_type,
+        limit: 3,
+      });
+      if (contextBlock) {
+        enrichedPrompt = prompt + contextBlock;
+      }
+    } catch {
+      // Context retrieval should never block the main call
+    }
+  }
 
   // Resolve userId: explicit > auto-resolved from auth context
   const userId = options.userId ?? await resolveCurrentUserId();
@@ -163,9 +237,9 @@ export async function aiChat(
       let callResult: AICallResult;
 
       if (providerName === "gemini") {
-        callResult = await callGemini(config.api_key, prompt, temperature, maxTokens, timeout);
+        callResult = await callGemini(config.api_key, enrichedPrompt, temperature, maxTokens, timeout, jsonMode);
       } else if (providerName === "anthropic") {
-        callResult = await callAnthropic(config.api_key, prompt, temperature, maxTokens, timeout);
+        callResult = await callAnthropic(config.api_key, enrichedPrompt, temperature, maxTokens, timeout);
       } else {
         // OpenAI-compatible: deepseek, openai
         const baseUrl =
@@ -176,18 +250,20 @@ export async function aiChat(
           providerName === "deepseek"
             ? (config.config as Record<string, string>)?.model || "deepseek-chat"
             : (config.config as Record<string, string>)?.model || "gpt-4o-mini";
-        callResult = await callOpenAICompatible(baseUrl, config.api_key, model, prompt, temperature, maxTokens, timeout);
+        callResult = await callOpenAICompatible(baseUrl, config.api_key, model, enrichedPrompt, temperature, maxTokens, timeout, jsonMode);
       }
 
       const costs = COST_PER_1K[providerName] ?? { input: 0, output: 0 };
       const costUsd = (callResult.prompt_tokens * costs.input + callResult.completion_tokens * costs.output) / 1000;
+
+      const elapsedMs = Date.now() - start;
 
       logAPICall({
         provider: providerName,
         endpoint: "/chat/completions",
         method: "POST",
         status_code: 200,
-        response_time_ms: Date.now() - start,
+        response_time_ms: elapsedMs,
         tokens_used: callResult.prompt_tokens + callResult.completion_tokens,
         prompt_tokens: callResult.prompt_tokens,
         completion_tokens: callResult.completion_tokens,
@@ -195,20 +271,49 @@ export async function aiChat(
         is_success: true,
       });
 
+      // Log full interaction to knowledge base
+      logAIInteraction({
+        prompt,
+        response: callResult.text,
+        provider: providerName,
+        prompt_tokens: callResult.prompt_tokens,
+        completion_tokens: callResult.completion_tokens,
+        cost_usd: costUsd,
+        response_time_ms: elapsedMs,
+        is_success: true,
+        context: options.context,
+      });
+
       if (callResult.text) return { text: callResult.text, provider: providerName };
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       const statusMatch = errMsg.match(/\b([45]\d{2})\b/);
       const statusCode = statusMatch ? parseInt(statusMatch[1], 10) : 500;
+      const elapsedMs = Date.now() - start;
       logAPICall({
         provider: providerName,
         endpoint: "/chat/completions",
         method: "POST",
         status_code: statusCode,
-        response_time_ms: Date.now() - start,
+        response_time_ms: elapsedMs,
         is_success: false,
         error_message: errMsg,
       });
+
+      // Log failed interaction to knowledge base
+      logAIInteraction({
+        prompt,
+        response: null,
+        provider: providerName,
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        cost_usd: 0,
+        response_time_ms: elapsedMs,
+        is_success: false,
+        error_message: errMsg,
+        context: options.context,
+      });
+
       console.error(`[aiChat] ${providerName} error:`, err);
       markProviderFailed(providerName);
     }
@@ -219,31 +324,59 @@ export async function aiChat(
   if (envGeminiKey) {
     const start = Date.now();
     try {
-      const callResult = await callGemini(envGeminiKey, prompt, temperature, maxTokens, timeout);
+      const callResult = await callGemini(envGeminiKey, enrichedPrompt, temperature, maxTokens, timeout, jsonMode);
 
+      const elapsedMs = Date.now() - start;
       logAPICall({
         provider: "gemini",
         endpoint: "/generateContent",
         method: "POST",
         status_code: 200,
-        response_time_ms: Date.now() - start,
+        response_time_ms: elapsedMs,
         tokens_used: callResult.prompt_tokens + callResult.completion_tokens,
         prompt_tokens: callResult.prompt_tokens,
         completion_tokens: callResult.completion_tokens,
         is_success: true,
       });
 
+      logAIInteraction({
+        prompt,
+        response: callResult.text,
+        provider: "gemini",
+        prompt_tokens: callResult.prompt_tokens,
+        completion_tokens: callResult.completion_tokens,
+        cost_usd: 0,
+        response_time_ms: elapsedMs,
+        is_success: true,
+        context: options.context,
+      });
+
       if (callResult.text) return { text: callResult.text, provider: "gemini" };
     } catch (err) {
+      const elapsedMs = Date.now() - start;
       logAPICall({
         provider: "gemini",
         endpoint: "/generateContent",
         method: "POST",
         status_code: 500,
-        response_time_ms: Date.now() - start,
+        response_time_ms: elapsedMs,
         is_success: false,
         error_message: err instanceof Error ? err.message : String(err),
       });
+
+      logAIInteraction({
+        prompt,
+        response: null,
+        provider: "gemini",
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        cost_usd: 0,
+        response_time_ms: elapsedMs,
+        is_success: false,
+        error_message: err instanceof Error ? err.message : String(err),
+        context: options.context,
+      });
+
       console.error("[aiChat] Gemini env fallback error:", err);
     }
   }
@@ -261,20 +394,24 @@ async function callOpenAICompatible(
   prompt: string,
   temperature: number,
   maxTokens: number,
-  timeout: number = 60000
+  timeout: number = 60000,
+  jsonMode: boolean = false
 ): Promise<AICallResult> {
+  const body: Record<string, unknown> = {
+    model,
+    messages: [{ role: "user", content: prompt }],
+    temperature,
+    max_tokens: maxTokens,
+  };
+  if (jsonMode) body.response_format = { type: "json_object" };
+
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: "user", content: prompt }],
-      temperature,
-      max_tokens: maxTokens,
-    }),
+    body: JSON.stringify(body),
     signal: AbortSignal.timeout(timeout),
   });
 
@@ -299,16 +436,20 @@ async function callGemini(
   prompt: string,
   temperature: number,
   maxTokens: number,
-  timeout: number = 60000
+  timeout: number = 60000,
+  jsonMode: boolean = false
 ): Promise<AICallResult> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+  const genConfig: Record<string, unknown> = { temperature, maxOutputTokens: maxTokens };
+  if (jsonMode) genConfig.responseMimeType = "application/json";
 
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature, maxOutputTokens: maxTokens },
+      generationConfig: genConfig,
     }),
     signal: AbortSignal.timeout(timeout),
   });

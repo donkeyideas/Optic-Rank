@@ -1085,3 +1085,216 @@ export async function getInvestorMetrics() {
     orgGrowthMoM: Math.round(orgGrowthMoM * 10) / 10,
   };
 }
+
+/* ------------------------------------------------------------------
+   AI Intelligence — Knowledge Base & Analytics
+   ------------------------------------------------------------------ */
+
+export interface AIInteraction {
+  id: string;
+  organization_id: string | null;
+  project_id: string | null;
+  user_id: string | null;
+  feature: string;
+  sub_type: string | null;
+  prompt_text: string;
+  response_text: string | null;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  cost_usd: number;
+  provider: string;
+  model: string | null;
+  response_time_ms: number | null;
+  is_success: boolean;
+  error_message: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export async function getAIInteractions(opts: {
+  feature?: string;
+  provider?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<{ data: AIInteraction[]; count: number }> {
+  const supabase = createAdminClient();
+  const { feature, provider, search, limit = 50, offset = 0 } = opts;
+
+  let query = supabase
+    .from("ai_interactions")
+    .select("*", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (feature) query = query.eq("feature", feature);
+  if (provider) query = query.eq("provider", provider);
+  if (search) query = query.or(`prompt_text.ilike.%${search}%,response_text.ilike.%${search}%`);
+
+  const { data, count } = await query;
+  return { data: (data ?? []) as AIInteraction[], count: count ?? 0 };
+}
+
+export async function getAIUsageByFeature(days: number = 30) {
+  const supabase = createAdminClient();
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+
+  const { data } = await supabase
+    .from("ai_interactions")
+    .select("feature, prompt_tokens, completion_tokens, total_tokens, cost_usd, response_time_ms, is_success")
+    .gte("created_at", since.toISOString());
+
+  const rows = data ?? [];
+  const byFeature: Record<string, {
+    calls: number;
+    tokens: number;
+    cost: number;
+    avg_response_ms: number;
+    success_rate: number;
+    total_response_ms: number;
+    successes: number;
+  }> = {};
+
+  for (const row of rows) {
+    const f = row.feature;
+    if (!byFeature[f]) {
+      byFeature[f] = { calls: 0, tokens: 0, cost: 0, avg_response_ms: 0, total_response_ms: 0, success_rate: 0, successes: 0 };
+    }
+    byFeature[f].calls++;
+    byFeature[f].tokens += row.total_tokens;
+    byFeature[f].cost += Number(row.cost_usd);
+    byFeature[f].total_response_ms += row.response_time_ms ?? 0;
+    if (row.is_success) byFeature[f].successes++;
+  }
+
+  // Compute averages
+  for (const f of Object.keys(byFeature)) {
+    const d = byFeature[f];
+    d.avg_response_ms = d.calls > 0 ? Math.round(d.total_response_ms / d.calls) : 0;
+    d.success_rate = d.calls > 0 ? Math.round((d.successes / d.calls) * 100) : 0;
+  }
+
+  return byFeature;
+}
+
+export async function getAIProviderPerformance(days: number = 30) {
+  const supabase = createAdminClient();
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+
+  const { data } = await supabase
+    .from("ai_interactions")
+    .select("provider, prompt_tokens, completion_tokens, total_tokens, cost_usd, response_time_ms, is_success")
+    .gte("created_at", since.toISOString());
+
+  const rows = data ?? [];
+  const byProvider: Record<string, {
+    calls: number;
+    cost: number;
+    avg_response_ms: number;
+    success_rate: number;
+    error_count: number;
+    total_response_ms: number;
+    successes: number;
+    total_tokens: number;
+  }> = {};
+
+  for (const row of rows) {
+    const p = row.provider;
+    if (!byProvider[p]) {
+      byProvider[p] = { calls: 0, cost: 0, avg_response_ms: 0, success_rate: 0, error_count: 0, total_response_ms: 0, successes: 0, total_tokens: 0 };
+    }
+    byProvider[p].calls++;
+    byProvider[p].cost += Number(row.cost_usd);
+    byProvider[p].total_response_ms += row.response_time_ms ?? 0;
+    byProvider[p].total_tokens += row.total_tokens;
+    if (row.is_success) byProvider[p].successes++;
+    else byProvider[p].error_count++;
+  }
+
+  for (const p of Object.keys(byProvider)) {
+    const d = byProvider[p];
+    d.avg_response_ms = d.calls > 0 ? Math.round(d.total_response_ms / d.calls) : 0;
+    d.success_rate = d.calls > 0 ? Math.round((d.successes / d.calls) * 100) : 0;
+  }
+
+  return byProvider;
+}
+
+export async function getAICostTrend(days: number = 30) {
+  const supabase = createAdminClient();
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+
+  const { data } = await supabase
+    .from("ai_interactions")
+    .select("cost_usd, created_at")
+    .gte("created_at", since.toISOString())
+    .order("created_at", { ascending: true });
+
+  const rows = data ?? [];
+  const daily: Record<string, { cost: number; calls: number }> = {};
+
+  for (const row of rows) {
+    const date = row.created_at.split("T")[0];
+    if (!daily[date]) daily[date] = { cost: 0, calls: 0 };
+    daily[date].cost += Number(row.cost_usd);
+    daily[date].calls++;
+  }
+
+  return Object.entries(daily)
+    .map(([date, d]) => ({ date, cost: Math.round(d.cost * 10000) / 10000, calls: d.calls }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/* ------------------------------------------------------------------
+   Data Intelligence — Platform Insights
+   ------------------------------------------------------------------ */
+
+export interface PlatformInsight {
+  id: string;
+  insight_type: string;
+  category: string;
+  title: string;
+  description: string;
+  severity: string;
+  confidence: number;
+  data_snapshot: Record<string, unknown>;
+  recommendations: Array<Record<string, unknown>>;
+  is_active: boolean;
+  is_dismissed: boolean;
+  generated_at: string;
+  expires_at: string | null;
+}
+
+export async function getActiveInsights(): Promise<PlatformInsight[]> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("platform_insights")
+    .select("*")
+    .eq("is_active", true)
+    .eq("is_dismissed", false)
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+    .order("generated_at", { ascending: false });
+  return (data ?? []) as PlatformInsight[];
+}
+
+export async function getInsightHistory(limit: number = 50): Promise<PlatformInsight[]> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("platform_insights")
+    .select("*")
+    .order("generated_at", { ascending: false })
+    .limit(limit);
+  return (data ?? []) as PlatformInsight[];
+}
+
+export async function dismissInsight(insightId: string): Promise<void> {
+  const supabase = createAdminClient();
+  await supabase
+    .from("platform_insights")
+    .update({ is_dismissed: true })
+    .eq("id", insightId);
+}

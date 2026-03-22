@@ -13,6 +13,7 @@ import {
   Loader2,
   Users,
   Calendar,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AsoRatingTrendChart } from "@/components/charts/aso-rating-trend-chart";
@@ -23,7 +24,7 @@ import {
 } from "@/lib/actions/app-store";
 import { discoverCompetitors } from "@/lib/actions/app-store-competitors";
 import type { AppStoreListing } from "@/types";
-import type { AppStoreSnapshot, AppStoreCompetitor, AppStoreRanking } from "@/lib/dal/app-store";
+import type { AppStoreSnapshot, AppStoreCompetitor, AppStoreRanking, VisibilityHistoryPoint } from "@/lib/dal/app-store";
 
 /** Module-level timestamp — avoids impure Date.now() inside render */
 const MODULE_NOW = Date.now();
@@ -33,6 +34,7 @@ interface OverviewTabProps {
   rankings: AppStoreRanking[];
   snapshots: AppStoreSnapshot[];
   competitors: AppStoreCompetitor[];
+  visibilityHistory: VisibilityHistoryPoint[];
   onDelete: (id: string, name: string) => void;
   onStatusMsg: (msg: string) => void;
 }
@@ -60,6 +62,7 @@ export function OverviewTab({
   rankings,
   snapshots,
   competitors,
+  visibilityHistory,
   onDelete,
   onStatusMsg,
 }: OverviewTabProps) {
@@ -209,12 +212,19 @@ export function OverviewTab({
             )}
 
             {/* Health Stats */}
-            <div className="grid grid-cols-3 gap-2 border-b border-rule px-4 py-3">
+            <div className="grid grid-cols-4 gap-2 border-b border-rule px-4 py-3">
               {aso && (
                 <div className="flex items-center gap-1.5">
                   <BarChart3 size={12} className={aso.score >= 70 ? "text-editorial-green" : aso.score >= 40 ? "text-editorial-gold" : "text-editorial-red"} />
                   <span className="font-mono text-[11px] font-bold">{aso.score}/100</span>
                   <span className="text-[9px] text-ink-muted">ASO</span>
+                </div>
+              )}
+              {listing.visibility_score != null && (
+                <div className="flex items-center gap-1.5">
+                  <Eye size={12} className={listing.visibility_score >= 60 ? "text-editorial-green" : listing.visibility_score >= 30 ? "text-editorial-gold" : "text-editorial-red"} />
+                  <span className="font-mono text-[11px] font-bold">{listing.visibility_score}/100</span>
+                  <span className="text-[9px] text-ink-muted">Visibility</span>
                 </div>
               )}
               {listingCompetitors.length > 0 && (
@@ -232,6 +242,8 @@ export function OverviewTab({
                 </div>
               )}
             </div>
+
+            {/* Removed: Organic Visibility Section — now in dedicated Visibility tab */}
 
             {/* Quick Keyword Info */}
             {(bestKeyword || worstKeyword) && (

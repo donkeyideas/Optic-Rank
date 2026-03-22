@@ -246,7 +246,11 @@ Write a professional, empathetic reply that:
 
 Return ONLY the reply text, no quotes or labels.`;
 
-  const result = await aiChat(prompt, { temperature: 0.7, maxTokens: 300 });
+  const result = await aiChat(prompt, {
+    temperature: 0.7,
+    maxTokens: 300,
+    context: { feature: "aso_review_reply", metadata: { reviewId, rating } },
+  });
 
   if (!result?.text) {
     // Heuristic fallback
@@ -359,7 +363,11 @@ Description length: ${descLen} characters
 Return ONLY a JSON array of 3 recommendation strings. Example: ["Recommendation 1", "Recommendation 2", "Recommendation 3"]`;
 
   try {
-    const aiResult = await aiChat(aiPrompt, { temperature: 0.7, maxTokens: 500 });
+    const aiResult = await aiChat(aiPrompt, {
+      temperature: 0.7,
+      maxTokens: 500,
+      context: { feature: "aso_analysis", metadata: { listingId } },
+    });
     if (aiResult?.text) {
       const match = aiResult.text.match(/\[[\s\S]*?\]/);
       if (match) {
@@ -419,7 +427,11 @@ For each keyword, estimate:
 
 Return ONLY a JSON array of objects: [{"keyword": "...", "volume": 1000, "difficulty": 45}, ...]`;
 
-  const result = await aiChat(prompt, { temperature: 0.7, maxTokens: 500 });
+  const result = await aiChat(prompt, {
+    temperature: 0.7,
+    maxTokens: 500,
+    context: { feature: "aso_keyword_generation", metadata: { listingId } },
+  });
 
   interface KeywordData {
     keyword: string;

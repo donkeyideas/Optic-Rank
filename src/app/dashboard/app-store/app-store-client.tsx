@@ -10,6 +10,7 @@ import {
   TrendingUp,
   Globe,
   GitBranch,
+  Eye,
   Plus,
 } from "lucide-react";
 import { HeadlineBar } from "@/components/editorial/headline-bar";
@@ -35,6 +36,7 @@ import { OptimizerTab } from "./tabs/optimizer-tab";
 import { StoreIntelTab } from "./tabs/store-intel-tab";
 import { LocalizationTab } from "./tabs/localization-tab";
 import { UpdateImpactTab } from "./tabs/update-impact-tab";
+import { VisibilityTab } from "./tabs/visibility-tab";
 
 import type { AppStoreListing } from "@/types";
 import type {
@@ -46,6 +48,7 @@ import type {
   KeywordHistoryPoint,
   ReviewTopic,
   AppStoreLocalization,
+  VisibilityHistoryPoint,
 } from "@/lib/dal/app-store";
 
 /* ------------------------------------------------------------------
@@ -62,6 +65,7 @@ interface AppStoreClientProps {
   keywordHistory: KeywordHistoryPoint[];
   topics: ReviewTopic[];
   localizations: AppStoreLocalization[];
+  visibilityHistory: VisibilityHistoryPoint[];
   projectId: string;
 }
 
@@ -79,6 +83,7 @@ export function AppStoreClient({
   keywordHistory,
   topics,
   localizations,
+  visibilityHistory,
   projectId,
 }: AppStoreClientProps) {
   const [activeTab, setActiveTab] = useState("overview");
@@ -148,6 +153,8 @@ export function AppStoreClient({
       direction: avgAso >= 70 ? "up" as const : avgAso >= 40 ? "neutral" as const : "down" as const,
     },
   ];
+
+  // Org. Visibility now has its own dedicated tab — removed from headline bar
 
   function renderAddDialog() {
     return (
@@ -243,6 +250,9 @@ export function AppStoreClient({
           <TabsTrigger value="overview">
             <Smartphone size={12} className="mr-1.5" /> Overview
           </TabsTrigger>
+          <TabsTrigger value="visibility">
+            <Eye size={12} className="mr-1.5" /> Visibility
+          </TabsTrigger>
           <TabsTrigger value="keywords">
             <Search size={12} className="mr-1.5" /> Keywords
           </TabsTrigger>
@@ -272,7 +282,17 @@ export function AppStoreClient({
             rankings={rankings}
             snapshots={snapshots}
             competitors={competitors}
+            visibilityHistory={visibilityHistory}
             onDelete={(id, name) => setDeleteTarget({ id, name })}
+            onStatusMsg={setStatusMsg}
+          />
+        </TabsContent>
+
+        <TabsContent value="visibility" forceMount>
+          <VisibilityTab
+            listings={listings}
+            rankings={rankings}
+            visibilityHistory={visibilityHistory}
             onStatusMsg={setStatusMsg}
           />
         </TabsContent>

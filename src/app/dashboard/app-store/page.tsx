@@ -13,6 +13,7 @@ import {
   getKeywordHistory,
   getReviewTopics,
   getLocalizations,
+  getVisibilityHistory,
 } from "@/lib/dal/app-store";
 
 export default async function AppStorePage() {
@@ -65,7 +66,7 @@ export default async function AppStorePage() {
   const listingIds = listings.map((l) => l.id);
 
   // Fetch all data in parallel
-  const [rankings, reviews, competitors, snapshots, versions, topics, localizations] = await Promise.all([
+  const [rankings, reviews, competitors, snapshots, versions, topics, localizations, visibilityHistory] = await Promise.all([
     getAppStoreRankings(listingIds),
     getAppReviews(listingIds),
     getAppStoreCompetitors(listingIds),
@@ -73,6 +74,7 @@ export default async function AppStorePage() {
     getAppVersions(listingIds),
     getReviewTopics(listingIds),
     getLocalizations(listingIds),
+    getVisibilityHistory(listingIds, 90),
   ]);
 
   // Fetch keyword history for all rankings
@@ -90,6 +92,7 @@ export default async function AppStorePage() {
       keywordHistory={keywordHistory}
       topics={topics}
       localizations={localizations}
+      visibilityHistory={visibilityHistory}
       projectId={project.id}
     />
   );

@@ -57,6 +57,7 @@ export interface AppStoreSnapshot {
   reviews_count: number | null;
   downloads_estimate: number | null;
   aso_score: number | null;
+  visibility_score: number | null;
   snapshot_date: string;
 }
 
@@ -184,6 +185,34 @@ export async function getAppStoreSnapshots(
     .gte("snapshot_date", since.toISOString().split("T")[0])
     .order("snapshot_date", { ascending: true });
   return (data ?? []) as AppStoreSnapshot[];
+}
+
+/* ------------------------------------------------------------------
+   Visibility History (for trend charts)
+   ------------------------------------------------------------------ */
+
+export interface VisibilityHistoryPoint {
+  listing_id: string;
+  snapshot_date: string;
+  visibility_score: number | null;
+}
+
+export async function getVisibilityHistory(
+  listingIds: string[],
+  days: number = 90
+): Promise<VisibilityHistoryPoint[]> {
+  if (listingIds.length === 0) return [];
+  const supabase = createAdminClient();
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+  const { data } = await supabase
+    .from("app_store_snapshots")
+    .select("listing_id, snapshot_date, visibility_score")
+    .in("listing_id", listingIds)
+    .not("visibility_score", "is", null)
+    .gte("snapshot_date", since.toISOString().split("T")[0])
+    .order("snapshot_date", { ascending: true });
+  return (data ?? []) as VisibilityHistoryPoint[];
 }
 
 /* ------------------------------------------------------------------

@@ -252,6 +252,10 @@ Provide:
 
 Return as a structured analysis (not JSON).`;
 
-  const result = await aiChat(prompt, { temperature: 0.7, maxTokens: 800 });
+  const result = await aiChat(prompt, {
+    temperature: 0.7,
+    maxTokens: 800,
+    context: { feature: "aso_competitor_gap", metadata: { listingId } },
+  });
   return { success: true, analysis: result?.text ?? "Unable to generate analysis. Please try again." };
 }

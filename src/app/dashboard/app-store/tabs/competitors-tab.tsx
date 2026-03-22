@@ -230,7 +230,7 @@ export function CompetitorsTab({ listings, competitors }: CompetitorsTabProps) {
                   {selectedListingData.icon_url && <img src={selectedListingData.icon_url} alt="" referrerPolicy="no-referrer" className="h-8 w-8 rounded border border-rule" />}
                   <h4 className="font-serif text-[14px] font-bold text-ink">{selectedListingData.app_name}</h4>
                 </div>
-                <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                <div className="mt-3 grid grid-cols-4 gap-2 text-center">
                   <div>
                     <span className="block font-mono text-sm font-bold text-ink">{selectedListingData.rating?.toFixed(1) ?? "—"}</span>
                     <span className="text-[8px] font-bold uppercase tracking-wider text-ink-muted">Rating</span>
@@ -248,6 +248,10 @@ export function CompetitorsTab({ listings, competitors }: CompetitorsTabProps) {
                     <span className="text-[8px] font-bold uppercase tracking-wider text-ink-muted">
                       {selectedListingData.store === "apple" ? "Version" : "Downloads"}
                     </span>
+                  </div>
+                  <div>
+                    <span className="block font-mono text-sm font-bold text-ink">{selectedListingData.visibility_score ?? "—"}</span>
+                    <span className="text-[8px] font-bold uppercase tracking-wider text-ink-muted">Visibility</span>
                   </div>
                 </div>
               </div>

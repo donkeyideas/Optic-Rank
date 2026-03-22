@@ -20,6 +20,8 @@ import {
   Bell,
   Share2,
   MailOpen,
+  Brain,
+  Sparkles,
 } from "lucide-react";
 
 const adminNavItems = [
@@ -34,6 +36,8 @@ const adminNavItems = [
   { href: "/admin/api",        label: "API Management", icon: Key },
   { href: "/admin/health",     label: "System Health",  icon: Activity },
   { href: "/admin/analytics",  label: "Analytics",      icon: BarChart3 },
+  { href: "/admin/data-intelligence", label: "Data Intelligence", icon: Brain },
+  { href: "/admin/ai-intelligence",   label: "AI Intelligence",   icon: Sparkles },
   { href: "/admin/blog",       label: "Blog",           icon: BookOpen },
   { href: "/admin/social-posts", label: "Social Posts",  icon: Share2 },
   { href: "/admin/changelog",  label: "Changelog",      icon: History },
