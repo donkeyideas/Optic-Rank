@@ -143,35 +143,63 @@ Return ONLY the JSON array, no markdown formatting or explanations.`;
 
   try {
     const text = result.text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    insights = JSON.parse(text);
-    if (!Array.isArray(insights)) throw new Error("Not an array");
-  } catch {
-    return { error: "Failed to parse AI response." };
+    const parsed = JSON.parse(text);
+    // Handle both raw arrays and object-wrapped arrays (e.g. {"insights": [...]})
+    if (Array.isArray(parsed)) {
+      insights = parsed;
+    } else if (parsed && typeof parsed === "object") {
+      const arrayVal = Object.values(parsed).find((v) => Array.isArray(v));
+      if (arrayVal) insights = arrayVal as typeof insights;
+      else throw new Error("No array found in response object");
+    } else {
+      throw new Error("Unexpected response format");
+    }
+  } catch (e) {
+    return { error: `Failed to parse AI response: ${e instanceof Error ? e.message : "unknown"}` };
   }
+
+  // Valid enum values for DB constraints
+  const VALID_TYPES = new Set(["health_score", "anomaly", "trend", "recommendation", "prediction", "summary"]);
+  const VALID_CATEGORIES = new Set(["revenue", "engagement", "growth", "churn", "feature_adoption", "system", "ai_usage", "overall"]);
+  const VALID_SEVERITIES = new Set(["critical", "warning", "info", "positive"]);
 
   // Deactivate old insights
   const supabase = createAdminClient();
-  await supabase
+  const { error: deactivateError } = await supabase
     .from("platform_insights")
     .update({ is_active: false })
     .eq("is_active", true);
 
-  // Insert new insights
-  const insightRows = insights.map((i) => ({
-    insight_type: i.insight_type,
-    category: i.category,
-    title: i.title,
-    description: i.description,
-    severity: i.severity || "info",
-    confidence: i.confidence ?? 0.8,
-    data_snapshot: dataSnapshot,
-    recommendations: i.recommendations ?? [],
-    is_active: true,
-    is_dismissed: false,
-    expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
-  }));
+  if (deactivateError) {
+    return { error: `DB deactivate failed: ${deactivateError.message}` };
+  }
 
-  await supabase.from("platform_insights").insert(insightRows);
+  // Normalize and validate enum values before insert
+  const insightRows = insights
+    .filter((i) => i.title && i.description)
+    .map((i) => ({
+      insight_type: VALID_TYPES.has(i.insight_type) ? i.insight_type : "summary",
+      category: VALID_CATEGORIES.has(i.category) ? i.category : "overall",
+      title: i.title.slice(0, 200),
+      description: i.description,
+      severity: VALID_SEVERITIES.has(i.severity) ? i.severity : "info",
+      confidence: typeof i.confidence === "number" ? Math.min(Math.max(i.confidence, 0), 1) : 0.8,
+      data_snapshot: dataSnapshot,
+      recommendations: Array.isArray(i.recommendations) ? i.recommendations : [],
+      is_active: true,
+      is_dismissed: false,
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
+    }));
+
+  if (insightRows.length === 0) {
+    return { error: "AI returned no valid insights." };
+  }
+
+  const { error: insertError } = await supabase.from("platform_insights").insert(insightRows);
+
+  if (insertError) {
+    return { error: `DB insert failed: ${insertError.message}` };
+  }
 
   revalidatePath("/admin/data-intelligence");
   return { success: true, count: insightRows.length };
