@@ -122,10 +122,10 @@ export async function generateCompetitorsAI(
 
   const supabase = createAdminClient();
 
-  // Get the project domain
+  // Get the project name and domain
   const { data: project } = await supabase
     .from("projects")
-    .select("domain")
+    .select("name, domain")
     .eq("id", projectId)
     .single();
 
@@ -142,7 +142,8 @@ export async function generateCompetitorsAI(
   const result = await generateCompetitorSuggestions(
     project.domain,
     existingDomains,
-    5
+    5,
+    project.name
   );
 
   if (result.competitors.length === 0) {
