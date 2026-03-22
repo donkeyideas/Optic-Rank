@@ -24,15 +24,26 @@ export async function generateCompetitorSuggestions(
   projectName?: string
 ): Promise<GenerateCompetitorsResult> {
   const siteContext = await fetchSiteContext(domain);
+  console.log("[generateCompetitors] Site context:", {
+    title: siteContext.title,
+    description: siteContext.description?.slice(0, 100),
+    industry: siteContext.industry,
+    hasSummary: !!siteContext.businessSummary,
+  });
 
-  const result = await generateWithAI(
-    domain,
-    siteContext,
-    existingDomains,
-    count,
-    projectName
-  );
-  return { competitors: result, source: "ai" };
+  try {
+    const result = await generateWithAI(
+      domain,
+      siteContext,
+      existingDomains,
+      count,
+      projectName
+    );
+    return { competitors: result, source: "ai" };
+  } catch (err) {
+    console.error("[generateCompetitors] AI generation failed:", err);
+    return { competitors: [], source: "ai" };
+  }
 }
 
 async function generateWithAI(
@@ -103,30 +114,89 @@ No explanations, no numbering, no extra text, no markdown.`;
     maxTokens: 512,
     context: { feature: "competitor-discovery" },
   });
-  if (!response) return [];
+
+  if (!response) {
+    console.error("[generateCompetitors] aiChat returned null — no AI provider available");
+    return [];
+  }
+
+  console.log("[generateCompetitors] Raw AI response:", response.text);
 
   const competitors: CompetitorSuggestion[] = [];
   const lines = response.text.split("\n").filter((l: string) => l.trim());
 
   for (const line of lines) {
-    const cleaned = line
-      .replace(/^\d+[\.\)]\s*/, "")
-      .replace(/^[-*]\s*/, "")
-      .trim();
-    const parts = cleaned.split("|");
-    if (parts.length === 2) {
-      const name = parts[0].trim();
-      const dom = parts[1]
-        .trim()
-        .replace(/^https?:\/\//, "")
-        .replace(/^www\./, "")
-        .replace(/\/+$/, "")
-        .toLowerCase();
-      if (name && dom && !existingDomains.includes(dom) && dom !== domain) {
-        competitors.push({ name, domain: dom });
-      }
+    const parsed = parseLine(line);
+    if (parsed && !existingDomains.includes(parsed.domain) && parsed.domain !== domain) {
+      competitors.push(parsed);
     }
   }
 
+  console.log(`[generateCompetitors] Parsed ${competitors.length} competitors from ${lines.length} lines`);
   return competitors.slice(0, count);
+}
+
+/**
+ * Parse a single line from the AI response into a competitor suggestion.
+ * Handles multiple formats the AI might return:
+ *   CompanyName|domain.com
+ *   CompanyName | domain.com
+ *   CompanyName - domain.com
+ *   CompanyName: domain.com
+ *   1. CompanyName|domain.com
+ *   - CompanyName|domain.com
+ *   CompanyName (domain.com)
+ */
+function parseLine(raw: string): CompetitorSuggestion | null {
+  // Strip leading numbers, bullets, dashes
+  const line = raw
+    .replace(/^\d+[\.\)]\s*/, "")
+    .replace(/^[-*•]\s*/, "")
+    .trim();
+
+  if (!line) return null;
+
+  // Try pipe delimiter first (preferred format)
+  if (line.includes("|")) {
+    const parts = line.split("|");
+    if (parts.length >= 2) {
+      return extractPair(parts[0], parts.slice(1).join("|"));
+    }
+  }
+
+  // Try " - " delimiter
+  if (line.includes(" - ")) {
+    const idx = line.indexOf(" - ");
+    return extractPair(line.slice(0, idx), line.slice(idx + 3));
+  }
+
+  // Try ": " delimiter
+  if (line.includes(": ")) {
+    const idx = line.indexOf(": ");
+    return extractPair(line.slice(0, idx), line.slice(idx + 2));
+  }
+
+  // Try parentheses: "CompanyName (domain.com)"
+  const parenMatch = line.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+  if (parenMatch) {
+    return extractPair(parenMatch[1], parenMatch[2]);
+  }
+
+  return null;
+}
+
+function extractPair(rawName: string, rawDomain: string): CompetitorSuggestion | null {
+  const name = rawName.trim().replace(/^["']|["']$/g, "");
+  const dom = rawDomain
+    .trim()
+    .replace(/^["']|["']$/g, "")
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .replace(/\/+$/, "")
+    .toLowerCase();
+
+  // Basic domain validation
+  if (!name || !dom || !dom.includes(".") || dom.length < 4) return null;
+
+  return { name, domain: dom };
 }
