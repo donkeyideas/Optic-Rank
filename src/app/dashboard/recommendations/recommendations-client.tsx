@@ -27,6 +27,7 @@ import {
   dismissRecommendation,
   completeRecommendation,
 } from "@/lib/actions/recommendations";
+import { useActionProgress } from "@/components/shared/action-progress";
 
 // ── Category config ────────────────────────────────────────────────
 const CATEGORY_CONFIG: Record<
@@ -74,8 +75,8 @@ export function RecommendationsClient({
   const [stats, setStats] = useState(initialStats);
   const [activeCategory, setActiveCategory] = useState<FilterCategory>("all");
   const [isPending, startTransition] = useTransition();
-  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { runAction, isRunning: isActionRunning } = useActionProgress();
 
   // ── Stats for HeadlineBar ─────────────────────────────────────
   const headlineStats: HeadlineStat[] = [
@@ -115,18 +116,17 @@ export function RecommendationsClient({
 
   // ── Generate ─────────────────────────────────────────────────
   function handleGenerate() {
-    setGenerating(true);
     setError(null);
-    startTransition(async () => {
-      const result = await generateRecommendations(projectId);
-      setGenerating(false);
-      if ("error" in result) {
-        setError(result.error);
-      } else {
-        // Reload recommendations from the page (revalidated by server action)
-        window.location.reload();
+    runAction(
+      { title: "Generating Recommendations", description: "Analyzing your SEO data and generating actionable recommendations..." },
+      async () => {
+        const result = await generateRecommendations(projectId);
+        if (!("error" in result)) {
+          window.location.reload();
+        }
+        return result;
       }
-    });
+    );
   }
 
   // ── Dismiss ──────────────────────────────────────────────────
@@ -182,20 +182,11 @@ export function RecommendationsClient({
         </div>
         <button
           onClick={handleGenerate}
-          disabled={generating || isPending}
+          disabled={isActionRunning || isPending}
           className="inline-flex items-center gap-2 bg-editorial-red px-5 py-2.5 font-sans text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-editorial-red/90 disabled:opacity-50"
         >
-          {generating ? (
-            <>
-              <Loader2 size={14} className="animate-spin" />
-              Analyzing...
-            </>
-          ) : (
-            <>
-              <Sparkles size={14} />
-              Generate Recommendations
-            </>
-          )}
+          <Sparkles size={14} />
+          Generate Recommendations
         </button>
       </div>
 
@@ -214,23 +205,6 @@ export function RecommendationsClient({
       {error && (
         <div className="border border-editorial-red/30 bg-editorial-red/5 px-4 py-3 text-sm text-editorial-red">
           {error}
-        </div>
-      )}
-
-      {/* Generating progress */}
-      {generating && (
-        <div className="border border-rule bg-surface-card p-6">
-          <div className="flex items-center gap-3">
-            <Loader2 size={20} className="animate-spin text-editorial-red" />
-            <div>
-              <p className="font-sans text-sm font-semibold text-ink">
-                Analyzing your data...
-              </p>
-              <p className="text-xs text-ink-secondary">
-                Checking keywords, backlinks, audits, content, AI visibility, competitors, and performance
-              </p>
-            </div>
-          </div>
         </div>
       )}
 
@@ -274,7 +248,7 @@ export function RecommendationsClient({
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Cards (2/3) */}
         <div className="space-y-4 lg:col-span-2">
-          {filtered.length === 0 && !generating && (
+          {filtered.length === 0 && !isActionRunning && (
             <div className="flex flex-col items-center justify-center border border-rule bg-surface-card py-16 text-center">
               <Lightbulb size={40} className="mb-3 text-ink-muted" />
               <h3 className="font-serif text-lg font-bold text-ink">

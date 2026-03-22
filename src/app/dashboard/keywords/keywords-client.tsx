@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { addKeywords, deleteKeyword, importKeywordsCSV, getKeywordRankHistory, generateKeywordsAI } from "@/lib/actions/keywords";
+import { useActionProgress } from "@/components/shared/action-progress";
 import { RankHistoryChart } from "@/components/charts/rank-history-chart";
 import type { Keyword } from "@/types";
 
@@ -140,8 +141,7 @@ export function KeywordsPageClient({
   const [page, setPage] = useState(1);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importStatus, setImportStatus] = useState<string | null>(null);
-  const [generateStatus, setGenerateStatus] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const { runAction, isRunning: isActionRunning } = useActionProgress();
   const [deletingKeywordId, setDeletingKeywordId] = useState<string | null>(null);
   const [expandedKeywordId, setExpandedKeywordId] = useState<string | null>(null);
   const [rankHistory, setRankHistory] = useState<{ date: string; position: number | null }[]>([]);
@@ -339,25 +339,16 @@ export function KeywordsPageClient({
             <Button
               variant="outline"
               size="sm"
-              disabled={isGenerating || isPending}
+              disabled={isActionRunning || isPending}
               onClick={() => {
-                setIsGenerating(true);
-                setGenerateStatus(null);
-                startTransition(async () => {
-                  const result = await generateKeywordsAI(projectId);
-                  if ("error" in result) {
-                    setGenerateStatus(`Error: ${result.error}`);
-                  } else {
-                    setGenerateStatus(
-                      `Generated ${result.keywords.length} keywords (${result.source})`
-                    );
-                  }
-                  setIsGenerating(false);
-                });
+                runAction(
+                  { title: "Generating Keywords", description: "AI is researching and generating keyword suggestions..." },
+                  () => generateKeywordsAI(projectId)
+                );
               }}
             >
               <Sparkles size={14} />
-              {isGenerating ? "Generating..." : "AI Generate"}
+              AI Generate
             </Button>
 
             {/* Add Keywords Dialog */}
@@ -408,31 +399,16 @@ export function KeywordsPageClient({
             </Dialog>
           </div>
 
-          {/* Import / Generate Status */}
-          {(importStatus || generateStatus) && (
-            <div className="flex flex-col gap-2">
-              {importStatus && (
-                <div
-                  className={`border px-4 py-2 text-sm ${
-                    importStatus.startsWith("Error")
-                      ? "border-editorial-red/30 bg-editorial-red/5 text-editorial-red"
-                      : "border-editorial-green/30 bg-editorial-green/5 text-editorial-green"
-                  }`}
-                >
-                  {importStatus}
-                </div>
-              )}
-              {generateStatus && (
-                <div
-                  className={`border px-4 py-2 text-sm ${
-                    generateStatus.startsWith("Error")
-                      ? "border-editorial-red/30 bg-editorial-red/5 text-editorial-red"
-                      : "border-editorial-green/30 bg-editorial-green/5 text-editorial-green"
-                  }`}
-                >
-                  {generateStatus}
-                </div>
-              )}
+          {/* Import Status */}
+          {importStatus && (
+            <div
+              className={`border px-4 py-2 text-sm ${
+                importStatus.startsWith("Error")
+                  ? "border-editorial-red/30 bg-editorial-red/5 text-editorial-red"
+                  : "border-editorial-green/30 bg-editorial-green/5 text-editorial-green"
+              }`}
+            >
+              {importStatus}
             </div>
           )}
 

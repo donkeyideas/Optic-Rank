@@ -41,6 +41,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { EmptyState } from "@/components/shared/empty-state";
+import { useActionProgress } from "@/components/shared/action-progress";
 import {
   addContentPage,
   deleteContentPage,
@@ -164,14 +165,7 @@ export function ContentClient({
   const [isPending, startTransition] = useTransition();
 
   // Intelligence action states
-  const [decayMsg, setDecayMsg] = useState<string | null>(null);
-  const [cannibalMsg, setCannibalMsg] = useState<string | null>(null);
-  const [linksMsg, setLinksMsg] = useState<string | null>(null);
-  const [briefsMsg, setBriefsMsg] = useState<string | null>(null);
-  const [isRunningDecay, setIsRunningDecay] = useState(false);
-  const [isRunningCannibal, setIsRunningCannibal] = useState(false);
-  const [isRunningLinks, setIsRunningLinks] = useState(false);
-  const [isRunningBriefs, setIsRunningBriefs] = useState(false);
+  const { runAction, isRunning: isActionRunning } = useActionProgress();
   const [isGeneratingCalendar, setIsGeneratingCalendar] = useState(false);
   const [calendarGenMsg, setCalendarGenMsg] = useState<string | null>(null);
 
@@ -206,31 +200,25 @@ export function ContentClient({
     });
   }
 
-  async function handleDetectDecay() {
-    setIsRunningDecay(true);
-    setDecayMsg(null);
-    const result = await detectContentDecay(projectId);
-    if ("error" in result) setDecayMsg(`Error: ${result.error}`);
-    else setDecayMsg(`Analysis complete — ${result.atRisk} page(s) at risk of decay.`);
-    setIsRunningDecay(false);
+  function handleDetectDecay() {
+    runAction(
+      { title: "Detecting Content Decay", description: "Analyzing content freshness and traffic patterns..." },
+      () => detectContentDecay(projectId)
+    );
   }
 
-  async function handleDetectCannibalization() {
-    setIsRunningCannibal(true);
-    setCannibalMsg(null);
-    const result = await detectCannibalization(projectId);
-    if ("error" in result) setCannibalMsg(`Error: ${result.error}`);
-    else setCannibalMsg(`Found ${result.groups} cannibalization group(s).`);
-    setIsRunningCannibal(false);
+  function handleDetectCannibalization() {
+    runAction(
+      { title: "Checking Cannibalization", description: "Scanning for keyword overlap between pages..." },
+      () => detectCannibalization(projectId)
+    );
   }
 
-  async function handleSuggestLinks() {
-    setIsRunningLinks(true);
-    setLinksMsg(null);
-    const result = await suggestInternalLinks(projectId);
-    if ("error" in result) setLinksMsg(`Error: ${result.error}`);
-    else setLinksMsg(`Generated ${result.suggestions} internal link suggestion(s).`);
-    setIsRunningLinks(false);
+  function handleSuggestLinks() {
+    runAction(
+      { title: "Suggesting Internal Links", description: "Analyzing content relationships for linking opportunities..." },
+      () => suggestInternalLinks(projectId)
+    );
   }
 
   /* ---- Dialogs ---- */
@@ -439,11 +427,10 @@ export function ContentClient({
         <TabsContent value="decay">
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-ink-secondary">Detect pages losing traffic or relevance over time.</p>
-            <Button variant="outline" size="sm" onClick={handleDetectDecay} disabled={isRunningDecay}>
-              {isRunningDecay ? <><Loader2 size={14} className="mr-1.5 animate-spin" />Analyzing...</> : <><TrendingDown size={14} className="mr-1.5" />Run Decay Analysis</>}
+            <Button variant="outline" size="sm" onClick={handleDetectDecay} disabled={isActionRunning}>
+              <TrendingDown size={14} className="mr-1.5" />Run Decay Analysis
             </Button>
           </div>
-          {decayMsg && <div className="mb-4 border border-rule bg-surface-card px-4 py-3 text-sm text-ink">{decayMsg}</div>}
           {decayPages.length === 0 ? (
             <EmptyState icon={TrendingDown} title="No Decay Detected" description="Run decay analysis to identify pages that may need refreshing." />
           ) : (
@@ -482,11 +469,10 @@ export function ContentClient({
         <TabsContent value="cannibalization">
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-ink-secondary">Detect pages competing for the same keywords.</p>
-            <Button variant="outline" size="sm" onClick={handleDetectCannibalization} disabled={isRunningCannibal}>
-              {isRunningCannibal ? <><Loader2 size={14} className="mr-1.5 animate-spin" />Analyzing...</> : <><Copy size={14} className="mr-1.5" />Detect Cannibalization</>}
+            <Button variant="outline" size="sm" onClick={handleDetectCannibalization} disabled={isActionRunning}>
+              <Copy size={14} className="mr-1.5" />Detect Cannibalization
             </Button>
           </div>
-          {cannibalMsg && <div className="mb-4 border border-rule bg-surface-card px-4 py-3 text-sm text-ink">{cannibalMsg}</div>}
           {cannibalGroups.size === 0 ? (
             <EmptyState icon={Copy} title="No Cannibalization Found" description="Run cannibalization detection to find pages competing for the same keywords." />
           ) : (
@@ -517,11 +503,10 @@ export function ContentClient({
         <TabsContent value="links">
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-ink-secondary">AI-powered internal link suggestions between your content.</p>
-            <Button variant="outline" size="sm" onClick={handleSuggestLinks} disabled={isRunningLinks}>
-              {isRunningLinks ? <><Loader2 size={14} className="mr-1.5 animate-spin" />Generating...</> : <><Link2 size={14} className="mr-1.5" />Generate Suggestions</>}
+            <Button variant="outline" size="sm" onClick={handleSuggestLinks} disabled={isActionRunning}>
+              <Link2 size={14} className="mr-1.5" />Generate Suggestions
             </Button>
           </div>
-          {linksMsg && <div className="mb-4 border border-rule bg-surface-card px-4 py-3 text-sm text-ink">{linksMsg}</div>}
           {pagesWithLinks.length === 0 ? (
             <EmptyState icon={Link2} title="No Link Suggestions Yet" description="Generate AI-powered internal link suggestions to improve your site structure." />
           ) : (
@@ -769,23 +754,19 @@ export function ContentClient({
             <Button
               variant="outline"
               size="sm"
-              disabled={isRunningBriefs}
+              disabled={isActionRunning}
               onClick={() => {
-                setIsRunningBriefs(true);
-                setBriefsMsg(null);
-                startTransition(async () => {
-                  const r = await generateContentBriefs(projectId);
-                  setBriefsMsg("error" in r ? `Error: ${r.error}` : `Generated ${r.generated} brief(s).`);
-                  setIsRunningBriefs(false);
-                });
+                runAction(
+                  { title: "Generating Content Briefs", description: "Creating AI-powered content recommendations from your keywords..." },
+                  () => generateContentBriefs(projectId)
+                );
               }}
             >
-              {isRunningBriefs ? <Loader2 size={12} className="mr-1.5 animate-spin" /> : <Lightbulb size={12} className="mr-1.5" />}
+              <Lightbulb size={12} className="mr-1.5" />
               Generate Briefs
             </Button>
           </div>
-          {briefsMsg && <div className="mb-3 border border-rule bg-surface-raised px-3 py-2 text-[12px] text-ink-secondary">{briefsMsg}</div>}
-          {contentBriefs.length === 0 && !briefsMsg ? (
+          {contentBriefs.length === 0 ? (
             <EmptyState icon={Lightbulb} title="No Content Briefs" description="Click 'Generate Briefs' to create AI-powered content recommendations from your tracked keywords." />
           ) : contentBriefs.length === 0 ? null : (
             <div className="flex flex-col gap-0">

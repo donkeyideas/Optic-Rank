@@ -15,7 +15,6 @@ import {
   Ban,
   Radar,
   Plus,
-  Loader2,
 } from "lucide-react";
 
 import { useTimezone } from "@/lib/context/timezone-context";
@@ -49,6 +48,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { disavowBacklink, reclaimBacklink, discoverBacklinks, addBacklinkFromUrl } from "@/lib/actions/backlinks";
+import { useActionProgress } from "@/components/shared/action-progress";
 import type { Backlink } from "@/types";
 
 /* ------------------------------------------------------------------
@@ -132,8 +132,7 @@ export function BacklinksPageClient({
   const [isPending, startTransition] = useTransition();
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
-  const [isDiscovering, setIsDiscovering] = useState(false);
-  const [discoveryMsg, setDiscoveryMsg] = useState<string | null>(null);
+  const { runAction, isRunning: isActionRunning } = useActionProgress();
   const [showAddUrl, setShowAddUrl] = useState(false);
   const [addUrlValue, setAddUrlValue] = useState("");
   const [addUrlError, setAddUrlError] = useState<string | null>(null);
@@ -163,20 +162,11 @@ export function BacklinksPageClient({
   }
 
   function handleDiscover() {
-    setIsDiscovering(true);
-    setDiscoveryMsg(null);
     setActionError(null);
-    startTransition(async () => {
-      const result = await discoverBacklinks(projectId);
-      if ("error" in result) {
-        setActionError(result.error);
-      } else {
-        setDiscoveryMsg(
-          `Crawled ${result.crawled} pages, discovered ${result.discovered} backlinks`
-        );
-      }
-      setIsDiscovering(false);
-    });
+    runAction(
+      { title: "Discovering Backlinks", description: "Crawling the web to find sites linking to you..." },
+      () => discoverBacklinks(projectId)
+    );
   }
 
   function handleAddUrl(e: React.FormEvent) {
@@ -188,7 +178,6 @@ export function BacklinksPageClient({
       if ("error" in result) {
         setAddUrlError(result.error);
       } else {
-        setDiscoveryMsg(`Found ${result.found} backlinks from that page`);
         setShowAddUrl(false);
         setAddUrlValue("");
       }
@@ -328,18 +317,13 @@ export function BacklinksPageClient({
             <Button variant="outline" size="sm" onClick={() => setShowAddUrl(true)}>
               <Plus size={14} /> Add URL
             </Button>
-            <Button variant="primary" size="sm" onClick={handleDiscover} disabled={isDiscovering || isPending}>
-              {isDiscovering ? <Loader2 size={14} className="animate-spin" /> : <Radar size={14} />}
-              {isDiscovering ? "Discovering..." : "Discover Backlinks"}
+            <Button variant="primary" size="sm" onClick={handleDiscover} disabled={isActionRunning || isPending}>
+              <Radar size={14} />
+              Discover Backlinks
             </Button>
           </div>
         </div>
 
-        {discoveryMsg && (
-          <div className="border border-editorial-green/30 bg-editorial-green/5 px-4 py-2 text-sm text-editorial-green">
-            {discoveryMsg}
-          </div>
-        )}
         {actionError && (
           <div className="border border-editorial-red/30 bg-editorial-red/5 px-4 py-2 text-sm text-editorial-red">
             {actionError}
@@ -389,18 +373,12 @@ export function BacklinksPageClient({
           <Button variant="outline" size="sm" onClick={() => setShowAddUrl(true)}>
             <Plus size={14} /> Add URL
           </Button>
-          <Button variant="primary" size="sm" onClick={handleDiscover} disabled={isDiscovering || isPending}>
-            {isDiscovering ? <Loader2 size={14} className="animate-spin" /> : <Radar size={14} />}
-            {isDiscovering ? "Discovering..." : "Discover Backlinks"}
+          <Button variant="primary" size="sm" onClick={handleDiscover} disabled={isActionRunning || isPending}>
+            <Radar size={14} />
+            Discover Backlinks
           </Button>
         </div>
       </div>
-
-      {discoveryMsg && (
-        <div className="border border-editorial-green/30 bg-editorial-green/5 px-4 py-2 text-sm text-editorial-green">
-          {discoveryMsg}
-        </div>
-      )}
 
       {addUrlDialog}
 

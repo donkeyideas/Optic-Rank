@@ -23,6 +23,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/shared/empty-state";
+import { useActionProgress } from "@/components/shared/action-progress";
 import { AiMarkdown } from "@/components/shared/ai-markdown";
 import {
   addCompetitorApp,
@@ -49,6 +50,7 @@ export function CompetitorsTab({ listings, competitors }: CompetitorsTabProps) {
   const [searchResults, setSearchResults] = useState<Array<{ app_id: string; app_name: string; developer: string | null; icon_url: string | null; rating: number | null }>>([]);
   const [, startTransition] = useTransition();
   const [actionId, setActionId] = useState<string | null>(null);
+  const { runAction, isRunning: isActionRunning } = useActionProgress();
   const [gapAnalysis, setGapAnalysis] = useState<string | null>(null);
   const [discoveredApps, setDiscoveredApps] = useState<Array<{ app_id: string; app_name: string; icon_url: string | null; rating: number | null; store: string }>>([]);
 
@@ -115,35 +117,31 @@ export function CompetitorsTab({ listings, competitors }: CompetitorsTabProps) {
 
   function handleDiscover() {
     if (!selectedListing) return;
-    setActionId("discover");
-    startTransition(async () => {
-      try {
+    runAction(
+      { title: "Discovering App Competitors", description: "Searching app stores for similar apps..." },
+      async () => {
         const result = await discoverCompetitors(selectedListing);
         if ("discovered" in result) {
           setDiscoveredApps(result.discovered);
           if (result.discovered.length === 0) toast("No similar apps found. Try adding competitors manually.");
-        } else {
-          toast(result.error, "error");
         }
-      } catch (err) {
-        toast(`Discovery failed: ${err instanceof Error ? err.message : "Unknown error"}`, "error");
+        return result;
       }
-      setActionId(null);
-    });
+    );
   }
 
   function handleGapAnalysis() {
     if (!selectedListing) return;
-    setActionId("gap");
-    startTransition(async () => {
-      const result = await analyzeCompetitorGap(selectedListing);
-      if ("analysis" in result) {
-        setGapAnalysis(result.analysis);
-      } else {
-        toast(result.error, "error");
+    runAction(
+      { title: "Running Gap Analysis", description: "Comparing features and keywords with competitors..." },
+      async () => {
+        const result = await analyzeCompetitorGap(selectedListing);
+        if ("analysis" in result) {
+          setGapAnalysis(result.analysis);
+        }
+        return result;
       }
-      setActionId(null);
-    });
+    );
   }
 
   const selectedListingData = listings.find((l) => l.id === selectedListing);

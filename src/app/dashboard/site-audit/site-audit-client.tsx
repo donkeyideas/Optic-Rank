@@ -43,6 +43,7 @@ import {
   TabsContent,
 } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/shared/empty-state";
+import { useActionProgress } from "@/components/shared/action-progress";
 import { runSiteAudit } from "@/lib/actions/site-audit";
 import type { SiteAudit, AuditIssue, IssueSeverity, IssueCategory } from "@/types";
 
@@ -291,6 +292,7 @@ export function SiteAuditClient({
   const [isPending, startTransition] = useTransition();
   const [auditError, setAuditError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const { runAction, isRunning: isActionRunning } = useActionProgress();
 
   const handleCopyIssues = useCallback(() => {
     const realIssues = issues.filter((i) => !i.rule_id?.startsWith("cwv-metric-"));
@@ -327,12 +329,10 @@ export function SiteAuditClient({
 
   function handleRunAudit() {
     setAuditError(null);
-    startTransition(async () => {
-      const result = await runSiteAudit(projectId);
-      if ("error" in result) {
-        setAuditError(result.error);
-      }
-    });
+    runAction(
+      { title: "Running Site Audit", description: "Crawling pages and analyzing technical SEO issues..." },
+      () => runSiteAudit(projectId)
+    );
   }
 
   // If no audit exists at all, show empty state
@@ -346,9 +346,9 @@ export function SiteAuditClient({
               Crawl your site to discover technical SEO issues
             </p>
           </div>
-          <Button variant="primary" size="md" onClick={handleRunAudit} disabled={isPending}>
-            <RefreshCw size={14} strokeWidth={2.5} className={isPending ? "animate-spin" : ""} />
-            {isPending ? "Running..." : "Run New Audit"}
+          <Button variant="primary" size="md" onClick={handleRunAudit} disabled={isActionRunning || isPending}>
+            <RefreshCw size={14} strokeWidth={2.5} />
+            Run New Audit
           </Button>
         </div>
         {auditError && (

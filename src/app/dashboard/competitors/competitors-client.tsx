@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { addCompetitor, removeCompetitor, generateCompetitorsAI } from "@/lib/actions/competitors";
+import { useActionProgress } from "@/components/shared/action-progress";
 import type { Competitor } from "@/types";
 
 /* ------------------------------------------------------------------
@@ -70,8 +71,7 @@ export function CompetitorsClient({
   const [showAddCompetitor, setShowAddCompetitor] = useState(false);
   const [competitorError, setCompetitorError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generateStatus, setGenerateStatus] = useState<string | null>(null);
+  const { runAction, isRunning: isActionRunning } = useActionProgress();
 
   function handleAddCompetitor(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -176,23 +176,16 @@ export function CompetitorsClient({
     <Button
       variant="outline"
       size="sm"
-      disabled={isGenerating || isPending}
+      disabled={isActionRunning || isPending}
       onClick={() => {
-        setIsGenerating(true);
-        setGenerateStatus(null);
-        startTransition(async () => {
-          const result = await generateCompetitorsAI(projectId);
-          if ("error" in result) {
-            setGenerateStatus(`Error: ${result.error}`);
-          } else {
-            setGenerateStatus(`Added ${result.added} competitors (${result.source})`);
-          }
-          setIsGenerating(false);
-        });
+        runAction(
+          { title: "Discovering Competitors", description: "AI is analyzing your niche and finding competitors..." },
+          () => generateCompetitorsAI(projectId)
+        );
       }}
     >
       <Sparkles size={14} />
-      {isGenerating ? "Discovering..." : "AI Discover"}
+      AI Discover
     </Button>
   );
 
@@ -211,17 +204,6 @@ export function CompetitorsClient({
             {addCompetitorDialog}
           </div>
         </div>
-        {generateStatus && (
-          <div
-            className={`border px-4 py-2 text-sm ${
-              generateStatus.startsWith("Error")
-                ? "border-editorial-red/30 bg-editorial-red/5 text-editorial-red"
-                : "border-editorial-green/30 bg-editorial-green/5 text-editorial-green"
-            }`}
-          >
-            {generateStatus}
-          </div>
-        )}
         <EmptyState
           icon={Users}
           title="No Competitors Tracked Yet"
@@ -257,19 +239,6 @@ export function CompetitorsClient({
           {addCompetitorDialog}
         </div>
       </div>
-
-      {/* Generate Status */}
-      {generateStatus && (
-        <div
-          className={`border px-4 py-2 text-sm ${
-            generateStatus.startsWith("Error")
-              ? "border-editorial-red/30 bg-editorial-red/5 text-editorial-red"
-              : "border-editorial-green/30 bg-editorial-green/5 text-editorial-green"
-          }`}
-        >
-          {generateStatus}
-        </div>
-      )}
 
       {/* Competitor Comparison Table */}
       <Card>
