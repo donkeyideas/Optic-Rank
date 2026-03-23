@@ -333,9 +333,24 @@ export async function discoverBacklinks(
 
         const { links } = result.value;
         for (const link of links) {
-          // Upsert into backlinks table
-          const { error } = await supabase.from("backlinks").upsert(
-            {
+          // Check if this backlink already exists
+          const { data: existing } = await supabase
+            .from("backlinks")
+            .select("id")
+            .eq("project_id", projectId)
+            .eq("source_url", link.source_url)
+            .eq("target_url", link.target_url)
+            .maybeSingle();
+
+          if (existing) {
+            // Update last_seen for existing backlink
+            await supabase
+              .from("backlinks")
+              .update({ last_seen: now })
+              .eq("id", existing.id);
+          } else {
+            // Insert genuinely new backlink
+            const { error } = await supabase.from("backlinks").insert({
               project_id: projectId,
               source_url: link.source_url,
               source_domain: link.source_domain,
@@ -349,10 +364,9 @@ export async function discoverBacklinks(
               status: "new",
               first_seen: now,
               last_seen: now,
-            },
-            { onConflict: "project_id,source_url,target_url" }
-          );
-          if (!error) discoveredCount++;
+            });
+            if (!error) discoveredCount++;
+          }
         }
       }
     }

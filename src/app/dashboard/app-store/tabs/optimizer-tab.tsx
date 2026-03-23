@@ -14,7 +14,7 @@ import {
 import { ColumnHeader } from "@/components/editorial/column-header";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
-import { AiMarkdown } from "@/components/shared/ai-markdown";
+
 import {
   scoreMetadata,
   generateTitleVariants,
@@ -49,7 +49,7 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
     const store = listing.store as "apple" | "google";
     let score = 0;
     const recs: string[] = [];
-    const maxTitle = store === "apple" ? 30 : 50;
+    const maxTitle = 30;
     const tLen = (listing.app_name ?? "").trim().length;
     if (tLen >= 15 && tLen <= maxTitle) score += 25;
     else if (tLen > 0) { score += 10; recs.push(`Title: ${tLen}/${maxTitle} chars`); }
@@ -237,7 +237,7 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
     return <EmptyState icon={Target} title="No Apps to Optimize" description="Add an app listing first to use the ASO optimizer." />;
   }
 
-  const maxTitleLen = listing?.store === "apple" ? 30 : 50;
+  const maxTitleLen = 30; // Both Apple and Google Play limit titles to 30 characters
 
   return (
     <div className="flex flex-col gap-4">
@@ -347,10 +347,18 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
                   {description.length}/4000
                 </span>
               </div>
-              <Button variant="outline" size="sm" onClick={handleGenerateDescription} disabled={actionId === "desc"}>
-                {actionId === "desc" ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
-                AI Rewrite
-              </Button>
+              <div className="flex gap-2">
+                {description.length > 0 && (
+                  <button onClick={() => copyToClipboard(description, "desc-main")} className="flex items-center gap-1 text-[10px] text-ink-muted hover:text-ink">
+                    {copiedField === "desc-main" ? <Check size={10} /> : <Copy size={10} />}
+                    {copiedField === "desc-main" ? "Copied" : "Copy"}
+                  </button>
+                )}
+                <Button variant="outline" size="sm" onClick={handleGenerateDescription} disabled={actionId === "desc"}>
+                  {actionId === "desc" ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                  AI Rewrite
+                </Button>
+              </div>
             </div>
             <textarea
               value={description}
@@ -372,7 +380,7 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
                     </button>
                   </div>
                 </div>
-                <AiMarkdown content={generatedDesc} className="mt-2 font-sans text-[11px] leading-relaxed" />
+                <div className="mt-2 whitespace-pre-wrap font-sans text-[11px] leading-relaxed text-ink-secondary">{generatedDesc}</div>
               </div>
             )}
           </div>

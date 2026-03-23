@@ -5,7 +5,7 @@ import { PaperHeader } from "@/components/editorial/paper-header";
 import { PaperNav } from "@/components/editorial/paper-nav";
 import { BottomBar } from "@/components/editorial/bottom-bar";
 import { ProjectSelector } from "@/components/shared/project-selector";
-import { GenerateAllButton } from "@/components/shared/generate-all-button";
+
 import { TrialBanner } from "@/components/shared/trial-banner";
 import { TimezoneProvider } from "@/lib/context/timezone-context";
 import { formatDateLine } from "@/lib/utils/format-date";
@@ -67,7 +67,7 @@ export default async function DashboardLayout({
     data: { user },
   } = await supabase.auth.getUser();
 
-  let projects: { id: string; name: string; domain: string | null; is_active: boolean }[] = [];
+  let projects: { id: string; name: string; domain: string | null; is_active: boolean; last_crawl_at: string | null; last_rank_check: string | null }[] = [];
   let trialEndsAt: string | null = null;
   let subscriptionStatus: string | null = null;
   let plan: string | null = null;
@@ -86,7 +86,7 @@ export default async function DashboardLayout({
       const [projectsRes, orgRes] = await Promise.all([
         supabase
           .from("projects")
-          .select("id, name, domain, is_active")
+          .select("id, name, domain, is_active, last_crawl_at, last_rank_check")
           .eq("organization_id", profile.organization_id)
           .order("created_at", { ascending: true }),
         supabase
@@ -120,13 +120,30 @@ export default async function DashboardLayout({
   const today = formatDateLine(new Date(), userTimezone);
   const activeProject = projects.find((p) => p.is_active) ?? null;
 
+  // Compute last sync timestamp from most recent crawl or rank check
+  let lastSyncText = "Never";
+  if (activeProject) {
+    const timestamps = [activeProject.last_crawl_at, activeProject.last_rank_check].filter(Boolean) as string[];
+    if (timestamps.length > 0) {
+      const latest = new Date(Math.max(...timestamps.map((t) => new Date(t).getTime())));
+      const diffMs = Date.now() - latest.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
+      if (diffMins < 1) lastSyncText = "just now";
+      else if (diffMins < 60) lastSyncText = `${diffMins}m ago`;
+      else if (diffHours < 24) lastSyncText = `${diffHours}h ago`;
+      else lastSyncText = `${diffDays}d ago`;
+    }
+  }
+
   return (
     <TimezoneProvider timezone={userTimezone}>
       <div className="flex min-h-screen flex-col bg-surface-cream">
         <Masthead
           showLogout
           leftSlot={projects.length > 0 ? <ProjectSelector projects={projects} /> : undefined}
-          actions={activeProject ? <GenerateAllButton projectId={activeProject.id} /> : undefined}
+          actions={undefined}
         />
 
         <PaperHeader
@@ -149,7 +166,7 @@ export default async function DashboardLayout({
 
         <BottomBar
           leftText="Optic Rank — Intelligence Report"
-          rightText={`${(plan ?? "free").charAt(0).toUpperCase() + (plan ?? "free").slice(1)} Plan — Last sync: just now`}
+          rightText={`${(plan ?? "free").charAt(0).toUpperCase() + (plan ?? "free").slice(1)} Plan — Last sync: ${lastSyncText}`}
         />
       </div>
     </TimezoneProvider>

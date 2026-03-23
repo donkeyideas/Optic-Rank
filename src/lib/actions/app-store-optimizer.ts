@@ -19,7 +19,7 @@ export async function scoreMetadata(
   const recs: string[] = [];
 
   // Title scoring (max 25 pts)
-  const maxTitle = store === "apple" ? 30 : 50;
+  const maxTitle = 30; // Both stores limit titles to 30 characters
   const titleLen = title.trim().length;
   if (titleLen >= 15 && titleLen <= maxTitle) {
     score += 25;
@@ -115,7 +115,7 @@ export async function generateTitleVariants(
 
   if (!listing) return { error: "Listing not found." };
 
-  const maxLen = listing.store === "apple" ? 30 : 50;
+  const maxLen = 30; // Both Apple App Store and Google Play limit titles to 30 characters
   const kwList = targetKeywords.length > 0 ? targetKeywords.join(", ") : "inferred from app description";
 
   const descText = (listing.description as string)?.slice(0, 300) ?? "N/A";
@@ -248,19 +248,37 @@ Current Description: "${(listing.description as string)?.slice(0, 2000) ?? "No c
 Requirements:
 - Start with a compelling hook (first 3 lines visible before "Read More")
 - Include relevant keywords naturally throughout
-- Use bullet points or short paragraphs for features
+- Use bullet points (•) or short paragraphs for features
 - Include a call-to-action at the end
+- MUST be under 4000 characters total (hard limit for both stores)
 - 1000-2000 characters optimal
 - ${listing.store === "google" ? "Google Play indexes the full description for keywords" : "Apple indexes only title, subtitle, and keyword field — description is for conversion, not keywords"}
+- IMPORTANT: Return PLAIN TEXT only. Do NOT use markdown formatting (no **, no ##, no \`code\`). Use simple bullet characters (•) instead of markdown lists. Do NOT include emoji unicode characters.
 
-Return ONLY the optimized description text.`;
+Return ONLY the optimized description text in plain text format.`;
 
   const result = await aiChat(prompt, {
     temperature: 0.7,
     maxTokens: 2000,
     context: { feature: "aso_optimizer", sub_type: "description_variant", metadata: { listingId } },
   });
-  return { success: true, description: result?.text ?? "Unable to generate description. Please try again." };
+
+  // Strip any markdown formatting the AI might still include
+  let desc = result?.text ?? "Unable to generate description. Please try again.";
+  desc = desc
+    .replace(/\*\*([^*]+)\*\*/g, "$1")     // **bold** → bold
+    .replace(/\*([^*]+)\*/g, "$1")           // *italic* → italic
+    .replace(/__([^_]+)__/g, "$1")           // __bold__ → bold
+    .replace(/_([^_]+)_/g, "$1")             // _italic_ → italic
+    .replace(/^#{1,6}\s+/gm, "")             // ## headings → plain text
+    .replace(/```[\s\S]*?```/g, "")          // code blocks
+    .replace(/`([^`]+)`/g, "$1")             // inline code
+    .replace(/^\s*[-*+]\s+/gm, "• ")         // markdown lists → bullet
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // [text](url) → text
+    .trim()
+    .slice(0, 4000);
+
+  return { success: true, description: desc };
 }
 
 /**
