@@ -151,11 +151,13 @@ export default async function SettingsPage() {
 
   // Fetch GSC connection status
   let gscConnected = false;
+  let gscConfigured = false;
   let gscPropertyUrl: string | null = null;
   if (activeProjectId) {
     try {
       const gscStatus = await getGSCConnectionStatus(activeProjectId);
       gscConnected = gscStatus.connected;
+      gscConfigured = gscStatus.configured;
       gscPropertyUrl = gscStatus.propertyUrl;
     } catch {
       // GSC status fetch failed — non-critical
@@ -204,6 +206,7 @@ export default async function SettingsPage() {
       mfaEnabled={mfaEnabled}
       mfaFactors={mfaFactors}
       gscConnected={gscConnected}
+      gscConfigured={gscConfigured}
       gscPropertyUrl={gscPropertyUrl}
       activeProjectId={activeProjectId}
     />

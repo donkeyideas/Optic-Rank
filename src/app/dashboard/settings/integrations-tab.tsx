@@ -49,10 +49,11 @@ interface IntegrationsTabProps {
   settings: IntegrationSettings;
   projectId?: string;
   gscConnected?: boolean;
+  gscConfigured?: boolean;
   gscPropertyUrl?: string | null;
 }
 
-export function IntegrationsTab({ settings, projectId, gscConnected: initialGscConnected, gscPropertyUrl }: IntegrationsTabProps) {
+export function IntegrationsTab({ settings, projectId, gscConnected: initialGscConnected, gscConfigured = false, gscPropertyUrl }: IntegrationsTabProps) {
   const timezone = useTimezone();
   const [slackUrl, setSlackUrl] = useState(settings.slackWebhookUrl ?? "");
   const [slackSaved, setSlackSaved] = useState(false);
@@ -225,7 +226,69 @@ export function IntegrationsTab({ settings, projectId, gscConnected: initialGscC
                 </Button>
               </div>
             </>
+          ) : !gscConfigured ? (
+            /* Admin setup instructions — OAuth credentials not configured */
+            <>
+              <div className="flex items-start gap-3 border border-editorial-gold/30 bg-editorial-gold/5 px-4 py-3">
+                <Search size={16} className="mt-0.5 shrink-0 text-editorial-gold" />
+                <div className="text-sm text-ink-secondary">
+                  <p className="font-semibold text-ink">Setup Required</p>
+                  <p className="mt-1">
+                    Google Search Console OAuth needs to be configured before users can connect their accounts.
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-[13px] leading-relaxed text-ink-secondary">
+                <p className="mb-2 text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Setup Steps</p>
+                <ol className="list-decimal space-y-2 pl-5">
+                  <li>
+                    Go to{" "}
+                    <a
+                      href="https://console.cloud.google.com/apis/credentials"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-editorial-red underline"
+                    >
+                      Google Cloud Console &rarr; Credentials
+                    </a>
+                  </li>
+                  <li>
+                    Click <strong>Create Credentials</strong> &rarr; <strong>OAuth client ID</strong>
+                  </li>
+                  <li>
+                    Application type: <strong>Web application</strong>
+                  </li>
+                  <li>
+                    Add authorized redirect URI:
+                    <code className="ml-1 bg-surface-raised px-1.5 py-0.5 font-mono text-[11px] text-ink">
+                      https://yourdomain.com/api/auth/gsc/callback
+                    </code>
+                  </li>
+                  <li>
+                    Enable the{" "}
+                    <a
+                      href="https://console.cloud.google.com/apis/library/searchconsole.googleapis.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-editorial-red underline"
+                    >
+                      Search Console API
+                    </a>
+                  </li>
+                  <li>
+                    Add these environment variables:
+                    <div className="mt-1 space-y-1 bg-surface-raised px-3 py-2 font-mono text-[11px]">
+                      <div><span className="text-editorial-red">GOOGLE_OAUTH_CLIENT_ID</span>=your-client-id.apps.googleusercontent.com</div>
+                      <div><span className="text-editorial-red">GOOGLE_OAUTH_CLIENT_SECRET</span>=your-secret</div>
+                    </div>
+                  </li>
+                  <li>Redeploy or restart the application</li>
+                </ol>
+              </div>
+            </>
           ) : (
+            /* OAuth configured but user hasn't connected yet */
             <>
               <p className="text-sm text-ink-secondary">
                 Connect your Google Search Console to import top-performing keywords and get real search performance data.

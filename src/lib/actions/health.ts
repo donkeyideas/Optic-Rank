@@ -14,7 +14,7 @@ export async function triggerCronJob(
   const adminId = await requireAdmin();
   if (!adminId) return { error: "Not authorized." };
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:4001";
   const cronSecret = process.env.CRON_SECRET;
 
   const endpoint =

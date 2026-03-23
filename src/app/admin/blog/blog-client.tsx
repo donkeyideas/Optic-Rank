@@ -59,6 +59,7 @@ export function BlogClient({
   const [content, setContent] = useState("");
   const [status, setStatus] = useState<"draft" | "published">("draft");
   const [tagsInput, setTagsInput] = useState("");
+  const [backlink, setBacklink] = useState("");
 
   const posts = tab === "blog" ? blogPosts : guides;
 
@@ -122,6 +123,7 @@ export function BlogClient({
     setContent("");
     setStatus("draft");
     setTagsInput("");
+    setBacklink("");
     setError("");
     setShowPreview(false);
   }
@@ -135,6 +137,7 @@ export function BlogClient({
     setContent(post.content);
     setStatus(post.status as "draft" | "published");
     setTagsInput(Array.isArray(post.tags) ? post.tags.join(", ") : "");
+    setBacklink("");
     setError("");
     setShowPreview(false);
   }
@@ -163,7 +166,7 @@ export function BlogClient({
     setError("");
 
     try {
-      const result = await generateBlogWithAI(title, tab);
+      const result = await generateBlogWithAI(title, tab, backlink.trim() || undefined);
 
       if ("error" in result) {
         setError(result.error);
@@ -326,6 +329,19 @@ export function BlogClient({
                   AI is writing your {tab === "blog" ? "blog post" : "guide"} optimized for SEO, GEO, AEO, and CRO. This may take 30-60 seconds...
                 </p>
               )}
+            </div>
+
+            {/* Backlink (optional) */}
+            <div>
+              <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-ink-muted">
+                Backlink <span className="normal-case tracking-normal text-ink-muted/60">(optional)</span>
+              </label>
+              <input
+                value={backlink}
+                onChange={(e) => setBacklink(e.target.value)}
+                className="w-full border border-rule bg-surface-cream px-3 py-2 font-mono text-sm text-ink focus:border-ink focus:outline-none"
+                placeholder="https://example.com — AI will naturally link to this URL in the post"
+              />
             </div>
 
             <div>

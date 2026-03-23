@@ -88,7 +88,7 @@ async function fetchViaChromium(
   url: string,
   options: { waitMs?: number; timeoutMs?: number }
 ): Promise<JsRenderResult> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:4001";
   const secret = process.env.INTERNAL_API_SECRET;
 
   if (!secret) {

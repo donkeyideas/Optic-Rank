@@ -12,13 +12,18 @@ import {
 
 /**
  * Check if a user has connected GSC for a project.
+ * Also returns whether the admin has configured OAuth credentials.
  */
 export async function getGSCConnectionStatus(
   projectId: string
-): Promise<{ connected: boolean; propertyUrl: string | null }> {
+): Promise<{ connected: boolean; configured: boolean; propertyUrl: string | null }> {
+  const configured = hasGSCOAuthCredentials();
+
   const userClient = await createClient();
   const { data: { user } } = await userClient.auth.getUser();
-  if (!user) return { connected: false, propertyUrl: null };
+  if (!user) return { connected: false, configured, propertyUrl: null };
+
+  if (!configured) return { connected: false, configured, propertyUrl: null };
 
   const supabase = createAdminClient();
   const { data } = await supabase
@@ -30,6 +35,7 @@ export async function getGSCConnectionStatus(
 
   return {
     connected: !!data,
+    configured,
     propertyUrl: data?.gsc_property_url ?? null,
   };
 }

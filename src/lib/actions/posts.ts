@@ -111,7 +111,8 @@ export async function deletePost(
  */
 export async function generateBlogWithAI(
   title: string,
-  type: "blog" | "guide" = "blog"
+  type: "blog" | "guide" = "blog",
+  backlink?: string
 ): Promise<{ error: string } | { content: string; excerpt: string; tags: string[] }> {
   const adminId = await requireAdmin();
   if (!adminId) return { error: "Not authorized." };
@@ -180,6 +181,7 @@ ${internalLinksContext}
    Format: <a href="https://example.com" target="_blank" rel="noopener noreferrer">anchor text</a>
 
 3. Do NOT use generic anchor text like "click here" or "read more". Use descriptive, keyword-rich anchor text.
+${backlink ? `\n4. BACKLINK (IMPORTANT): You MUST include a natural, contextually relevant dofollow link to this URL: ${backlink}\n   - Weave it into the body content where it adds value to the reader.\n   - Use descriptive, keyword-rich anchor text related to the page content.\n   - Format: <a href="${backlink}" target="_blank" rel="dofollow">descriptive anchor text</a>\n   - Do NOT force it — integrate it so it reads naturally within a paragraph.` : ""}
 
 STRUCTURE:
 - Start with an engaging introduction paragraph.

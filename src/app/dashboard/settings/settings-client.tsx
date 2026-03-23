@@ -170,6 +170,7 @@ interface SettingsClientProps {
   mfaEnabled?: boolean;
   mfaFactors?: Array<{ id: string; friendlyName: string | null; status: string }>;
   gscConnected?: boolean;
+  gscConfigured?: boolean;
   gscPropertyUrl?: string | null;
   activeProjectId?: string;
 }
@@ -232,6 +233,7 @@ export function SettingsClient({
   mfaEnabled = false,
   mfaFactors = [],
   gscConnected,
+  gscConfigured,
   gscPropertyUrl,
   activeProjectId,
 }: SettingsClientProps) {
@@ -1042,7 +1044,7 @@ export function SettingsClient({
             ============================================================ */}
         <TabsContent value="integrations">
           {integrationSettings ? (
-            <IntegrationsTab settings={integrationSettings} projectId={activeProjectId} gscConnected={gscConnected} gscPropertyUrl={gscPropertyUrl} />
+            <IntegrationsTab settings={integrationSettings} projectId={activeProjectId} gscConnected={gscConnected} gscConfigured={gscConfigured} gscPropertyUrl={gscPropertyUrl} />
           ) : (
             <EmptyState
               icon={Plug}

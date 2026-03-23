@@ -40,7 +40,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:4001"
   ),
   title: {
     default: "Optic Rank — AI-Powered SEO Intelligence Platform",

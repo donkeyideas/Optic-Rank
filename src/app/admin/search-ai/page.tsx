@@ -33,7 +33,7 @@ export default async function AdminSearchAIPage() {
     auditResult = {
       pages: [],
       crawledAt: new Date().toISOString(),
-      siteUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+      siteUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:4001",
       totalPages: 0,
       seoScore: 0,
       aeoScore: 0,

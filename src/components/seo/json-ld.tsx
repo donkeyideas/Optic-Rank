@@ -7,7 +7,7 @@ export function JsonLd({ data }: { data: object }) {
   );
 }
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:4001";
 
 /** Shared OG image config — import into every page metadata to avoid override loss. */
 export const OG_IMAGES = [
