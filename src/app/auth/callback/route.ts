@@ -8,6 +8,14 @@ export async function GET(request: Request) {
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/dashboard";
 
+  // If Supabase returned an error instead of a code, pass it to the login page
+  const errorParam = searchParams.get("error_description") || searchParams.get("error");
+  if (errorParam && !code) {
+    return NextResponse.redirect(
+      `${origin}/login?message=${encodeURIComponent(errorParam)}`
+    );
+  }
+
   if (code) {
     const cookieStore = await cookies();
 

@@ -47,15 +47,28 @@ export function LoginForm() {
   async function handleOAuth(provider: "google") {
     setError(null);
     setOauthLoading(provider);
-    const supabase = createClient();
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-    if (oauthError) {
-      setError(oauthError.message);
+    try {
+      const supabase = createClient();
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          skipBrowserRedirect: true,
+        },
+      });
+      if (oauthError) {
+        setError(oauthError.message);
+        setOauthLoading(null);
+        return;
+      }
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        setError("Could not start Google sign-in. Please try again.");
+        setOauthLoading(null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Google sign-in failed.");
       setOauthLoading(null);
     }
   }
