@@ -2,6 +2,14 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
+  // Skip session refresh for auth callback routes — the callback handler
+  // manages its own cookie exchange and middleware interference can break it
+  if (request.nextUrl.pathname.startsWith("/auth/callback")) {
+    const response = NextResponse.next({ request });
+    response.headers.set("x-pathname", request.nextUrl.pathname);
+    return response;
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });
