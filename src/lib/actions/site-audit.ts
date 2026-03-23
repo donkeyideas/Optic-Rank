@@ -7,6 +7,118 @@ import { getPageSpeedData } from "@/lib/api/pagespeed";
 import { processPageSpeedAudit } from "@/lib/actions/audit-utils";
 import { crawlSite, type CrawledPage, type CrawlResult } from "@/lib/crawl/site-crawler";
 
+/* ==================================================================
+   Scheduled Audit Actions
+   ================================================================== */
+
+export type AuditFrequency = "daily" | "weekly" | "biweekly" | "monthly";
+
+export interface ScheduledAudit {
+  id: string;
+  project_id: string;
+  frequency: AuditFrequency;
+  next_run_at: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+/**
+ * Create or update a scheduled audit for a project.
+ * Only one active schedule per project (enforced by DB unique index).
+ */
+export async function scheduleAudit(
+  projectId: string,
+  frequency: AuditFrequency
+): Promise<{ error: string } | { success: true }> {
+  const userClient = await createClient();
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
+  const supabase = createAdminClient();
+
+  // Calculate next run time
+  const nextRun = calculateNextRunFromNow(frequency);
+
+  // Deactivate any existing schedule for this project
+  await supabase
+    .from("scheduled_audits")
+    .update({ is_active: false })
+    .eq("project_id", projectId)
+    .eq("is_active", true);
+
+  // Insert new schedule
+  const { error } = await supabase.from("scheduled_audits").insert({
+    project_id: projectId,
+    frequency,
+    next_run_at: nextRun.toISOString(),
+    is_active: true,
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard/site-audit");
+  return { success: true };
+}
+
+/**
+ * Cancel (deactivate) a scheduled audit.
+ */
+export async function cancelScheduledAudit(
+  id: string
+): Promise<{ error: string } | { success: true }> {
+  const userClient = await createClient();
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("scheduled_audits")
+    .update({ is_active: false })
+    .eq("id", id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard/site-audit");
+  return { success: true };
+}
+
+/**
+ * Get the active scheduled audit for a project (if any).
+ */
+export async function getScheduledAudit(
+  projectId: string
+): Promise<ScheduledAudit | null> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("scheduled_audits")
+    .select("*")
+    .eq("project_id", projectId)
+    .eq("is_active", true)
+    .single();
+
+  return data as ScheduledAudit | null;
+}
+
+function calculateNextRunFromNow(frequency: AuditFrequency): Date {
+  const now = new Date();
+  switch (frequency) {
+    case "daily":
+      now.setDate(now.getDate() + 1);
+      break;
+    case "weekly":
+      now.setDate(now.getDate() + 7);
+      break;
+    case "biweekly":
+      now.setDate(now.getDate() + 14);
+      break;
+    case "monthly":
+      now.setMonth(now.getMonth() + 1);
+      break;
+  }
+  now.setHours(3, 0, 0, 0); // 3 AM UTC
+  return now;
+}
+
 /**
  * Run a new site audit for a project.
  * 1. Crawls multiple pages via sitemap + link discovery

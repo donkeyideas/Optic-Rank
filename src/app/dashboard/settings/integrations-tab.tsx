@@ -9,6 +9,8 @@ import {
   Send,
   Check,
   Webhook,
+  Search,
+  Unlink,
 } from "lucide-react";
 import { ColumnHeader } from "@/components/editorial/column-header";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +33,7 @@ import {
   deleteWebhook,
   type IntegrationSettings,
 } from "@/lib/actions/integrations";
+import { disconnectGSC } from "@/lib/actions/gsc";
 import { useTimezone } from "@/lib/context/timezone-context";
 import { formatDate } from "@/lib/utils/format-date";
 
@@ -44,9 +47,12 @@ const WEBHOOK_EVENTS = [
 
 interface IntegrationsTabProps {
   settings: IntegrationSettings;
+  projectId?: string;
+  gscConnected?: boolean;
+  gscPropertyUrl?: string | null;
 }
 
-export function IntegrationsTab({ settings }: IntegrationsTabProps) {
+export function IntegrationsTab({ settings, projectId, gscConnected: initialGscConnected, gscPropertyUrl }: IntegrationsTabProps) {
   const timezone = useTimezone();
   const [slackUrl, setSlackUrl] = useState(settings.slackWebhookUrl ?? "");
   const [slackSaved, setSlackSaved] = useState(false);
@@ -56,6 +62,7 @@ export function IntegrationsTab({ settings }: IntegrationsTabProps) {
   const [teamsTested, setTeamsTested] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [gscConnected, setGscConnected] = useState(initialGscConnected ?? false);
 
   const [showAddWebhook, setShowAddWebhook] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState("");
@@ -175,6 +182,78 @@ export function IntegrationsTab({ settings }: IntegrationsTabProps) {
           {error}
         </div>
       )}
+
+      {/* Google Search Console */}
+      <div>
+        <ColumnHeader
+          title="Google Search Console"
+          subtitle="Connect your GSC account to import keywords and track search performance"
+        />
+        <div className="mt-4 flex flex-col gap-4 border border-rule bg-surface-card p-5">
+          {gscConnected ? (
+            <>
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center border border-editorial-green/30 bg-editorial-green/10">
+                  <Search size={14} className="text-editorial-green" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-ink">Connected</p>
+                  {gscPropertyUrl && (
+                    <p className="font-mono text-xs text-ink-muted">{gscPropertyUrl}</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (!projectId) return;
+                    startTransition(async () => {
+                      const result = await disconnectGSC(projectId);
+                      if ("success" in result) {
+                        setGscConnected(false);
+                      } else {
+                        setError(result.error);
+                      }
+                    });
+                  }}
+                  disabled={isPending || !projectId}
+                >
+                  <Unlink size={14} />
+                  Disconnect
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-ink-secondary">
+                Connect your Google Search Console to import top-performing keywords and get real search performance data.
+              </p>
+              <div>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    if (projectId) {
+                      window.location.href = `/api/auth/gsc?project_id=${projectId}`;
+                    }
+                  }}
+                  disabled={!projectId}
+                >
+                  <Search size={14} />
+                  Connect Google Search Console
+                </Button>
+              </div>
+              {!projectId && (
+                <p className="text-xs text-ink-muted">
+                  Create a project first to connect Google Search Console.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      </div>
 
       {/* Slack Integration */}
       <div>

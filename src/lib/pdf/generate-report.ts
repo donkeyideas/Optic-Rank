@@ -30,15 +30,28 @@ import {
   buildExecutiveSummary,
 } from "./sections/executive-section";
 
-export type ReportTemplate = "full" | "keywords" | "backlinks" | "audit" | "executive";
+export type ReportTemplate = "full" | "keywords" | "backlinks" | "audit" | "executive" | "custom";
+
+export type ReportSection = "executive" | "keywords" | "backlinks" | "audit" | "competitors" | "insights";
+
+export const ALL_SECTIONS: { id: ReportSection; label: string }[] = [
+  { id: "executive", label: "Overview & Scores" },
+  { id: "keywords", label: "Keyword Rankings" },
+  { id: "backlinks", label: "Backlinks" },
+  { id: "audit", label: "Site Audit" },
+  { id: "competitors", label: "Competitors" },
+  { id: "insights", label: "AI Insights" },
+];
 
 /**
  * Generate a PDF report for a project.
+ * Accepts either a template name or a custom section list.
  * Returns a Buffer of the PDF content.
  */
 export async function generateReportPDF(
   projectId: string,
-  template: ReportTemplate
+  template: ReportTemplate,
+  customSections?: ReportSection[]
 ): Promise<Buffer> {
   const supabase = createAdminClient();
 
@@ -59,7 +72,9 @@ export async function generateReportPDF(
   });
 
   // Determine which sections to include
-  const sections = getSectionsForTemplate(template);
+  const sections = template === "custom" && customSections?.length
+    ? customSections
+    : getSectionsForTemplate(template);
 
   // Fetch data for each section in parallel
   const [keywordsData, backlinksData, auditData, competitorsData, insightsData] =
@@ -78,6 +93,7 @@ export async function generateReportPDF(
     backlinks: "Backlink Profile Report",
     audit: "Site Audit Report",
     executive: "Executive Summary",
+    custom: "Custom SEO Report",
   };
 
   // Build section elements

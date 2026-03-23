@@ -70,7 +70,9 @@ async function enrichKeywords(projectId: string) {
  */
 export async function addKeywords(
   projectId: string,
-  keywords: string[]
+  keywords: string[],
+  location: string = "US",
+  device: "desktop" | "mobile" = "desktop"
 ): Promise<{ error: string } | { success: true }> {
   const userClient = await createClient();
   const { data: { user } } = await userClient.auth.getUser();
@@ -104,8 +106,8 @@ export async function addKeywords(
     project_id: projectId,
     keyword,
     search_engine: "google",
-    device: "desktop" as const,
-    location: "US",
+    device,
+    location,
   }));
   const { error } = await supabase.from("keywords").upsert(rows, {
     onConflict: "project_id,keyword,search_engine,device,location",
@@ -177,7 +179,9 @@ export async function getKeywordRankHistory(
  * Auto-enriches with estimated metrics after insertion.
  */
 export async function generateKeywordsAI(
-  projectId: string
+  projectId: string,
+  location: string = "US",
+  device: "desktop" | "mobile" = "desktop"
 ): Promise<{ error: string } | { success: true; keywords: string[]; source: string }> {
   const userClient = await createClient();
   const {
@@ -220,8 +224,8 @@ export async function generateKeywordsAI(
     project_id: projectId,
     keyword,
     search_engine: "google",
-    device: "desktop" as const,
-    location: "US",
+    device,
+    location,
   }));
 
   const { error } = await supabase.from("keywords").upsert(rows, {
@@ -245,7 +249,9 @@ export async function generateKeywordsAI(
  */
 export async function importKeywordsCSV(
   projectId: string,
-  formData: FormData
+  formData: FormData,
+  defaultLocation: string = "US",
+  defaultDevice: "desktop" | "mobile" = "desktop"
 ): Promise<{ error: string } | { success: true; imported: number }> {
   const userClient = await createClient();
   const { data: { user } } = await userClient.auth.getUser();
@@ -264,27 +270,39 @@ export async function importKeywordsCSV(
     .split(",")
     .map((h) => h.trim().replace(/"/g, ""));
   const keywordIndex = header.indexOf("keyword");
+  const locationIndex = header.indexOf("location");
+  const deviceIndex = header.indexOf("device");
   const dataStartIndex = keywordIndex >= 0 ? 1 : 0;
   const colIndex = keywordIndex >= 0 ? keywordIndex : 0;
 
-  const keywords: string[] = [];
+  const parsedRows: { keyword: string; location: string; device: "desktop" | "mobile" }[] = [];
 
   for (let i = dataStartIndex; i < lines.length; i++) {
     const cols = lines[i].split(",").map((c) => c.trim().replace(/"/g, ""));
     const kw = cols[colIndex];
-    if (kw) keywords.push(kw);
+    if (!kw) continue;
+    const loc = locationIndex >= 0 && cols[locationIndex] ? cols[locationIndex].toUpperCase() : defaultLocation;
+    const dev = deviceIndex >= 0 && cols[deviceIndex] ? (cols[deviceIndex].toLowerCase() as "desktop" | "mobile") : defaultDevice;
+    parsedRows.push({ keyword: kw, location: loc, device: dev === "mobile" ? "mobile" : "desktop" });
   }
 
-  if (keywords.length === 0) return { error: "No keywords found in the CSV file." };
+  if (parsedRows.length === 0) return { error: "No keywords found in the CSV file." };
 
-  const uniqueKeywords = [...new Set(keywords)];
+  // Deduplicate by keyword+location+device
+  const seen = new Set<string>();
+  const uniqueRows = parsedRows.filter((r) => {
+    const key = `${r.keyword}|${r.location}|${r.device}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 
-  const rows = uniqueKeywords.map((keyword) => ({
+  const rows = uniqueRows.map((r) => ({
     project_id: projectId,
-    keyword,
+    keyword: r.keyword,
     search_engine: "google",
-    device: "desktop" as const,
-    location: "US",
+    device: r.device,
+    location: r.location,
   }));
 
   const supabase = createAdminClient();
@@ -300,7 +318,7 @@ export async function importKeywordsCSV(
 
   revalidatePath("/dashboard/keywords");
   revalidatePath("/dashboard");
-  return { success: true, imported: uniqueKeywords.length };
+  return { success: true, imported: uniqueRows.length };
 }
 
 /**

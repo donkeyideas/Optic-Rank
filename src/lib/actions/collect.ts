@@ -21,7 +21,7 @@ export async function collectKeywordSuggestions(
   // Fetch the project to get its domain
   const { data: project, error: fetchError } = await supabase
     .from("projects")
-    .select("domain")
+    .select("domain, target_countries")
     .eq("id", projectId)
     .single();
 
@@ -57,13 +57,16 @@ export async function collectKeywordSuggestions(
     return;
   }
 
+  // Use the project's primary target country, default to US
+  const projectLocation = (project.target_countries as string[] | null)?.[0] ?? "US";
+
   // Build rows matching the keywords table schema
   const rows = result.data.map((kw) => ({
     project_id: projectId,
     keyword: kw.keyword,
     search_engine: "google",
     device: "desktop" as const,
-    location: "US",
+    location: projectLocation,
     search_volume: kw.search_volume || null,
     cpc: kw.cpc || null,
     difficulty: kw.difficulty || null,

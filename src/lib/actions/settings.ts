@@ -129,3 +129,62 @@ export async function createOrganization(
   revalidatePath("/dashboard/settings");
   return { success: true };
 }
+
+/**
+ * Notification preferences shape stored in profiles.notification_prefs JSONB.
+ */
+export interface NotificationPrefs {
+  email: boolean;
+  push: boolean;
+  weekly_digest: boolean;
+  rank_changes: boolean;
+  backlink_alerts: boolean;
+  audit_complete: boolean;
+  report_ready: boolean;
+}
+
+const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
+  email: true,
+  push: true,
+  weekly_digest: true,
+  rank_changes: true,
+  backlink_alerts: true,
+  audit_complete: true,
+  report_ready: true,
+};
+
+/**
+ * Update the current user's notification preferences.
+ */
+export async function updateNotificationPreferences(
+  prefs: Partial<NotificationPrefs>
+): Promise<{ error: string } | { success: true }> {
+  const userClient = await createClient();
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
+  const supabase = createAdminClient();
+
+  // Get current prefs to merge
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("notification_prefs")
+    .eq("id", user.id)
+    .single();
+
+  const currentPrefs = (profile?.notification_prefs as NotificationPrefs | null) ?? DEFAULT_NOTIFICATION_PREFS;
+  const merged = { ...currentPrefs, ...prefs };
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      notification_prefs: merged,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", user.id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard/settings");
+  return { success: true };
+}

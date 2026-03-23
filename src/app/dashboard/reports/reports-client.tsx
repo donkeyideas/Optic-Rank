@@ -13,6 +13,9 @@ import {
   LayoutTemplate,
   Power,
   Loader2,
+  CheckSquare,
+  Square,
+  Eye,
 } from "lucide-react";
 import { ColumnHeader } from "@/components/editorial/column-header";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -29,6 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { createScheduledReport, deleteScheduledReport, toggleScheduledReport, generateReport } from "@/lib/actions/reports";
+import { ALL_SECTIONS, type ReportSection } from "@/lib/pdf/generate-report";
 
 /* ------------------------------------------------------------------
    Props
@@ -67,7 +71,40 @@ export function ReportsClient({
   const [isPending, startTransition] = useTransition();
   const [actionId, setActionId] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("full");
+  const [selectedSections, setSelectedSections] = useState<ReportSection[]>(
+    ["executive", "keywords", "backlinks", "audit", "competitors", "insights"]
+  );
   const [generating, setGenerating] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+
+  const TEMPLATE_SECTIONS: Record<string, ReportSection[]> = {
+    full: ["executive", "keywords", "backlinks", "audit", "competitors", "insights"],
+    executive: ["executive", "keywords", "backlinks", "audit", "insights"],
+    keywords: ["keywords"],
+    backlinks: ["backlinks"],
+    audit: ["audit"],
+  };
+
+  function handleSelectTemplate(id: string) {
+    setSelectedTemplate(id);
+    if (TEMPLATE_SECTIONS[id]) {
+      setSelectedSections([...TEMPLATE_SECTIONS[id]]);
+    }
+  }
+
+  function toggleSection(section: ReportSection) {
+    setSelectedSections((prev) => {
+      const next = prev.includes(section)
+        ? prev.filter((s) => s !== section)
+        : [...prev, section];
+      // If selection doesn't match any preset, mark as custom
+      const matchingTemplate = Object.entries(TEMPLATE_SECTIONS).find(
+        ([, sections]) => sections.length === next.length && sections.every((s) => next.includes(s))
+      );
+      setSelectedTemplate(matchingTemplate ? matchingTemplate[0] : "custom");
+      return next;
+    });
+  }
 
   function handleCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -100,15 +137,25 @@ export function ReportsClient({
     });
   }
 
-  async function handleGenerateReport() {
-    setGenerating(true);
+  async function handleGenerateReport(preview = false) {
+    if (preview) setPreviewing(true);
+    else setGenerating(true);
     setFormError(null);
+
+    if (selectedSections.length === 0) {
+      setFormError("Select at least one section.");
+      setGenerating(false);
+      setPreviewing(false);
+      return;
+    }
+
     try {
-      const result = await generateReport(projectId, selectedTemplate as "full" | "keywords" | "backlinks" | "audit" | "executive");
+      const template = (selectedTemplate === "custom" ? "custom" : selectedTemplate) as "full" | "keywords" | "backlinks" | "audit" | "executive" | "custom";
+      const sections = selectedTemplate === "custom" ? selectedSections : undefined;
+      const result = await generateReport(projectId, template, sections);
       if ("error" in result) {
         setFormError(result.error);
       } else {
-        // Download the PDF
         const byteChars = atob(result.data);
         const bytes = new Uint8Array(byteChars.length);
         for (let i = 0; i < byteChars.length; i++) {
@@ -116,18 +163,26 @@ export function ReportsClient({
         }
         const blob = new Blob([bytes], { type: "application/pdf" });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = result.filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+
+        if (preview) {
+          // Open in new tab for preview
+          window.open(url, "_blank");
+        } else {
+          // Download
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = result.filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
       }
     } catch {
       setFormError("An unexpected error occurred.");
     } finally {
       setGenerating(false);
+      setPreviewing(false);
     }
   }
 
@@ -175,46 +230,89 @@ export function ReportsClient({
             </div>
           )}
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              { id: "full", label: "Full Report", desc: "Complete SEO intelligence — keywords, backlinks, audit, competitors, and AI insights" },
-              { id: "executive", label: "Executive Summary", desc: "High-level overview with key metrics and highlights for stakeholders" },
-              { id: "keywords", label: "Keywords Report", desc: "Detailed keyword rankings, position changes, and search volume data" },
-              { id: "backlinks", label: "Backlinks Report", desc: "Backlink profile analysis with trust flow, toxic link detection" },
-              { id: "audit", label: "Site Audit Report", desc: "Technical SEO health score, issues breakdown, and recommendations" },
-            ].map((tmpl) => (
-              <button
-                key={tmpl.id}
-                type="button"
-                onClick={() => setSelectedTemplate(tmpl.id)}
-                className={`flex flex-col items-start gap-2 border p-5 text-left transition-all ${
-                  selectedTemplate === tmpl.id
-                    ? "border-editorial-red bg-editorial-red/5"
-                    : "border-rule bg-surface-card hover:border-ink-muted"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <LayoutTemplate size={14} className={selectedTemplate === tmpl.id ? "text-editorial-red" : "text-ink-muted"} />
-                  <span className="font-serif text-sm font-bold text-ink">{tmpl.label}</span>
-                </div>
-                <p className="text-xs leading-relaxed text-ink-secondary">{tmpl.desc}</p>
-              </button>
-            ))}
+          {/* Quick Presets */}
+          <div className="mt-6">
+            <h3 className="mb-3 text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+              Quick Presets
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { id: "full", label: "Full Report" },
+                { id: "executive", label: "Executive Summary" },
+                { id: "keywords", label: "Keywords Only" },
+                { id: "backlinks", label: "Backlinks Only" },
+                { id: "audit", label: "Site Audit Only" },
+              ].map((tmpl) => (
+                <button
+                  key={tmpl.id}
+                  type="button"
+                  onClick={() => handleSelectTemplate(tmpl.id)}
+                  className={`px-3 py-1.5 text-[12px] font-semibold transition-all ${
+                    selectedTemplate === tmpl.id
+                      ? "bg-ink text-surface-cream"
+                      : "border border-rule bg-surface-card text-ink-secondary hover:border-ink-muted hover:text-ink"
+                  }`}
+                >
+                  {tmpl.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="mt-6 flex items-center gap-3 border-t border-rule pt-6">
+          {/* Section Checkboxes */}
+          <div className="mt-6">
+            <h3 className="mb-3 text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+              Report Sections
+            </h3>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {ALL_SECTIONS.map((section) => {
+                const isChecked = selectedSections.includes(section.id);
+                return (
+                  <button
+                    key={section.id}
+                    type="button"
+                    onClick={() => toggleSection(section.id)}
+                    className={`flex items-center gap-3 border p-3 text-left transition-all ${
+                      isChecked
+                        ? "border-editorial-red/50 bg-editorial-red/5"
+                        : "border-rule bg-surface-card hover:border-ink-muted"
+                    }`}
+                  >
+                    {isChecked ? (
+                      <CheckSquare size={16} className="shrink-0 text-editorial-red" />
+                    ) : (
+                      <Square size={16} className="shrink-0 text-ink-muted" />
+                    )}
+                    <span className="text-[13px] font-medium text-ink">{section.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-rule pt-6">
             <Button
               variant="primary"
               size="md"
-              onClick={handleGenerateReport}
+              onClick={() => handleGenerateReport(false)}
               loading={generating}
-              disabled={generating}
+              disabled={generating || previewing || selectedSections.length === 0}
             >
               <FileDown size={14} />
               Generate &amp; Download PDF
             </Button>
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => handleGenerateReport(true)}
+              loading={previewing}
+              disabled={generating || previewing || selectedSections.length === 0}
+            >
+              <Eye size={14} />
+              Preview
+            </Button>
             <span className="text-xs text-ink-muted">
-              Report will be generated using the latest project data
+              {selectedSections.length} section{selectedSections.length !== 1 ? "s" : ""} selected
             </span>
           </div>
         </TabsContent>

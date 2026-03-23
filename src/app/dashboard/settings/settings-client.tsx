@@ -13,6 +13,7 @@ import {
   Trash2,
   Mail,
   Shield,
+  Bell,
   Zap,
   Check,
   CreditCard,
@@ -52,7 +53,7 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { createProject, deleteProject } from "@/lib/actions/projects";
 import { lookupSocialProfile } from "@/lib/actions/social-intelligence";
-import { updateProfileSettings, updateOrganizationSettings, createOrganization } from "@/lib/actions/settings";
+import { updateProfileSettings, updateOrganizationSettings, createOrganization, updateNotificationPreferences, type NotificationPrefs } from "@/lib/actions/settings";
 import {
   saveUserApiKey,
   deleteUserApiKey,
@@ -63,6 +64,7 @@ import { BillingTab } from "./billing-tab";
 import { ApiKeysTab } from "./api-keys-tab";
 import { IntegrationsTab } from "./integrations-tab";
 import { SecurityTab } from "./security-tab";
+import { NotificationsTab } from "./notifications-tab";
 import type { ApiKeyPublic } from "@/lib/actions/api-keys";
 import type { IntegrationSettings } from "@/lib/actions/integrations";
 import type { Profile, Organization } from "@/types";
@@ -167,6 +169,9 @@ interface SettingsClientProps {
   integrationSettings?: IntegrationSettings;
   mfaEnabled?: boolean;
   mfaFactors?: Array<{ id: string; friendlyName: string | null; status: string }>;
+  gscConnected?: boolean;
+  gscPropertyUrl?: string | null;
+  activeProjectId?: string;
 }
 
 /* ------------------------------------------------------------------
@@ -226,6 +231,9 @@ export function SettingsClient({
   integrationSettings,
   mfaEnabled = false,
   mfaFactors = [],
+  gscConnected,
+  gscPropertyUrl,
+  activeProjectId,
 }: SettingsClientProps) {
   const timezone = useTimezone();
   const [activeTab, setActiveTab] = useState("general");
@@ -391,6 +399,10 @@ export function SettingsClient({
           <TabsTrigger value="security">
             <Shield size={12} className="mr-1.5" />
             Security
+          </TabsTrigger>
+          <TabsTrigger value="notifications">
+            <Bell size={12} className="mr-1.5" />
+            Notifications
           </TabsTrigger>
         </TabsList>
 
@@ -1030,7 +1042,7 @@ export function SettingsClient({
             ============================================================ */}
         <TabsContent value="integrations">
           {integrationSettings ? (
-            <IntegrationsTab settings={integrationSettings} />
+            <IntegrationsTab settings={integrationSettings} projectId={activeProjectId} gscConnected={gscConnected} gscPropertyUrl={gscPropertyUrl} />
           ) : (
             <EmptyState
               icon={Plug}
@@ -1068,6 +1080,13 @@ export function SettingsClient({
             ============================================================ */}
         <TabsContent value="security">
           <SecurityTab initialEnabled={mfaEnabled} initialFactors={mfaFactors} />
+        </TabsContent>
+
+        {/* ============================================================
+            TAB: Notifications
+            ============================================================ */}
+        <TabsContent value="notifications">
+          <NotificationsTab profile={profile} />
         </TabsContent>
       </Tabs>
 

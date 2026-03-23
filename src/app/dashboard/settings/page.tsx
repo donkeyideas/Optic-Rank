@@ -8,6 +8,7 @@ import { getUsageSummary } from "@/lib/stripe/plan-gate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { IntegrationSettings } from "@/lib/actions/integrations";
 import { getMFAStatus } from "@/lib/actions/two-fa";
+import { getGSCConnectionStatus } from "@/lib/actions/gsc";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -144,6 +145,23 @@ export default async function SettingsPage() {
     // MFA status fetch failed — non-critical
   }
 
+  // Find the first active project for GSC integration
+  const activeProject = projects.find((p) => p.is_active !== false);
+  const activeProjectId = activeProject?.id as string | undefined;
+
+  // Fetch GSC connection status
+  let gscConnected = false;
+  let gscPropertyUrl: string | null = null;
+  if (activeProjectId) {
+    try {
+      const gscStatus = await getGSCConnectionStatus(activeProjectId);
+      gscConnected = gscStatus.connected;
+      gscPropertyUrl = gscStatus.propertyUrl;
+    } catch {
+      // GSC status fetch failed — non-critical
+    }
+  }
+
   // Fetch billing data
   let usage = undefined;
   let billingEvents: Array<{
@@ -185,6 +203,9 @@ export default async function SettingsPage() {
       integrationSettings={integrationSettings}
       mfaEnabled={mfaEnabled}
       mfaFactors={mfaFactors}
+      gscConnected={gscConnected}
+      gscPropertyUrl={gscPropertyUrl}
+      activeProjectId={activeProjectId}
     />
   );
 }

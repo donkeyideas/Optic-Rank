@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Shield } from "lucide-react";
 import { SiteAuditClient } from "./site-audit-client";
+import { getScheduledAudit } from "@/lib/actions/site-audit";
 
 // Site audits crawl up to 25 pages + call PageSpeed API — needs extended timeout
 export const maxDuration = 60;
@@ -94,13 +95,18 @@ export default async function SiteAuditPage() {
     }
   }
 
-  // Fetch audit history
-  const { data: history } = await supabase
-    .from("site_audits")
-    .select("*")
-    .eq("project_id", project.id)
-    .order("started_at", { ascending: false })
-    .limit(10);
+  // Fetch audit history and scheduled audit in parallel
+  const [historyRes, scheduledAudit] = await Promise.all([
+    supabase
+      .from("site_audits")
+      .select("*")
+      .eq("project_id", project.id)
+      .order("started_at", { ascending: false })
+      .limit(10),
+    getScheduledAudit(project.id),
+  ]);
+
+  const history = historyRes.data;
 
   return (
     <SiteAuditClient
@@ -109,6 +115,7 @@ export default async function SiteAuditPage() {
       pages={pages ?? []}
       history={history ?? []}
       projectId={project.id}
+      scheduledAudit={scheduledAudit}
     />
   );
 }

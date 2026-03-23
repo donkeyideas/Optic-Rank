@@ -15,6 +15,14 @@
     {
       "path": "/api/cron/collect-data",
       "schedule": "0 4 * * 1"
+    },
+    {
+      "path": "/api/cron/site-audit",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/backlink-check",
+      "schedule": "0 5 * * 0"
     }
   ],
   "functions": {
@@ -45,6 +53,14 @@
     "src/app/api/cron/trial-emails/route.ts": {
       "maxDuration": 30,
       "memory": 256
+    },
+    "src/app/api/cron/site-audit/route.ts": {
+      "maxDuration": 300,
+      "memory": 512
+    },
+    "src/app/api/cron/backlink-check/route.ts": {
+      "maxDuration": 300,
+      "memory": 512
     }
   }
 }

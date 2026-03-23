@@ -44,12 +44,26 @@ import {
 } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useActionProgress } from "@/components/shared/action-progress";
-import { runSiteAudit } from "@/lib/actions/site-audit";
+import {
+  runSiteAudit,
+  scheduleAudit,
+  cancelScheduledAudit,
+  type AuditFrequency,
+  type ScheduledAudit,
+} from "@/lib/actions/site-audit";
 import type { SiteAudit, AuditIssue, IssueSeverity, IssueCategory } from "@/types";
+import { CalendarClock, X } from "lucide-react";
 
 /* ------------------------------------------------------------------
    Props
    ------------------------------------------------------------------ */
+
+const FREQUENCY_OPTIONS: { value: AuditFrequency; label: string }[] = [
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "biweekly", label: "Every 2 Weeks" },
+  { value: "monthly", label: "Monthly" },
+];
 
 interface SiteAuditClientProps {
   latestAudit: SiteAudit | null;
@@ -66,6 +80,7 @@ interface SiteAuditClientProps {
   }>;
   history: SiteAudit[];
   projectId: string;
+  scheduledAudit?: ScheduledAudit | null;
 }
 
 /* ------------------------------------------------------------------
@@ -285,6 +300,7 @@ export function SiteAuditClient({
   pages,
   history,
   projectId,
+  scheduledAudit: initialSchedule,
 }: SiteAuditClientProps) {
   const timezone = useTimezone();
   const [categoryFilter, setCategoryFilter] = useState<IssueCategory | "all">("all");
@@ -293,6 +309,47 @@ export function SiteAuditClient({
   const [auditError, setAuditError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const { runAction, isRunning: isActionRunning } = useActionProgress();
+
+  // Schedule state
+  const [schedule, setSchedule] = useState<ScheduledAudit | null>(initialSchedule ?? null);
+  const [showScheduleMenu, setShowScheduleMenu] = useState(false);
+  const [isScheduling, setIsScheduling] = useState(false);
+
+  async function handleSchedule(frequency: AuditFrequency) {
+    setIsScheduling(true);
+    setShowScheduleMenu(false);
+    const result = await scheduleAudit(projectId, frequency);
+    if ("success" in result) {
+      // Optimistic update — build a local ScheduledAudit
+      const nextRun = new Date();
+      switch (frequency) {
+        case "daily": nextRun.setDate(nextRun.getDate() + 1); break;
+        case "weekly": nextRun.setDate(nextRun.getDate() + 7); break;
+        case "biweekly": nextRun.setDate(nextRun.getDate() + 14); break;
+        case "monthly": nextRun.setMonth(nextRun.getMonth() + 1); break;
+      }
+      nextRun.setHours(3, 0, 0, 0);
+      setSchedule({
+        id: "optimistic",
+        project_id: projectId,
+        frequency,
+        next_run_at: nextRun.toISOString(),
+        is_active: true,
+        created_at: new Date().toISOString(),
+      });
+    }
+    setIsScheduling(false);
+  }
+
+  async function handleCancelSchedule() {
+    if (!schedule) return;
+    setIsScheduling(true);
+    const result = await cancelScheduledAudit(schedule.id);
+    if ("success" in result) {
+      setSchedule(null);
+    }
+    setIsScheduling(false);
+  }
 
   const handleCopyIssues = useCallback(() => {
     const realIssues = issues.filter((i) => !i.rule_id?.startsWith("cwv-metric-"));
@@ -351,10 +408,36 @@ export function SiteAuditClient({
               Crawl your site to discover technical SEO issues
             </p>
           </div>
-          <Button variant="primary" size="md" onClick={handleRunAudit} disabled={isActionRunning || isPending}>
-            <RefreshCw size={14} strokeWidth={2.5} />
-            Run New Audit
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={() => setShowScheduleMenu(!showScheduleMenu)}
+                disabled={isScheduling}
+              >
+                <CalendarClock size={14} strokeWidth={2.5} />
+                Schedule
+              </Button>
+              {showScheduleMenu && (
+                <div className="absolute right-0 top-full z-10 mt-1 min-w-[160px] border border-rule bg-surface-card shadow-lg">
+                  {FREQUENCY_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => handleSchedule(opt.value)}
+                      className="block w-full px-4 py-2 text-left text-[13px] font-medium text-ink transition-colors hover:bg-surface-raised"
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <Button variant="primary" size="md" onClick={handleRunAudit} disabled={isActionRunning || isPending}>
+              <RefreshCw size={14} strokeWidth={2.5} />
+              Run New Audit
+            </Button>
+          </div>
         </div>
         {auditError && (
           <div className="border border-editorial-red/30 bg-editorial-red/5 px-4 py-3 text-sm text-editorial-red">
@@ -417,10 +500,55 @@ export function SiteAuditClient({
             {" "}&middot; {latestAudit.issues_found} issues found
           </p>
         </div>
-        <Button variant="primary" size="md" onClick={handleRunAudit} disabled={isPending}>
-          <RefreshCw size={14} strokeWidth={2.5} className={isPending ? "animate-spin" : ""} />
-          {isPending ? "Running..." : "Run New Audit"}
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Schedule button / indicator */}
+          {schedule ? (
+            <div className="flex items-center gap-2 border border-rule bg-surface-raised px-3 py-1.5">
+              <CalendarClock size={14} className="text-editorial-green" />
+              <span className="text-[11px] font-semibold text-ink">
+                {FREQUENCY_OPTIONS.find((o) => o.value === schedule.frequency)?.label ?? schedule.frequency}
+              </span>
+              <button
+                onClick={handleCancelSchedule}
+                disabled={isScheduling}
+                className="ml-1 text-ink-muted transition-colors hover:text-editorial-red disabled:opacity-50"
+                title="Cancel schedule"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ) : (
+            <div className="relative">
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={() => setShowScheduleMenu(!showScheduleMenu)}
+                disabled={isScheduling}
+              >
+                <CalendarClock size={14} strokeWidth={2.5} />
+                Schedule
+              </Button>
+              {showScheduleMenu && (
+                <div className="absolute right-0 top-full z-10 mt-1 min-w-[160px] border border-rule bg-surface-card shadow-lg">
+                  {FREQUENCY_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => handleSchedule(opt.value)}
+                      className="block w-full px-4 py-2 text-left text-[13px] font-medium text-ink transition-colors hover:bg-surface-raised"
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <Button variant="primary" size="md" onClick={handleRunAudit} disabled={isPending}>
+            <RefreshCw size={14} strokeWidth={2.5} className={isPending ? "animate-spin" : ""} />
+            {isPending ? "Running..." : "Run New Audit"}
+          </Button>
+        </div>
       </div>
 
       {auditError && (

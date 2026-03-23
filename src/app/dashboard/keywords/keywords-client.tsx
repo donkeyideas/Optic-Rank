@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { addKeywords, deleteKeyword, importKeywordsCSV, getKeywordRankHistory, generateKeywordsAI } from "@/lib/actions/keywords";
+import { importKeywordsFromGSC } from "@/lib/actions/gsc";
 import { useActionProgress } from "@/components/shared/action-progress";
 import { RankHistoryChart } from "@/components/charts/rank-history-chart";
 import type { Keyword } from "@/types";
@@ -122,6 +123,29 @@ function serpFeatureLabel(feature: string): string {
   return SERP_FEATURE_LABELS[feature] ?? feature.replace(/_/g, " ").slice(0, 8);
 }
 
+const LOCATION_OPTIONS = [
+  { value: "US", label: "United States" },
+  { value: "GB", label: "United Kingdom" },
+  { value: "CA", label: "Canada" },
+  { value: "AU", label: "Australia" },
+  { value: "DE", label: "Germany" },
+  { value: "FR", label: "France" },
+  { value: "ES", label: "Spain" },
+  { value: "IT", label: "Italy" },
+  { value: "BR", label: "Brazil" },
+  { value: "MX", label: "Mexico" },
+  { value: "IN", label: "India" },
+  { value: "JP", label: "Japan" },
+  { value: "NL", label: "Netherlands" },
+  { value: "SE", label: "Sweden" },
+  { value: "PL", label: "Poland" },
+  { value: "PT", label: "Portugal" },
+  { value: "AR", label: "Argentina" },
+  { value: "CL", label: "Chile" },
+  { value: "CO", label: "Colombia" },
+  { value: "KR", label: "South Korea" },
+];
+
 /* ------------------------------------------------------------------
    Keywords Page Client Component
    ------------------------------------------------------------------ */
@@ -136,6 +160,9 @@ export function KeywordsPageClient({
   const [deviceFilter, setDeviceFilter] = useState<"all" | "desktop" | "mobile">("all");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newKeywordsText, setNewKeywordsText] = useState("");
+  const [addLocation, setAddLocation] = useState("US");
+  const [addDevice, setAddDevice] = useState<"desktop" | "mobile">("desktop");
+  const [locationFilter, setLocationFilter] = useState<string>("all");
   const [isPending, startTransition] = useTransition();
   const [addError, setAddError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -154,8 +181,13 @@ export function KeywordsPageClient({
       .includes(searchQuery.toLowerCase());
     const matchesDevice =
       deviceFilter === "all" || kw.device === deviceFilter;
-    return matchesSearch && matchesDevice;
+    const matchesLocation =
+      locationFilter === "all" || kw.location === locationFilter;
+    return matchesSearch && matchesDevice && matchesLocation;
   });
+
+  // Get unique locations from keywords for the filter dropdown
+  const uniqueLocations = [...new Set(keywords.map((kw) => kw.location || "US"))];
 
   const headlineStats = [
     {
@@ -236,7 +268,7 @@ export function KeywordsPageClient({
     }
 
     startTransition(async () => {
-      const result = await addKeywords(projectId, keywordsArray);
+      const result = await addKeywords(projectId, keywordsArray, addLocation, addDevice);
       if ("error" in result) {
         setAddError(result.error);
       } else {
@@ -317,6 +349,20 @@ export function KeywordsPageClient({
               </button>
             </div>
 
+            {/* Location Filter */}
+            {uniqueLocations.length > 1 && (
+              <select
+                value={locationFilter}
+                onChange={(e) => setLocationFilter(e.target.value)}
+                className="border border-rule bg-surface-card px-3 py-2 font-sans text-[10px] font-semibold uppercase tracking-[0.15em] text-ink focus:border-editorial-red focus:outline-none"
+              >
+                <option value="all">All Locations</option>
+                {uniqueLocations.map((loc) => (
+                  <option key={loc} value={loc}>{loc}</option>
+                ))}
+              </select>
+            )}
+
             {/* CSV Import */}
             <input
               ref={fileInputRef}
@@ -348,12 +394,33 @@ export function KeywordsPageClient({
                     steps: ["Analyzing website content", "Researching keyword opportunities", "Evaluating search volume", "Assessing keyword difficulty", "Finalizing suggestions"],
                     estimatedDuration: 20,
                   },
-                  () => generateKeywordsAI(projectId)
+                  () => generateKeywordsAI(projectId, addLocation, addDevice)
                 );
               }}
             >
               <Sparkles size={14} />
               AI Generate
+            </Button>
+
+            {/* Import from GSC */}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isActionRunning || isPending}
+              onClick={() => {
+                runAction(
+                  {
+                    title: "Importing from GSC",
+                    description: "Fetching top search queries from Google Search Console...",
+                    steps: ["Connecting to GSC", "Fetching top queries", "Filtering duplicates", "Adding keywords"],
+                    estimatedDuration: 10,
+                  },
+                  () => importKeywordsFromGSC(projectId, 50, addLocation, addDevice)
+                );
+              }}
+            >
+              <Search size={14} />
+              Import GSC
             </Button>
 
             {/* Add Keywords Dialog */}
@@ -372,11 +439,36 @@ export function KeywordsPageClient({
                 </DialogHeader>
                 <div className="p-5">
                   <textarea
-                    className="w-full min-h-[160px] resize-y border border-rule bg-surface-card px-3 py-2 font-sans text-[13px] text-ink placeholder:text-ink-muted focus:border-editorial-red focus:outline-none"
+                    className="w-full min-h-[140px] resize-y border border-rule bg-surface-card px-3 py-2 font-sans text-[13px] text-ink placeholder:text-ink-muted focus:border-editorial-red focus:outline-none"
                     placeholder={"e.g.\nzero trust architecture\ncloud security tools\nSIEM solutions 2026"}
                     value={newKeywordsText}
                     onChange={(e) => setNewKeywordsText(e.target.value)}
                   />
+                  <div className="mt-3 flex gap-3">
+                    <div className="flex-1">
+                      <label className="mb-1 block text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Location</label>
+                      <select
+                        value={addLocation}
+                        onChange={(e) => setAddLocation(e.target.value)}
+                        className="w-full border border-rule bg-surface-card px-3 py-2 font-sans text-[13px] text-ink focus:border-editorial-red focus:outline-none"
+                      >
+                        {LOCATION_OPTIONS.map((loc) => (
+                          <option key={loc.value} value={loc.value}>{loc.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex-1">
+                      <label className="mb-1 block text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Device</label>
+                      <select
+                        value={addDevice}
+                        onChange={(e) => setAddDevice(e.target.value as "desktop" | "mobile")}
+                        className="w-full border border-rule bg-surface-card px-3 py-2 font-sans text-[13px] text-ink focus:border-editorial-red focus:outline-none"
+                      >
+                        <option value="desktop">Desktop</option>
+                        <option value="mobile">Mobile</option>
+                      </select>
+                    </div>
+                  </div>
                   {addError && (
                     <p className="mt-2 text-[12px] font-semibold text-editorial-red">
                       {addError}
@@ -752,11 +844,36 @@ export function KeywordsPageClient({
                   </DialogHeader>
                   <div className="p-5">
                     <textarea
-                      className="w-full min-h-[160px] resize-y border border-rule bg-surface-card px-3 py-2 font-sans text-[13px] text-ink placeholder:text-ink-muted focus:border-editorial-red focus:outline-none"
+                      className="w-full min-h-[140px] resize-y border border-rule bg-surface-card px-3 py-2 font-sans text-[13px] text-ink placeholder:text-ink-muted focus:border-editorial-red focus:outline-none"
                       placeholder={"e.g.\nzero trust architecture\ncloud security tools\nSIEM solutions 2026"}
                       value={newKeywordsText}
                       onChange={(e) => setNewKeywordsText(e.target.value)}
                     />
+                    <div className="mt-3 flex gap-3">
+                      <div className="flex-1">
+                        <label className="mb-1 block text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Location</label>
+                        <select
+                          value={addLocation}
+                          onChange={(e) => setAddLocation(e.target.value)}
+                          className="w-full border border-rule bg-surface-card px-3 py-2 font-sans text-[13px] text-ink focus:border-editorial-red focus:outline-none"
+                        >
+                          {LOCATION_OPTIONS.map((loc) => (
+                            <option key={loc.value} value={loc.value}>{loc.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex-1">
+                        <label className="mb-1 block text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Device</label>
+                        <select
+                          value={addDevice}
+                          onChange={(e) => setAddDevice(e.target.value as "desktop" | "mobile")}
+                          className="w-full border border-rule bg-surface-card px-3 py-2 font-sans text-[13px] text-ink focus:border-editorial-red focus:outline-none"
+                        >
+                          <option value="desktop">Desktop</option>
+                          <option value="mobile">Mobile</option>
+                        </select>
+                      </div>
+                    </div>
                     {addError && (
                       <p className="mt-2 text-[12px] font-semibold text-editorial-red">
                         {addError}

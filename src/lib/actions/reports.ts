@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
-import { generateReportPDF, type ReportTemplate } from "@/lib/pdf/generate-report";
+import { generateReportPDF, type ReportTemplate, type ReportSection } from "@/lib/pdf/generate-report";
 
 /**
  * Create a new scheduled report.
@@ -88,17 +88,19 @@ export async function toggleScheduledReport(
 
 /**
  * Generate a PDF report on-demand and return it as base64.
+ * Supports both preset templates and custom section lists.
  */
 export async function generateReport(
   projectId: string,
-  template: ReportTemplate
+  template: ReportTemplate,
+  customSections?: ReportSection[]
 ): Promise<{ error: string } | { data: string; filename: string }> {
   const userClient = await createClient();
   const { data: { user } } = await userClient.auth.getUser();
   if (!user) return { error: "Not authenticated." };
 
   try {
-    const buffer = await generateReportPDF(projectId, template);
+    const buffer = await generateReportPDF(projectId, template, customSections);
     const base64 = Buffer.from(buffer).toString("base64");
     const date = new Date().toISOString().split("T")[0];
     const filename = `rankpulse-${template}-report-${date}.pdf`;

@@ -29,6 +29,7 @@ export interface Profile {
   system_role: "user" | "admin" | "superadmin";
   onboarding_completed: boolean;
   timezone: string;
+  notification_prefs: Record<string, boolean> | null;
   created_at: string;
 }
 
