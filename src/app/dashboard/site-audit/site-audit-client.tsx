@@ -334,7 +334,7 @@ export function SiteAuditClient({
         title: "Running Site Audit",
         description: "Crawling pages and analyzing technical SEO issues...",
         steps: ["Crawling website pages", "Running PageSpeed analysis", "Checking SEO issues", "Analyzing Core Web Vitals", "Generating audit report"],
-        estimatedDuration: 45,
+        estimatedDuration: 60,
       },
       () => runSiteAudit(projectId)
     );

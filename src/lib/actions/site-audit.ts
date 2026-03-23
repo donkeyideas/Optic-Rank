@@ -59,8 +59,20 @@ export async function runSiteAudit(
 
   try {
     // Step 1+2: Run crawl and PageSpeed in PARALLEL to stay within function timeout
+    // Wrap crawl in a 45-second hard timeout to avoid indefinite hangs
+    const crawlWithTimeout = Promise.race([
+      crawlSite(domain, { maxPages: 15, timeoutMs: 10000, concurrency: 3 }),
+      new Promise<CrawlResult>((_, reject) =>
+        setTimeout(() => reject(new Error("Crawl timeout — exceeded 45 seconds")), 45000)
+      ),
+    ]).catch((err) => {
+      console.error(`[runSiteAudit] Crawl failed/timed out for ${domain}:`, err);
+      // Return empty crawl result so audit still completes with PageSpeed data
+      return { pages: [] as CrawledPage[], siteIsSPA: false, jsRenderingUsed: false } as CrawlResult;
+    });
+
     const [crawlResult, pageSpeedResult] = await Promise.all([
-      crawlSite(domain, { maxPages: 25, timeoutMs: 15000, concurrency: 3 }),
+      crawlWithTimeout,
       getPageSpeedData(targetUrl, "mobile").catch((err) => {
         console.error(`[runSiteAudit] PageSpeed threw for ${targetUrl}:`, err);
         return { data: null, error: `PageSpeed error: ${err instanceof Error ? err.message : String(err)}` } as Awaited<ReturnType<typeof getPageSpeedData>>;
@@ -92,7 +104,7 @@ export async function runSiteAudit(
         .eq("id", audit.id);
 
       revalidatePath("/dashboard/site-audit");
-      return { error: "Could not crawl the site or fetch PageSpeed data. Check the domain is accessible." };
+      return { error: `Site audit failed: ${domain} is too slow or unreachable. The crawl timed out and PageSpeed could not analyze the site. Verify the domain loads quickly in a browser.` };
     }
 
     // Step 3: Process PageSpeed data into the audit (scores + CWV issues)

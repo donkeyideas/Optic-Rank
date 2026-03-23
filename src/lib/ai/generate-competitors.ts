@@ -34,17 +34,25 @@ export async function generateCompetitorSuggestions(
   });
 
   try {
+    // Ask for more than needed so we can filter out existing ones
+    const requestCount = count + existingDomains.length;
     const result = await generateWithAI(
       domain,
       siteContext,
       existingDomains,
-      count,
+      requestCount,
       projectName
     );
     if (result.length === 0) {
-      return { competitors: [], source: "ai", failReason: "AI returned no results — check AI provider keys in Admin → API Management" };
+      return {
+        competitors: [],
+        source: "ai",
+        failReason: existingDomains.length > 0
+          ? "All AI-suggested competitors are already tracked. Try removing incorrect competitors first."
+          : "AI returned no results — check AI provider keys in Admin → API Management",
+      };
     }
-    return { competitors: result, source: "ai" };
+    return { competitors: result.slice(0, count), source: "ai" };
   } catch (err) {
     console.error("[generateCompetitors] AI generation failed:", err);
     return { competitors: [], source: "ai", failReason: `AI error: ${err instanceof Error ? err.message : String(err)}` };
@@ -122,10 +130,10 @@ No explanations, no numbering, no extra text, no markdown.`;
 
   if (!response) {
     console.error("[generateCompetitors] aiChat returned null — no AI provider available");
-    return [];
+    throw new Error("No AI provider available — add an API key in Admin → API Management or set DEEPSEEK_API_KEY env var");
   }
 
-  console.log("[generateCompetitors] Raw AI response:", response.text);
+  console.log(`[generateCompetitors] AI response from ${response.provider}:`, response.text);
 
   const competitors: CompetitorSuggestion[] = [];
   const lines = response.text.split("\n").filter((l: string) => l.trim());
@@ -138,6 +146,9 @@ No explanations, no numbering, no extra text, no markdown.`;
   }
 
   console.log(`[generateCompetitors] Parsed ${competitors.length} competitors from ${lines.length} lines`);
+  if (competitors.length === 0 && lines.length > 0) {
+    console.error("[generateCompetitors] AI responded but could not parse any competitors. Raw lines:", lines);
+  }
   return competitors.slice(0, count);
 }
 

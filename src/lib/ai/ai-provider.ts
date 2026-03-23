@@ -227,10 +227,18 @@ export async function aiChat(
   const configs = Array.from(configMap.values());
 
   // Try providers in order, skipping recently-failed ones
+  console.log(`[aiChat] Found ${configs.length} AI configs: ${configs.map(c => c.provider).join(", ") || "none"}`);
   for (const providerName of PROVIDER_ORDER) {
     const config = configs.find((c) => c.provider === providerName);
-    if (!config?.api_key) continue;
-    if (!isProviderAvailable(providerName)) continue;
+    if (!config?.api_key) {
+      console.log(`[aiChat] Skipping ${providerName}: no API key in DB`);
+      continue;
+    }
+    if (!isProviderAvailable(providerName)) {
+      console.log(`[aiChat] Skipping ${providerName}: circuit breaker active`);
+      continue;
+    }
+    console.log(`[aiChat] Trying ${providerName}...`);
 
     const start = Date.now();
     try {
@@ -316,6 +324,83 @@ export async function aiChat(
 
       console.error(`[aiChat] ${providerName} error:`, err);
       markProviderFailed(providerName);
+    }
+  }
+
+  console.log("[aiChat] All DB providers exhausted, trying env var fallbacks...");
+
+  // Fallback: env var DeepSeek key (bypass circuit breaker — different key source)
+  const envDeepSeekKey = process.env.DEEPSEEK_API_KEY;
+  if (envDeepSeekKey) {
+    const start = Date.now();
+    try {
+      const callResult = await callOpenAICompatible(
+        "https://api.deepseek.com",
+        envDeepSeekKey,
+        "deepseek-chat",
+        enrichedPrompt,
+        temperature,
+        maxTokens,
+        timeout,
+        jsonMode
+      );
+
+      const elapsedMs = Date.now() - start;
+      const costs = COST_PER_1K.deepseek;
+      const costUsd = (callResult.prompt_tokens * costs.input + callResult.completion_tokens * costs.output) / 1000;
+      logAPICall({
+        provider: "deepseek",
+        endpoint: "/chat/completions",
+        method: "POST",
+        status_code: 200,
+        response_time_ms: elapsedMs,
+        tokens_used: callResult.prompt_tokens + callResult.completion_tokens,
+        prompt_tokens: callResult.prompt_tokens,
+        completion_tokens: callResult.completion_tokens,
+        cost_usd: costUsd,
+        is_success: true,
+      });
+
+      logAIInteraction({
+        prompt,
+        response: callResult.text,
+        provider: "deepseek",
+        prompt_tokens: callResult.prompt_tokens,
+        completion_tokens: callResult.completion_tokens,
+        cost_usd: costUsd,
+        response_time_ms: elapsedMs,
+        is_success: true,
+        context: options.context,
+      });
+
+      if (callResult.text) return { text: callResult.text, provider: "deepseek" };
+    } catch (err) {
+      const elapsedMs = Date.now() - start;
+      logAPICall({
+        provider: "deepseek",
+        endpoint: "/chat/completions",
+        method: "POST",
+        status_code: 500,
+        response_time_ms: elapsedMs,
+        is_success: false,
+        error_message: err instanceof Error ? err.message : String(err),
+      });
+
+      logAIInteraction({
+        prompt,
+        response: null,
+        provider: "deepseek",
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        cost_usd: 0,
+        response_time_ms: elapsedMs,
+        is_success: false,
+        error_message: err instanceof Error ? err.message : String(err),
+        context: options.context,
+      });
+
+      console.error("[aiChat] DeepSeek env fallback error:", err);
+      markProviderFailed("deepseek");
     }
   }
 
