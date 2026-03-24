@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Settings,
   FolderKanban,
@@ -238,7 +239,8 @@ export function SettingsClient({
   activeProjectId,
 }: SettingsClientProps) {
   const timezone = useTimezone();
-  const [activeTab, setActiveTab] = useState("general");
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") ?? "general");
   const [showAddProject, setShowAddProject] = useState(false);
   const [projectError, setProjectError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
