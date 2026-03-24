@@ -18,6 +18,7 @@ import {
   FileSearch,
   Clock,
   CreditCard,
+  Gift,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -40,7 +41,7 @@ import {
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
 import { deleteUserAccount } from "@/lib/actions/auth";
-import { getUserDetails } from "@/lib/actions/admin";
+import { getUserDetails, toggleCompAccount } from "@/lib/actions/admin";
 
 /* ------------------------------------------------------------------
    Types
@@ -70,6 +71,7 @@ interface UserDetailsData {
     organization_id: string | null;
     onboarding_completed: boolean | null;
     timezone: string | null;
+    comp_account: boolean;
     created_at: string;
     email: string | null;
     provider: string;
@@ -790,6 +792,54 @@ export function AdminUsersClient({
                       <p className="text-xs text-ink-muted">No billing activity yet</p>
                     )}
                   </div>
+                </div>
+
+                {/* Complimentary Account Toggle */}
+                <div className="border border-rule bg-surface-card p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Gift size={16} className="text-editorial-gold" />
+                      <div>
+                        <p className="text-xs font-bold text-ink">Complimentary Account</p>
+                        <p className="mt-0.5 text-[10px] text-ink-muted">
+                          Unlimited plan access — no billing. Unchecking starts the billing clock.
+                        </p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex cursor-pointer items-center">
+                      <input
+                        type="checkbox"
+                        className="peer sr-only"
+                        checked={userDetails.profile.comp_account}
+                        onChange={async (e) => {
+                          const enabled = e.target.checked;
+                          // Optimistically update UI
+                          setUserDetails((prev) =>
+                            prev
+                              ? { ...prev, profile: { ...prev.profile, comp_account: enabled } }
+                              : prev
+                          );
+                          const res = await toggleCompAccount(userDetails.profile.id, enabled);
+                          if ("error" in res) {
+                            // Revert on failure
+                            setUserDetails((prev) =>
+                              prev
+                                ? { ...prev, profile: { ...prev.profile, comp_account: !enabled } }
+                                : prev
+                            );
+                          }
+                        }}
+                      />
+                      <div className="h-5 w-9 border border-rule bg-surface-card peer-checked:bg-editorial-green peer-checked:border-editorial-green transition-colors after:absolute after:left-[2px] after:top-[2px] after:h-3.5 after:w-3.5 after:border after:border-rule after:bg-white after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white" />
+                    </label>
+                  </div>
+                  {userDetails.profile.comp_account && (
+                    <div className="mt-3 flex items-center gap-1.5 border-t border-rule pt-3">
+                      <span className="font-mono text-[10px] font-bold text-editorial-green">
+                        ACTIVE — Unlimited plan, $0 forever
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Recent Activity */}

@@ -50,11 +50,11 @@ export function BacklinksSection({
         widths={[200, 40, 40, 100, 40]}
       />
 
-      {backlinks.length > 25 && (
+      {backlinks.length > 25 ? (
         <Text style={[s.muted, { marginTop: 4 }]}>
           Showing top 25 of {backlinks.length} backlinks.
         </Text>
-      )}
+      ) : null}
     </View>
   );
 }
@@ -71,7 +71,7 @@ export function buildBacklinkRows(raw: Record<string, unknown>[]): BacklinkRow[]
 }
 
 export function buildBacklinkStats(backlinks: BacklinkRow[]): BacklinkStats {
-  const domains = new Set(backlinks.map((b) => new URL(b.source_url).hostname).filter(Boolean));
+  const domains = new Set(backlinks.map((b) => { try { return new URL(b.source_url).hostname; } catch { return b.source_url; } }).filter(Boolean));
   const trustFlows = backlinks.map((b) => b.trust_flow).filter((t): t is number => t !== null);
 
   return {

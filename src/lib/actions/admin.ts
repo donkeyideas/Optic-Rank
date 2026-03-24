@@ -42,7 +42,7 @@ export async function getUserDetails(userId: string) {
   const { data: profile } = await admin
     .from("profiles")
     .select(
-      "id, full_name, avatar_url, role, system_role, organization_id, onboarding_completed, timezone, created_at"
+      "id, full_name, avatar_url, role, system_role, organization_id, onboarding_completed, timezone, comp_account, created_at"
     )
     .eq("id", userId)
     .single();
@@ -280,6 +280,28 @@ export async function deleteOrganization(
   }
 
   revalidatePath("/admin/orgs");
+  revalidatePath("/admin/users");
+  return { success: true };
+}
+
+/**
+ * Toggle complimentary (unlimited free) account for a user (admin only).
+ * When enabled, the user bypasses all plan limits with no billing.
+ */
+export async function toggleCompAccount(
+  userId: string,
+  enabled: boolean
+): Promise<{ error: string } | { success: true }> {
+  const { error, admin } = await requireAdminCaller();
+  if (error || !admin) return { error: error ?? "Unauthorized" };
+
+  const { error: updateError } = await admin
+    .from("profiles")
+    .update({ comp_account: enabled })
+    .eq("id", userId);
+
+  if (updateError) return { error: updateError.message };
+
   revalidatePath("/admin/users");
   return { success: true };
 }

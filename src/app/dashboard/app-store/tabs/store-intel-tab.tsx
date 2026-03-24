@@ -3,13 +3,13 @@
 import { useState, useTransition, useEffect, useRef } from "react";
 import {
   TrendingUp,
-  Loader2,
   Sparkles,
   Zap,
   Trophy,
   Star,
 } from "lucide-react";
 import { ColumnHeader } from "@/components/editorial/column-header";
+import { AppSelectorStrip } from "@/components/app-store/app-selector-strip";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -21,6 +21,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
+import { useActionProgress } from "@/components/shared/action-progress";
 import { AiMarkdown } from "@/components/shared/ai-markdown";
 import {
   getCategoryLeaderboard,
@@ -37,6 +38,7 @@ export function StoreIntelTab({ listings }: StoreIntelTabProps) {
   const [selectedListing, setSelectedListing] = useState<string>(listings[0]?.id ?? "");
   const [, startTransition] = useTransition();
   const [actionId, setActionId] = useState<string | null>(null);
+  const { runAction, isRunning: isActionRunning } = useActionProgress();
 
   const [leaderboard, setLeaderboard] = useState<Array<{ app_id: string; app_name: string; developer: string | null; icon_url: string | null; rating: number | null; downloads_estimate: number | null }>>([]);
   const [opportunities, setOpportunities] = useState<Array<{ keyword: string; estimated_volume: string; competition: string; opportunity_score: number; reason: string }>>([]);
@@ -64,30 +66,51 @@ export function StoreIntelTab({ listings }: StoreIntelTabProps) {
   }, [selectedListing]);
 
   function handleLeaderboard() {
-    setActionId("leaderboard");
-    startTransition(async () => {
-      const result = await getCategoryLeaderboard(selectedListing);
-      if ("apps" in result) setLeaderboard(result.apps);
-      setActionId(null);
-    });
+    runAction(
+      {
+        title: "Loading Category Leaderboard",
+        description: "Fetching top apps in your category...",
+        steps: ["Searching category", "Ranking apps", "Compiling results"],
+        estimatedDuration: 15,
+      },
+      async () => {
+        const result = await getCategoryLeaderboard(selectedListing);
+        if ("apps" in result) setLeaderboard(result.apps);
+        return "error" in result ? result : { message: `Found ${result.apps.length} top apps` };
+      }
+    );
   }
 
   function handleOpportunities() {
-    setActionId("opportunities");
-    startTransition(async () => {
-      const result = await findKeywordOpportunities(selectedListing);
-      if ("opportunities" in result) setOpportunities(result.opportunities);
-      setActionId(null);
-    });
+    runAction(
+      {
+        title: "Finding Keyword Opportunities",
+        description: "Discovering untapped keywords for your app...",
+        steps: ["Analyzing category keywords", "Evaluating competition", "Scoring opportunities", "Ranking results"],
+        estimatedDuration: 20,
+      },
+      async () => {
+        const result = await findKeywordOpportunities(selectedListing);
+        if ("opportunities" in result) setOpportunities(result.opportunities);
+        return "error" in result ? result : { message: `Found ${result.opportunities.length} opportunities` };
+      }
+    );
   }
 
   function handleTrends() {
-    setActionId("trends");
-    startTransition(async () => {
-      const result = await analyzeCategoryTrends(selectedListing);
-      if ("analysis" in result) setTrendAnalysis(result.analysis);
-      setActionId(null);
-    });
+    runAction(
+      {
+        title: "Analyzing Category Trends",
+        description: "AI is analyzing market trends in your app category...",
+        steps: ["Collecting market data", "Analyzing trends", "Identifying patterns", "Generating analysis"],
+        estimatedDuration: 25,
+      },
+      async () => {
+        const result = await analyzeCategoryTrends(selectedListing);
+        if ("analysis" in result) setTrendAnalysis(result.analysis);
+        return "error" in result ? result : { message: "Trend analysis complete" };
+      }
+    );
   }
 
   if (listings.length === 0) {
@@ -96,27 +119,20 @@ export function StoreIntelTab({ listings }: StoreIntelTabProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Selector + Actions */}
+      <AppSelectorStrip listings={listings} selected={selectedListing} onSelect={setSelectedListing} />
+
+      {/* Actions */}
       <div className="flex items-center gap-3 border-b border-rule pb-3">
-        <select
-          value={selectedListing}
-          onChange={(e) => setSelectedListing(e.target.value)}
-          className="h-9 flex-1 border border-rule bg-surface-card px-3 font-sans text-sm text-ink focus:border-editorial-red focus:outline-none"
-        >
-          {listings.map((l) => (
-            <option key={l.id} value={l.id}>{l.app_name} ({l.store === "apple" ? "iOS" : "Android"}) — {l.category ?? "Unknown"}</option>
-          ))}
-        </select>
-        <Button variant="outline" size="sm" onClick={handleLeaderboard} disabled={actionId === "leaderboard"}>
-          {actionId === "leaderboard" ? <Loader2 size={12} className="animate-spin" /> : <Trophy size={12} />}
+        <Button variant="outline" size="sm" onClick={handleLeaderboard} disabled={isActionRunning}>
+          <Trophy size={12} />
           Category Top
         </Button>
-        <Button variant="outline" size="sm" onClick={handleOpportunities} disabled={actionId === "opportunities"}>
-          {actionId === "opportunities" ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
+        <Button variant="outline" size="sm" onClick={handleOpportunities} disabled={isActionRunning}>
+          <Zap size={12} />
           Find Opportunities
         </Button>
-        <Button variant="primary" size="sm" onClick={handleTrends} disabled={actionId === "trends"}>
-          {actionId === "trends" ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+        <Button variant="primary" size="sm" onClick={handleTrends} disabled={isActionRunning}>
+          <Sparkles size={12} />
           Analyze Trends
         </Button>
       </div>

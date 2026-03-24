@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect, useRef } from "react";
+import { useState, useTransition, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Users,
@@ -19,6 +19,12 @@ import {
   Zap,
   Flag,
   Wand2,
+  Shield,
+  Eye,
+  BarChart3,
+  Lightbulb,
+  Globe,
+  FileText,
 } from "lucide-react";
 import { HeadlineBar } from "@/components/editorial/headline-bar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -34,6 +40,8 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/shared/empty-state";
+import { RecommendationsTab, StrategyGuideTab } from "@/components/shared/page-guide";
+import type { Recommendation, StrategyContent } from "@/components/shared/page-guide";
 import { addSocialProfile, removeSocialProfile, lookupSocialProfile, analyzeSocialProfile } from "@/lib/actions/social-intelligence";
 
 import { OverviewTab } from "./tabs/overview-tab";
@@ -278,6 +286,187 @@ export function SocialIntelligenceClient({
   }
 
   /* ------------------------------------------------------------------
+     Recommendations
+     ------------------------------------------------------------------ */
+
+  const recommendations = useMemo(() => {
+    const recs: Recommendation[] = [];
+
+    if (profiles.length === 0) {
+      recs.push({
+        id: "add-profile",
+        priority: "high",
+        category: "Setup",
+        icon: Plus,
+        item: "Add Your First Social Profile",
+        action: "Connect a social media profile to start tracking growth, engagement, and content performance.",
+        where: "Click 'Add Profile' at the top of this page.",
+        estimatedImpact: "Social intelligence gives you data-driven insights to grow your audience 2-3x faster.",
+        details: "We support Instagram, TikTok, YouTube, X/Twitter, and LinkedIn. Start with your primary platform.",
+      });
+      return recs;
+    }
+
+    profiles.forEach((profile) => {
+      const metrics = metricsMap[profile.id] || [];
+      const analyses = analysesMap[profile.id] || [];
+      const latestMetric = metrics[0];
+
+      // Low engagement rate
+      if (latestMetric && typeof latestMetric.engagement_rate === "number" && latestMetric.engagement_rate < 2) {
+        recs.push({
+          id: `engagement-${profile.id}`,
+          priority: "high",
+          category: "Engagement",
+          icon: TrendingUp,
+          item: `${profile.display_name || profile.handle} — Low Engagement`,
+          action: `Engagement rate is ${latestMetric.engagement_rate.toFixed(1)}%. Focus on creating more interactive content — polls, questions, carousels, and reply-worthy posts.`,
+          where: "Go to the Content tab for content strategy analysis and the Generate tab for content ideas.",
+          estimatedImpact: "Increasing engagement rate to 3%+ signals quality to algorithms, boosting reach by 40-60%.",
+          details: "Engagement rate is the top algorithm signal on most platforms. Focus on saving, sharing, and commenting over likes.",
+        });
+      }
+
+      // No analyses run
+      if (analyses.length < 3) {
+        recs.push({
+          id: `analyses-${profile.id}`,
+          priority: "medium",
+          category: "Analysis",
+          icon: Brain,
+          item: `${profile.display_name || profile.handle} — Run More Analyses`,
+          action: "Run all available analyses to get comprehensive insights about your social media strategy.",
+          where: "Click 'Run All Analyses' at the top of this page, or run individual analyses from each tab.",
+          estimatedImpact: "Complete analysis coverage provides AI-powered recommendations tailored to your specific audience and content.",
+          details: "Each analysis type provides unique insights: growth trends, content strategy, hashtag performance, competitor benchmarks, and earnings potential.",
+        });
+      }
+
+      // No goals set
+      const goal = goalsMap[profile.id];
+      if (!goal) {
+        recs.push({
+          id: `goals-${profile.id}`,
+          priority: "medium",
+          category: "Goals",
+          icon: Flag,
+          item: `${profile.display_name || profile.handle} — Set Growth Goals`,
+          action: "Define specific, measurable goals for followers, engagement, and content output.",
+          where: "Go to the Goals tab to set targets for this profile.",
+          estimatedImpact: "Profiles with clear goals grow 40% faster because they can measure and optimize progress.",
+          details: "Set both short-term (30-day) and long-term (90-day) goals. Review and adjust monthly.",
+        });
+      }
+
+      // Follower count stagnation check
+      if (metrics.length >= 2) {
+        const current = latestMetric?.followers ?? 0;
+        const previous = metrics[1]?.followers ?? 0;
+        if (current > 0 && previous > 0 && (current - previous) / previous < 0.01) {
+          recs.push({
+            id: `stagnant-${profile.id}`,
+            priority: "medium",
+            category: "Growth",
+            icon: TrendingUp,
+            item: `${profile.display_name || profile.handle} — Stagnant Growth`,
+            action: "Follower growth has slowed. Try new content formats, collaborations, or trending topics to reignite growth.",
+            where: "Check the Growth tab for trends and the Generate tab for fresh content ideas.",
+            estimatedImpact: "Diversifying content strategy typically breaks growth plateaus within 2-4 weeks.",
+            details: "Common causes: same content format, posting at wrong times, not engaging with your community, or algorithm changes.",
+          });
+        }
+      }
+    });
+
+    // Multiple profiles — cross-promotion opportunity
+    if (profiles.length >= 2) {
+      recs.push({
+        id: "cross-promote",
+        priority: "low",
+        category: "Cross-Platform",
+        icon: Globe,
+        item: "Cross-Platform Strategy",
+        action: "You have multiple profiles — leverage cross-promotion to drive followers between platforms.",
+        where: "Mention your other platforms in bios, stories, and content. Repurpose top content across platforms.",
+        estimatedImpact: "Cross-promotion can drive 10-20% of followers from one platform to another.",
+        details: "Adapt content for each platform's format rather than posting identical content everywhere.",
+      });
+    }
+
+    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    return recs.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+  }, [profiles, metricsMap, analysesMap, goalsMap]);
+
+  /* ------------------------------------------------------------------
+     Strategy Guide Content
+     ------------------------------------------------------------------ */
+
+  const strategyContent: StrategyContent = useMemo(() => ({
+    title: "Social Media Intelligence Strategy Guide",
+    intro: "Social media success requires data-driven decisions. This guide helps you use analytics to grow your audience, improve engagement, and maximize your social media ROI.",
+    cards: [
+      {
+        icon: TrendingUp,
+        iconColor: "text-editorial-red",
+        title: "Growth Strategy",
+        bullets: [
+          { bold: "Post consistently", text: "Maintain a regular posting schedule aligned with when your audience is most active." },
+          { bold: "Engage authentically", text: "Reply to comments, DMs, and mentions. Community engagement drives algorithm favor." },
+          { bold: "Collaborate", text: "Partner with creators in your niche for cross-promotion and audience sharing." },
+        ],
+      },
+      {
+        icon: Target,
+        iconColor: "text-editorial-gold",
+        title: "Content Strategy",
+        bullets: [
+          { bold: "Mix content types", text: "Use carousels, videos, stories, and static posts. Each format reaches different audience segments." },
+          { bold: "Hook in 3 seconds", text: "The first 3 seconds of video or first line of text determines if users stop scrolling." },
+          { bold: "Save-worthy content", text: "Create content people want to save or share — this signals high quality to algorithms." },
+        ],
+      },
+      {
+        icon: BarChart3,
+        iconColor: "text-editorial-green",
+        title: "Analytics & Optimization",
+        bullets: [
+          { bold: "Track engagement rate", text: "Engagement rate matters more than follower count for algorithm visibility." },
+          { bold: "Analyze top performers", text: "Study your highest-performing posts to understand what resonates with your audience." },
+          { bold: "Set measurable goals", text: "Define specific targets for followers, engagement, and content output." },
+        ],
+      },
+    ],
+    steps: [
+      { step: "1", title: "Connect Profiles", desc: "Add your social media profiles to start tracking metrics and performance." },
+      { step: "2", title: "Run All Analyses", desc: "Run comprehensive analyses to understand your current position and opportunities." },
+      { step: "3", title: "Set Goals", desc: "Define specific growth, engagement, and content goals for each profile." },
+      { step: "4", title: "Create Content", desc: "Use the content generator for post ideas, captions, and content calendars." },
+      { step: "5", title: "Analyze Competitors", desc: "Study what works for competitors and adapt successful strategies to your brand." },
+      { step: "6", title: "Review & Adjust", desc: "Check analytics weekly, adjust strategy monthly, and update goals quarterly." },
+    ],
+    dos: [
+      { text: "Post consistently — the algorithm rewards regular activity over sporadic bursts." },
+      { text: "Prioritize engagement (comments, saves, shares) over vanity metrics (likes, followers)." },
+      { text: "Repurpose top-performing content into different formats for maximum reach." },
+      { text: "Use hashtags strategically — mix popular, niche, and branded hashtags." },
+      { text: "Track performance trends weekly to catch declining engagement early." },
+    ],
+    donts: [
+      { text: "Don't buy followers or engagement — it destroys your engagement rate and algorithm performance." },
+      { text: "Don't post identical content across all platforms — adapt to each platform's format and audience." },
+      { text: "Don't ignore your analytics — data-driven decisions always outperform intuition alone." },
+      { text: "Don't chase every trend — only participate in trends relevant to your brand and audience." },
+      { text: "Don't neglect community management — unanswered comments and DMs hurt engagement." },
+    ],
+    metrics: [
+      { label: "Followers", desc: "Total audience size across your connected platforms. Growth rate matters more than absolute count.", color: "text-editorial-red" },
+      { label: "Engagement Rate", desc: "Interactions divided by reach/followers. The most important metric for algorithm performance.", color: "text-editorial-gold" },
+      { label: "Posts/Content", desc: "Total content published. Consistency is key — aim for a sustainable posting schedule.", color: "text-editorial-green" },
+      { label: "Growth Rate", desc: "Percentage change in followers over time. Healthy accounts grow 2-5% monthly.", color: "text-ink" },
+    ],
+  }), []);
+
+  /* ------------------------------------------------------------------
      Empty state
      ------------------------------------------------------------------ */
 
@@ -470,6 +659,14 @@ export function SocialIntelligenceClient({
               <DollarSign className="mr-1.5 h-3.5 w-3.5" />
               Earnings
             </TabsTrigger>
+            <TabsTrigger value="recommendations">
+              <Lightbulb className="mr-1.5 h-3.5 w-3.5" />
+              Recommendations
+            </TabsTrigger>
+            <TabsTrigger value="strategy">
+              <FileText className="mr-1.5 h-3.5 w-3.5" />
+              Strategy Guide
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -530,6 +727,18 @@ export function SocialIntelligenceClient({
               profile={selectedProfile}
               analyses={selectedAnalyses}
             />
+          </TabsContent>
+
+          <TabsContent value="recommendations">
+            <RecommendationsTab
+              recommendations={recommendations}
+              itemLabel="profile"
+              emptyMessage="Add social profiles to generate personalized social media recommendations."
+            />
+          </TabsContent>
+
+          <TabsContent value="strategy">
+            <StrategyGuideTab content={strategyContent} />
           </TabsContent>
         </Tabs>
       )}

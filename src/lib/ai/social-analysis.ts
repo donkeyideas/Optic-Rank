@@ -6,6 +6,7 @@
  */
 
 import { aiChat } from "./ai-provider";
+import { getPlatformConfig } from "@/lib/social/platform-config";
 import type {
   SocialProfile,
   SocialMetric,
@@ -23,6 +24,7 @@ import type {
    ------------------------------------------------------------------ */
 
 function buildProfileSummary(profile: SocialProfile, metrics: SocialMetric[]): string {
+  const pConfig = getPlatformConfig(profile.platform);
   const latest = metrics[metrics.length - 1];
   const earliest = metrics[0];
   const growthRate =
@@ -31,12 +33,16 @@ function buildProfileSummary(profile: SocialProfile, metrics: SocialMetric[]): s
       : "unknown";
 
   return [
-    `Platform: ${profile.platform}`,
+    `Platform: ${pConfig.displayName}`,
     `Handle: @${profile.handle}`,
-    `Followers: ${profile.followers_count.toLocaleString()}`,
-    `Following: ${profile.following_count.toLocaleString()}`,
-    `Posts: ${profile.posts_count.toLocaleString()}`,
+    `${pConfig.fields.followers.label}: ${profile.followers_count.toLocaleString()}`,
+    pConfig.fields.following.showInForm
+      ? `${pConfig.fields.following.label}: ${profile.following_count.toLocaleString()}`
+      : null,
+    `${pConfig.fields.posts.label}: ${profile.posts_count.toLocaleString()}`,
     `Engagement Rate: ${profile.engagement_rate ?? "unknown"}%`,
+    `Engagement Formula: ${pConfig.engagementFormula}`,
+    `Content Formats: ${pConfig.contentTypes.join(", ")}`,
     `Niche: ${profile.niche || "not specified"}`,
     `Country: ${profile.country || "not specified"}`,
     `Growth Rate (${metrics.length} days): ${growthRate}%`,
@@ -101,19 +107,21 @@ export async function analyzeGrowth(
   }
 
   // AI-enhanced tips
-  const prompt = `You are a social media growth strategist specializing in ${profile.platform}.
+  const pConfig = getPlatformConfig(profile.platform);
+  const prompt = `You are a social media growth strategist specializing in ${pConfig.displayName}.
 
 Analyze this account and provide actionable growth recommendations:
 ${buildProfileSummary(profile, metrics)}
 
 Return ONLY a JSON array of growth tips (no other text), each with:
-- "title": string (action-oriented, e.g. "Post Reels 4x per week")
+- "title": string (action-oriented, e.g. "Post ${pConfig.contentTypes[0]} 4x per week")
 - "description": string (why this works, 2-3 sentences max)
 - "priority": "high" | "medium" | "low"
 - "estimated_impact": string (e.g. "+15-25% follower growth in 30 days")
 - "category": "content" | "engagement" | "timing" | "profile" | "collaboration"
 
-Return 5-6 tips sorted by priority. Be specific to ${profile.platform}'s current algorithm.`;
+Available content formats on ${pConfig.displayName}: ${pConfig.contentTypes.join(", ")}.
+Return 5-6 tips sorted by priority. Be specific to ${pConfig.displayName}'s current algorithm. Reference the correct content formats.`;
 
   const response = await aiChat(prompt, { temperature: 0.7, maxTokens: 1500 });
   if (response?.text) {
@@ -141,7 +149,8 @@ export async function analyzeContentStrategy(
   profile: SocialProfile,
   metrics: SocialMetric[]
 ): Promise<{ strategy: ContentStrategy; provider: string }> {
-  const prompt = `You are a social media content strategist for ${profile.platform}.
+  const pConfig = getPlatformConfig(profile.platform);
+  const prompt = `You are a social media content strategist for ${pConfig.displayName}.
 
 Analyze this account and create a content strategy:
 ${buildProfileSummary(profile, metrics)}
@@ -154,14 +163,15 @@ Return ONLY a JSON object (no other text) with:
     {
       "day": "Monday",
       "best_times": ["9:00 AM", "6:00 PM"],
-      "content_types": ["Reel", "Carousel"],
+      "content_types": ["${pConfig.contentTypes[0]}", "${pConfig.contentTypes[1] || pConfig.contentTypes[0]}"],
       "theme": "Educational content"
     }
   ],
   "tips": ["string tip 1", "string tip 2"]
 }
 
-Be specific to ${profile.platform}. Include all 7 days. Use the niche "${profile.niche || "general"}" to tailor content themes.`;
+IMPORTANT: For content_mix types and weekly content_types, only use formats available on ${pConfig.displayName}: ${pConfig.contentTypes.join(", ")}.
+Be specific to ${pConfig.displayName}. Include all 7 days. Use the niche "${profile.niche || "general"}" to tailor content themes.`;
 
   const fallback: ContentStrategy = {
     posting_frequency: "3-5 posts per week",
@@ -192,7 +202,13 @@ export async function analyzeHashtags(
   profile: SocialProfile,
   metrics: SocialMetric[]
 ): Promise<{ hashtags: HashtagRecommendation[]; provider: string }> {
-  const prompt = `You are a social media hashtag strategist for ${profile.platform}.
+  const pConfig = getPlatformConfig(profile.platform);
+  const hashtagNote = profile.platform === "linkedin"
+    ? "\nNote: LinkedIn hashtags work differently — fewer, broader hashtags (3-5) perform better than many niche tags."
+    : profile.platform === "tiktok"
+      ? "\nNote: TikTok hashtags are discovery-driven — trending sounds and hashtag challenges matter as much as niche tags."
+      : "";
+  const prompt = `You are a social media hashtag strategist for ${pConfig.displayName}.
 
 Analyze this account and recommend hashtags:
 ${buildProfileSummary(profile, metrics)}
@@ -204,7 +220,7 @@ Return ONLY a JSON array of 15-20 hashtag recommendations (no other text), each 
 - "relevance": number (0-100, how relevant to this account's niche)
 - "category": string (e.g. "niche", "trending", "community", "brand", "location")
 
-Mix: 5 high-volume, 5 medium-volume, 5-10 low-competition/niche tags. Be specific to "${profile.niche || "general"}" niche on ${profile.platform}.`;
+Mix: 5 high-volume, 5 medium-volume, 5-10 low-competition/niche tags. Be specific to "${profile.niche || "general"}" niche on ${pConfig.displayName}.${hashtagNote}`;
 
   const response = await aiChat(prompt, { temperature: 0.7, maxTokens: 1500 });
   if (response?.text) {
@@ -232,17 +248,19 @@ export async function analyzeSocialCompetitors(
   };
   provider: string;
 }> {
+  const pConfig = getPlatformConfig(profile.platform);
+  const audienceLabel = pConfig.fields.followers.label.toLowerCase();
   const competitorList = competitors
     .map(
       (c) =>
-        `@${c.handle}: ${c.followers_count?.toLocaleString() ?? "?"} followers, ${c.engagement_rate ?? "?"}% engagement, niche: ${c.niche || "?"}`
+        `@${c.handle}: ${c.followers_count?.toLocaleString() ?? "?"} ${audienceLabel}, ${c.engagement_rate ?? "?"}% engagement, niche: ${c.niche || "?"}`
     )
     .join("\n");
 
-  const prompt = `You are a social media competitive analyst for ${profile.platform}.
+  const prompt = `You are a social media competitive analyst for ${pConfig.displayName}.
 
 Your account:
-@${profile.handle}: ${profile.followers_count.toLocaleString()} followers, ${profile.engagement_rate ?? "?"}% engagement, niche: ${profile.niche || "general"}
+@${profile.handle}: ${profile.followers_count.toLocaleString()} ${audienceLabel}, ${profile.engagement_rate ?? "?"}% engagement, niche: ${profile.niche || "general"}
 
 Competitors:
 ${competitorList || "No competitors added yet. Provide general competitive advice."}
@@ -338,14 +356,15 @@ export async function generateSocialInsights(
   profile: SocialProfile,
   metrics: SocialMetric[]
 ): Promise<{ insights: string; provider: string }> {
-  const prompt = `You are a senior social media strategist. Write a concise strategic analysis for this ${profile.platform} account.
+  const pConfig = getPlatformConfig(profile.platform);
+  const prompt = `You are a senior social media strategist. Write a concise strategic analysis for this ${pConfig.displayName} account.
 
 ${buildProfileSummary(profile, metrics)}
 
 Write 3-4 paragraphs covering:
 1. Current performance assessment (be honest but constructive)
 2. Biggest growth opportunity right now
-3. Content strategy recommendation
+3. Content strategy recommendation (reference ${pConfig.displayName} content formats: ${pConfig.contentTypes.join(", ")})
 4. One unconventional tip specific to their niche
 
 Use a professional but approachable tone. Be specific and actionable, not generic. Use markdown formatting (bold, bullet points).`;
@@ -506,7 +525,8 @@ export async function generateThirtyDayPlanAI(
   profile: SocialProfile,
   metrics: SocialMetric[]
 ): Promise<{ plan: string; provider: string }> {
-  const prompt = `You are a social media coach creating a detailed 30-day growth plan for this ${profile.platform} account.
+  const pConfig = getPlatformConfig(profile.platform);
+  const prompt = `You are a social media coach creating a detailed 30-day growth plan for this ${pConfig.displayName} account.
 
 ${buildProfileSummary(profile, metrics)}
 
@@ -518,7 +538,8 @@ For each week, include:
 - Key metrics to track that week
 - One "power move" (something unconventional that could go viral or significantly boost growth)
 
-Format in markdown. Be specific to ${profile.platform} and the "${profile.niche || "general"}" niche. Make it actionable — every task should be something the creator can do in 15-60 minutes.`;
+Available content formats on ${pConfig.displayName}: ${pConfig.contentTypes.join(", ")}.
+Format in markdown. Be specific to ${pConfig.displayName} and the "${profile.niche || "general"}" niche. Reference the correct content formats for this platform. Make it actionable — every task should be something the creator can do in 15-60 minutes.`;
 
   const response = await aiChat(prompt, { temperature: 0.8, maxTokens: 3000, timeout: 120000 });
   if (response?.text) {

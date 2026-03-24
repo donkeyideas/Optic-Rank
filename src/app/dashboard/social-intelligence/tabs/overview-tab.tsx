@@ -91,10 +91,6 @@ export function OverviewTab({ profile, metrics, analyses }: OverviewTabProps) {
       ? Math.round(factors.reduce((sum, f) => sum + f.score, 0) / factors.length)
       : null;
 
-  // Latest avg likes/views
-  const avgLikes = latestMetric?.avg_likes ?? null;
-  const avgViews = latestMetric?.avg_views ?? null;
-
   return (
     <div className="mt-4 space-y-6">
       {/* ----------------------------------------------------------------
@@ -153,20 +149,6 @@ export function OverviewTab({ profile, metrics, analyses }: OverviewTabProps) {
           if (stat.label === "Engagement Rate") {
             delta = engagementDelta != null ? +engagementDelta.toFixed(2) : null;
             suffix = "%";
-          }
-          // Override earnings stat with analysis data
-          if (stat.label === "Est. Monthly Earnings") {
-            value = realisticMonthly != null ? `$${realisticMonthly.toLocaleString()}` : "—";
-            subtext = realisticMonthly != null ? "realistic scenario" : "run analysis to project";
-          }
-          // Override avg likes/post with metric data
-          if (stat.label === "Avg. Likes/Post") {
-            value = avgLikes != null
-              ? Math.round(avgLikes).toLocaleString()
-              : avgViews != null
-                ? Math.round(avgViews).toLocaleString()
-                : profile.posts_count.toLocaleString();
-            subtext = avgLikes == null && avgViews == null ? "total posts" : undefined;
           }
 
           return (

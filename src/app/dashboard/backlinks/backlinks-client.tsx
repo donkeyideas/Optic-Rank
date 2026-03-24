@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import {
   Search,
   ExternalLink,
@@ -15,6 +15,15 @@ import {
   Ban,
   Radar,
   Plus,
+  Target,
+  BarChart3,
+  Lightbulb,
+  Zap,
+  Eye,
+  Globe,
+  ArrowRight,
+  Copy,
+  Check,
 } from "lucide-react";
 
 import { useTimezone } from "@/lib/context/timezone-context";
@@ -49,6 +58,8 @@ import {
 } from "@/components/ui/dialog";
 import { disavowBacklink, reclaimBacklink, discoverBacklinks, addBacklinkFromUrl } from "@/lib/actions/backlinks";
 import { useActionProgress } from "@/components/shared/action-progress";
+import { RecommendationsTab, StrategyGuideTab } from "@/components/shared/page-guide";
+import type { Recommendation, StrategyContent } from "@/components/shared/page-guide";
 import type { Backlink } from "@/types";
 
 /* ------------------------------------------------------------------
@@ -230,6 +241,168 @@ export function BacklinksPageClient({
   const lostBacklinks = backlinks.filter((bl) => bl.status === "lost");
   const toxicBacklinks = backlinks.filter((bl) => bl.is_toxic);
 
+  const recommendations = useMemo(() => {
+    const recs: Recommendation[] = [];
+
+    // Toxic backlinks to disavow
+    if (stats.toxicCount > 0) {
+      recs.push({
+        id: "toxic-disavow",
+        priority: "high",
+        category: "Toxic Links",
+        icon: ShieldOff,
+        item: `${stats.toxicCount} Toxic Backlinks`,
+        action: "Review and disavow toxic backlinks to protect your site from Google penalties. Export the disavow file and submit to Google Search Console.",
+        where: "Go to the 'Toxic' tab, review each link, then click 'Export Disavow File'.",
+        estimatedImpact: "Removing toxic links can prevent ranking drops of 10-30% that come with manual or algorithmic penalties.",
+        details: "Focus on links with high CF/TF ratio (spam signals). Not all 'toxic' links need disavowing — only those clearly manipulative.",
+      });
+    }
+
+    // Lost backlinks to reclaim
+    if (stats.lostCount > 0) {
+      recs.push({
+        id: "reclaim-lost",
+        priority: "high",
+        category: "Link Reclamation",
+        icon: Unlink,
+        item: `${stats.lostCount} Lost Backlinks`,
+        action: "Reach out to site owners to reclaim lost backlinks. Many lost links are due to page moves or accidental removal.",
+        where: "Go to the 'Lost' tab and click 'Reclaim' on high-value links.",
+        estimatedImpact: "Reclaiming just 20-30% of lost high-DA links can recover significant ranking power.",
+        details: "Prioritize lost links from high-authority domains. Send a polite email explaining the broken link and suggesting your updated URL.",
+      });
+    }
+
+    // Low dofollow percentage
+    if (stats.dofollowPct < 60) {
+      recs.push({
+        id: "dofollow-ratio",
+        priority: "medium",
+        category: "Link Quality",
+        icon: Shield,
+        item: `Dofollow Rate: ${stats.dofollowPct}%`,
+        action: "Your dofollow link ratio is below average. Focus on earning editorial dofollow links through content marketing and outreach.",
+        where: "Prioritize guest posting, digital PR, and creating linkable assets (studies, tools, infographics).",
+        estimatedImpact: "Increasing dofollow links by 20% can improve rankings for competitive keywords.",
+        details: "A healthy backlink profile typically has 60-80% dofollow links. Focus on quality over quantity.",
+      });
+    }
+
+    // Low referring domains relative to total backlinks
+    if (stats.referringDomains > 0 && stats.total / stats.referringDomains > 10) {
+      recs.push({
+        id: "domain-diversity",
+        priority: "medium",
+        category: "Link Diversity",
+        icon: Globe,
+        item: "Low Domain Diversity",
+        action: `You have ${stats.total.toLocaleString()} backlinks from only ${stats.referringDomains.toLocaleString()} domains. Diversify your link sources for a more natural profile.`,
+        where: "Target new referring domains through outreach to industry blogs, news sites, and resource pages.",
+        estimatedImpact: "Google values links from diverse domains more than multiple links from the same domain.",
+        details: "Each new referring domain is more valuable than additional links from existing referrers. Aim for breadth.",
+      });
+    }
+
+    // New backlinks — verify quality
+    if (stats.newCount > 5) {
+      recs.push({
+        id: "verify-new",
+        priority: "low",
+        category: "Link Monitoring",
+        icon: Eye,
+        item: `${stats.newCount} New Backlinks`,
+        action: "Review newly discovered backlinks for quality. Flag any suspicious or spammy links for potential disavow.",
+        where: "Check the 'New' tab to review recent acquisitions.",
+        estimatedImpact: "Early detection of spammy links prevents future penalty risk.",
+        details: "Monitor new links weekly. Look for patterns like sudden spikes from low-quality domains, which may indicate negative SEO.",
+      });
+    }
+
+    // General — need more backlinks
+    if (stats.total < 100) {
+      recs.push({
+        id: "build-links",
+        priority: "high",
+        category: "Link Building",
+        icon: TrendingUp,
+        item: "Backlink Profile Needs Growth",
+        action: "Your site has fewer than 100 backlinks. Implement a consistent link-building strategy to improve domain authority.",
+        where: "Start with creating linkable assets, then do outreach to industry publications and resource pages.",
+        estimatedImpact: "Growing from <100 to 500+ quality backlinks can double or triple organic traffic within 6-12 months.",
+        details: "Focus on quality: one link from a DA 60+ site is worth more than 100 links from DA 10 sites.",
+      });
+    }
+
+    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    return recs.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+  }, [backlinks, stats]);
+
+  const strategyContent: StrategyContent = useMemo(() => ({
+    title: "Backlink Strategy Guide",
+    intro: "Backlinks remain one of the strongest ranking factors in SEO. This guide helps you build a healthy, diverse backlink profile while protecting your site from harmful links.",
+    cards: [
+      {
+        icon: TrendingUp,
+        iconColor: "text-editorial-red",
+        title: "Link Building",
+        bullets: [
+          { bold: "Create linkable assets", text: "Original research, tools, infographics, and comprehensive guides naturally attract backlinks." },
+          { bold: "Guest posting", text: "Write high-quality articles for industry publications with contextual backlinks." },
+          { bold: "Digital PR", text: "Get coverage from news sites and blogs through newsworthy content and expert commentary." },
+        ],
+      },
+      {
+        icon: Shield,
+        iconColor: "text-editorial-gold",
+        title: "Link Quality",
+        bullets: [
+          { bold: "Domain authority matters", text: "One link from a DA 70+ site outweighs dozens from DA 10 sites." },
+          { bold: "Relevance is key", text: "Links from sites in your industry carry more weight than random links." },
+          { bold: "Natural anchor text", text: "Vary your anchor text — avoid over-optimizing with exact-match keywords." },
+        ],
+      },
+      {
+        icon: AlertTriangle,
+        iconColor: "text-editorial-green",
+        title: "Link Protection",
+        bullets: [
+          { bold: "Monitor new links", text: "Review new backlinks weekly to catch spammy links early." },
+          { bold: "Disavow toxic links", text: "Submit a disavow file to Google for clearly manipulative backlinks." },
+          { bold: "Reclaim lost links", text: "Reach out to recover valuable links that have been removed or broken." },
+        ],
+      },
+    ],
+    steps: [
+      { step: "1", title: "Audit Current Profile", desc: "Review your existing backlinks. Identify high-value links, toxic links, and gaps." },
+      { step: "2", title: "Disavow Toxic Links", desc: "Export and submit a disavow file for clearly spammy or manipulative backlinks." },
+      { step: "3", title: "Reclaim Lost Links", desc: "Contact site owners about recently lost backlinks — many can be recovered." },
+      { step: "4", title: "Analyze Competitors", desc: "Find where competitors get their links. Target the same sources." },
+      { step: "5", title: "Create Linkable Assets", desc: "Publish original research, tools, or comprehensive guides that naturally earn links." },
+      { step: "6", title: "Outreach & Monitor", desc: "Reach out to prospects weekly. Monitor your profile monthly for new opportunities and risks." },
+    ],
+    dos: [
+      { text: "Earn links through genuinely valuable content that people want to reference." },
+      { text: "Diversify your link sources — aim for many different referring domains." },
+      { text: "Monitor your backlink profile weekly for new toxic or lost links." },
+      { text: "Prioritize links from high-authority, relevant sites in your industry." },
+      { text: "Use varied, natural anchor text in your backlink strategy." },
+    ],
+    donts: [
+      { text: "Don't buy backlinks from link farms or PBNs — Google penalizes this heavily." },
+      { text: "Don't over-optimize anchor text with exact-match keywords." },
+      { text: "Don't ignore toxic backlinks — they can trigger manual penalties." },
+      { text: "Don't focus only on quantity — a few high-quality links beat hundreds of low-quality ones." },
+      { text: "Don't let lost backlinks go unnoticed — set up regular monitoring." },
+    ],
+    metrics: [
+      { label: "Total Backlinks", desc: "The total number of inbound links pointing to your site from external sources.", color: "text-editorial-red" },
+      { label: "Referring Domains", desc: "Unique domains linking to you. More important than total link count for SEO.", color: "text-editorial-gold" },
+      { label: "Dofollow %", desc: "Percentage of links passing ranking authority. A healthy profile has 60-80% dofollow.", color: "text-editorial-green" },
+      { label: "Toxic Links", desc: "Potentially harmful backlinks that could trigger Google penalties. Should be disavowed.", color: "text-ink" },
+    ],
+  }), []);
+
   const headlineStats = [
     {
       label: "Total Backlinks",
@@ -394,6 +567,8 @@ export function BacklinksPageClient({
           <TabsTrigger value="new">New</TabsTrigger>
           <TabsTrigger value="lost">Lost</TabsTrigger>
           <TabsTrigger value="toxic">Toxic</TabsTrigger>
+          <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
+          <TabsTrigger value="strategy">Strategy Guide</TabsTrigger>
         </TabsList>
 
         {/* ============================================================
@@ -894,6 +1069,24 @@ export function BacklinksPageClient({
               </div>
             )}
           </div>
+        </TabsContent>
+
+        {/* ============================================================
+            TAB: Recommendations
+            ============================================================ */}
+        <TabsContent value="recommendations">
+          <RecommendationsTab
+            recommendations={recommendations}
+            itemLabel="link"
+            emptyMessage="Add backlinks to generate personalized link-building recommendations."
+          />
+        </TabsContent>
+
+        {/* ============================================================
+            TAB: Strategy Guide
+            ============================================================ */}
+        <TabsContent value="strategy">
+          <StrategyGuideTab content={strategyContent} />
         </TabsContent>
       </Tabs>
     </div>

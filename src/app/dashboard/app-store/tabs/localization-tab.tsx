@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/shared/toast";
+import { useActionProgress } from "@/components/shared/action-progress";
 import {
   Globe,
   Loader2,
@@ -13,6 +14,7 @@ import {
   Languages,
 } from "lucide-react";
 import { ColumnHeader } from "@/components/editorial/column-header";
+import { AppSelectorStrip } from "@/components/app-store/app-selector-strip";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -46,6 +48,7 @@ const SIZE_LABELS: Record<string, string> = {
 
 export function LocalizationTab({ listings, localizations }: LocalizationTabProps) {
   const { toast } = useToast();
+  const { runAction, isRunning: isActionRunning } = useActionProgress();
   const router = useRouter();
   const [selectedListing, setSelectedListing] = useState<string>(listings[0]?.id ?? "");
   const [, startTransition] = useTransition();
@@ -73,59 +76,66 @@ export function LocalizationTab({ listings, localizations }: LocalizationTabProp
   const completeness = totalMarkets > 0 ? Math.round((localizedCount / totalMarkets) * 100) : 0;
 
   function handleAnalyze() {
-    setActionId("analyze");
-    startTransition(async () => {
-      const result = await analyzeLocalizationOpportunity(selectedListing);
-      if ("markets" in result) {
-        setMarkets(result.markets);
-      } else {
-        toast(result.error, "error");
+    runAction(
+      {
+        title: "Analyzing Localization Markets",
+        description: "Discovering top markets for your app...",
+        steps: ["Identifying target markets", "Evaluating market size", "Scoring opportunities"],
+        estimatedDuration: 15,
+      },
+      async () => {
+        const result = await analyzeLocalizationOpportunity(selectedListing);
+        if ("markets" in result) setMarkets(result.markets);
+        return "error" in result ? result : { message: `Found ${result.markets?.length ?? 0} markets` };
       }
-      setActionId(null);
-    });
+    );
   }
 
   function handleTranslate(countryCode: string) {
-    setActionId(countryCode);
-    startTransition(async () => {
-      const result = await generateTranslation(selectedListing, countryCode);
-      if ("error" in result) {
-        toast(result.error, "error");
-      } else {
-        // Update the local markets state to reflect the translated status
+    runAction(
+      {
+        title: "Generating Translation",
+        description: `Translating your listing for ${countryCode}...`,
+        steps: ["Analyzing source content", "Generating translation", "Saving localization"],
+        estimatedDuration: 15,
+      },
+      async () => {
+        const result = await generateTranslation(selectedListing, countryCode);
+        if ("error" in result) return result;
         setMarkets((prev) =>
           prev.map((m) =>
             m.code === countryCode ? { ...m, status: "localized", opportunity_score: 20 } : m
           )
         );
-        toast("Translation generated", "success");
         router.refresh();
+        return { message: "Translation generated" };
       }
-      setActionId(null);
-    });
+    );
   }
 
   function handleBulkTranslate() {
     if (selectedMarkets.size === 0) return;
-    setActionId("bulk");
     const codes = Array.from(selectedMarkets);
-    startTransition(async () => {
-      const result = await bulkTranslate(selectedListing, codes);
-      if ("error" in result) {
-        toast(result.error, "error");
-      } else {
-        // Update local markets state for all translated codes
+    runAction(
+      {
+        title: "Translating App Listing",
+        description: `Generating translations for ${codes.length} market${codes.length !== 1 ? "s" : ""}...`,
+        steps: ["Preparing translations", "Translating metadata", "Saving localizations"],
+        estimatedDuration: 15 * codes.length,
+      },
+      async () => {
+        const result = await bulkTranslate(selectedListing, codes);
+        if ("error" in result) return result;
         setMarkets((prev) =>
           prev.map((m) =>
             codes.includes(m.code) ? { ...m, status: "localized", opportunity_score: 20 } : m
           )
         );
-        toast(`Translated ${codes.length} markets`, "success");
+        setSelectedMarkets(new Set());
         router.refresh();
+        return { message: `Translated ${codes.length} markets` };
       }
-      setSelectedMarkets(new Set());
-      setActionId(null);
-    });
+    );
   }
 
   function toggleMarket(code: string) {
@@ -143,24 +153,17 @@ export function LocalizationTab({ listings, localizations }: LocalizationTabProp
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Selector + Actions */}
+      <AppSelectorStrip listings={listings} selected={selectedListing} onSelect={setSelectedListing} />
+
+      {/* Actions */}
       <div className="flex items-center gap-3 border-b border-rule pb-3">
-        <select
-          value={selectedListing}
-          onChange={(e) => setSelectedListing(e.target.value)}
-          className="h-9 flex-1 border border-rule bg-surface-card px-3 font-sans text-sm text-ink focus:border-editorial-red focus:outline-none"
-        >
-          {listings.map((l) => (
-            <option key={l.id} value={l.id}>{l.app_name} ({l.store === "apple" ? "iOS" : "Android"})</option>
-          ))}
-        </select>
-        <Button variant="primary" size="sm" onClick={handleAnalyze} disabled={actionId === "analyze"}>
+        <Button variant="primary" size="sm" onClick={handleAnalyze} disabled={actionId === "analyze" || isActionRunning}>
           {actionId === "analyze" ? <Loader2 size={12} className="animate-spin" /> : <Globe size={12} />}
           Analyze Markets
         </Button>
         {selectedMarkets.size > 0 && (
-          <Button variant="outline" size="sm" onClick={handleBulkTranslate} disabled={actionId === "bulk"}>
-            {actionId === "bulk" ? <Loader2 size={12} className="animate-spin" /> : <Languages size={12} />}
+          <Button variant="outline" size="sm" onClick={handleBulkTranslate} disabled={isActionRunning}>
+            {isActionRunning ? <Loader2 size={12} className="animate-spin" /> : <Languages size={12} />}
             Translate Selected ({selectedMarkets.size})
           </Button>
         )}
@@ -276,9 +279,9 @@ export function LocalizationTab({ listings, localizations }: LocalizationTabProp
                         variant="outline"
                         size="sm"
                         onClick={() => handleTranslate(market.code)}
-                        disabled={actionId === market.code}
+                        disabled={isActionRunning}
                       >
-                        {actionId === market.code ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                        {isActionRunning ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
                         Translate
                       </Button>
                     )}

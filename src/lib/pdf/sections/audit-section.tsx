@@ -52,16 +52,16 @@ export function AuditSection({ data }: { data: AuditData }) {
         </View>
       </View>
 
-      {issueRows.length > 0 && (
-        <>
+      {issueRows.length > 0 ? (
+        <View>
           <Text style={[s.bold, s.mb8]}>Top Issues</Text>
           <PDFTable
             headers={["Issue", "Severity", "Category", "Count"]}
             rows={issueRows}
             widths={[220, 60, 80, 50]}
           />
-        </>
-      )}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -75,14 +75,14 @@ export function buildAuditData(
 
   return {
     healthScore: typeof audit?.health_score === "number" ? audit.health_score : 0,
-    pagesScanned: typeof audit?.pages_scanned === "number" ? audit.pages_scanned : 0,
+    pagesScanned: typeof audit?.pages_crawled === "number" ? audit.pages_crawled : 0,
     criticalIssues: criticalIssues.length,
     warnings: warnings.length,
-    passed: typeof audit?.passed_checks === "number" ? audit.passed_checks : 0,
+    passed: typeof audit?.issues_found === "number" ? audit.issues_found : 0,
     issues: issues.slice(0, 20).map((i) => ({
-      title: String(i.title ?? i.issue_type ?? "Unknown"),
+      title: String(i.title ?? "Unknown"),
       severity: (i.severity as AuditIssue["severity"]) ?? "info",
-      count: typeof i.affected_pages === "number" ? i.affected_pages : 1,
+      count: 1,
       category: String(i.category ?? "General"),
     })),
   };

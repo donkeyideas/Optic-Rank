@@ -13,7 +13,11 @@ import type { AIInsight } from "@/types";
 import { getVisibilityStats } from "@/lib/dal/ai-visibility";
 import { getPredictionStats } from "@/lib/dal/predictions";
 import { getEntityStats } from "@/lib/dal/entities";
-import { OrganicTrafficChart } from "@/components/charts/organic-traffic-chart";
+import { KeywordChartCarousel } from "@/components/charts/keyword-chart-carousel";
+import { KeywordStrengthMapChart } from "@/components/charts/keyword-strength-map-chart";
+import { TrafficOpportunityTreemapChart } from "@/components/charts/traffic-opportunity-treemap-chart";
+import { RankVolumeScatterChart } from "@/components/charts/rank-volume-scatter-chart";
+import { TopTrafficKeywordsChart } from "@/components/charts/top-traffic-keywords-chart";
 import {
   getConversionGoals,
   getKeywordsWithRevenue,
@@ -25,6 +29,7 @@ import {
 } from "@/lib/dal/app-store";
 import { AppStoreDispatch } from "@/components/editorial/app-store-dispatch";
 import { getSocialProfiles } from "@/lib/dal/social-intelligence";
+import { OnboardingChecklist } from "@/components/shared/onboarding-checklist";
 
 /* ------------------------------------------------------------------
    Helpers
@@ -34,56 +39,6 @@ function formatEstTraffic(num: number): string {
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
   if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
   return num.toLocaleString();
-}
-
-/* ------------------------------------------------------------------
-   Empty State Components
-   ------------------------------------------------------------------ */
-
-function NoOrgState() {
-  return (
-    <div className="flex flex-col items-center justify-center gap-6 py-20">
-      <div className="border-t-2 border-b-2 border-rule-dark px-8 py-6 text-center">
-        <h1 className="font-serif text-3xl font-bold text-ink">
-          Welcome to Optic Rank
-        </h1>
-        <p className="mt-2 font-sans text-[13px] leading-relaxed text-ink-secondary">
-          To get started, create your organization and set up your first project.
-          <br />
-          Your SEO intelligence dashboard will come to life with real data.
-        </p>
-      </div>
-      <Link
-        href="/dashboard/settings"
-        className="inline-flex items-center gap-2 border border-ink bg-ink px-6 py-3 font-sans text-[11px] font-bold uppercase tracking-[0.15em] text-surface-cream transition-colors hover:bg-ink/90"
-      >
-        Create Organization &amp; Project
-      </Link>
-    </div>
-  );
-}
-
-function NoProjectState() {
-  return (
-    <div className="flex flex-col items-center justify-center gap-6 py-20">
-      <div className="border-t-2 border-b-2 border-rule-dark px-8 py-6 text-center">
-        <h1 className="font-serif text-3xl font-bold text-ink">
-          No Active Project
-        </h1>
-        <p className="mt-2 font-sans text-[13px] leading-relaxed text-ink-secondary">
-          Create your first project to start tracking keywords, backlinks,
-          <br />
-          and receiving AI-powered SEO insights.
-        </p>
-      </div>
-      <Link
-        href="/dashboard/settings"
-        className="inline-flex items-center gap-2 border border-ink bg-ink px-6 py-3 font-sans text-[11px] font-bold uppercase tracking-[0.15em] text-surface-cream transition-colors hover:bg-ink/90"
-      >
-        Create Your First Project
-      </Link>
-    </div>
-  );
 }
 
 /* ------------------------------------------------------------------
@@ -107,8 +62,65 @@ export default async function DashboardPage() {
     .eq("id", user.id)
     .maybeSingle();
 
-  if (!profile?.organization_id) {
-    return <NoOrgState />;
+  // Onboarding: check if user has completed setup
+  if (!profile.onboarding_completed) {
+    const hasOrg = !!profile.organization_id;
+    let hasProject = false;
+    let hasKeywords = false;
+    let hasAudit = false;
+
+    if (hasOrg) {
+      const [projRes, kwRes, auditRes] = await Promise.all([
+        supabase
+          .from("projects")
+          .select("id", { count: "exact", head: true })
+          .eq("organization_id", profile.organization_id!),
+        supabase
+          .from("keywords")
+          .select("id", { count: "exact", head: true })
+          .eq("organization_id", profile.organization_id!),
+        supabase
+          .from("site_audits")
+          .select("id", { count: "exact", head: true })
+          .eq("organization_id", profile.organization_id!),
+      ]);
+      hasProject = (projRes.count ?? 0) > 0;
+      hasKeywords = (kwRes.count ?? 0) > 0;
+      hasAudit = (auditRes.count ?? 0) > 0;
+    }
+
+    const steps = [
+      {
+        label: "Create Your Organization",
+        description: "Set up your workspace and start a 14-day free trial with full access to all features.",
+        done: hasOrg,
+        href: "/dashboard/settings",
+      },
+      {
+        label: "Add Your First Project",
+        description: "Add your website domain or app to begin tracking rankings, traffic, and performance.",
+        done: hasProject,
+        href: "/dashboard/settings?tab=projects",
+      },
+      {
+        label: "Track Your Keywords",
+        description: "Add keywords you want to rank for. We'll monitor positions and provide AI insights daily.",
+        done: hasKeywords,
+        href: "/dashboard/keywords",
+      },
+      {
+        label: "Run a Site Audit",
+        description: "Get your first health score — SEO, performance, and accessibility all analyzed in seconds.",
+        done: hasAudit,
+        href: "/dashboard/site-audit",
+      },
+    ];
+
+    return <OnboardingChecklist steps={steps} userName={profile.full_name} />;
+  }
+
+  if (!profile.organization_id) {
+    redirect("/dashboard/settings");
   }
 
   // Get the user's active project
@@ -121,7 +133,7 @@ export default async function DashboardPage() {
     .maybeSingle();
 
   if (!project) {
-    return <NoProjectState />;
+    redirect("/dashboard/settings?tab=projects");
   }
 
   // ------------------------------------------------------------------
@@ -189,7 +201,7 @@ export default async function DashboardPage() {
   // Keywords with search volume for traffic estimation
   const { data: trafficKeywords } = await supabase
     .from("keywords")
-    .select("current_position, search_volume")
+    .select("keyword, current_position, search_volume")
     .eq("project_id", project.id)
     .eq("is_active", true)
     .not("current_position", "is", null)
@@ -271,86 +283,18 @@ export default async function DashboardPage() {
     return sum + Math.round(vol * ctr);
   }, 0);
 
-  // Build a 30-day traffic trend from real keyword_ranks history.
-  // For each day, sum CTR-weighted search volume across all keywords
-  // using the position recorded on that day.
-  const today = new Date();
-  const thirtyDaysAgo = new Date(today);
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-  // Fetch keyword IDs with search volume for the active project
-  const kwIdsForTraffic = (trafficKeywords ?? []).length > 0
-    ? await supabase
-        .from("keywords")
-        .select("id, search_volume")
-        .eq("project_id", project.id)
-        .eq("is_active", true)
-        .not("search_volume", "is", null)
-    : { data: [] };
-
-  const kwVolumeMap = new Map<string, number>();
-  for (const kw of kwIdsForTraffic.data ?? []) {
-    kwVolumeMap.set(kw.id, kw.search_volume as number);
-  }
-
-  let trafficTrendData: { date: string; traffic: number }[] = [];
-
-  if (kwVolumeMap.size > 0) {
-    // Fetch rank history for the last 30 days
-    const { data: rankHistory } = await supabase
-      .from("keyword_ranks")
-      .select("keyword_id, position, checked_at")
-      .in("keyword_id", Array.from(kwVolumeMap.keys()))
-      .gte("checked_at", thirtyDaysAgo.toISOString())
-      .order("checked_at", { ascending: true });
-
-    if (rankHistory && rankHistory.length > 0) {
-      // Group by date, use last position per keyword per day
-      const dailyPositions = new Map<string, Map<string, number>>();
-      for (const r of rankHistory) {
-        const day = new Date(r.checked_at).toISOString().slice(0, 10);
-        if (!dailyPositions.has(day)) dailyPositions.set(day, new Map());
-        dailyPositions.get(day)!.set(r.keyword_id, r.position);
-      }
-
-      // Build trend: for each of the last 30 days, compute traffic
-      const lastKnownPositions = new Map<string, number>();
-      for (let i = 29; i >= 0; i--) {
-        const d = new Date(today);
-        d.setDate(d.getDate() - i);
-        const dateStr = d.toISOString().slice(0, 10);
-
-        // Update positions for this day (carry forward from previous day if no data)
-        const dayData = dailyPositions.get(dateStr);
-        if (dayData) {
-          for (const [kwId, pos] of dayData) lastKnownPositions.set(kwId, pos);
-        }
-
-        // Sum estimated traffic for all keywords with known positions
-        let dayTraffic = 0;
-        for (const [kwId, pos] of lastKnownPositions) {
-          const vol = kwVolumeMap.get(kwId);
-          if (!vol) continue;
-          const ctr = pos <= 10 ? (CTR_CURVE[pos] ?? 0.01) : 0.005;
-          dayTraffic += Math.round(vol * ctr);
-        }
-
-        trafficTrendData.push({ date: dateStr, traffic: dayTraffic });
-      }
-    }
-  }
-
-  // Fallback: if no rank history, show today's estimate as a flat line
-  if (trafficTrendData.length === 0) {
-    for (let i = 29; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      trafficTrendData.push({
-        date: d.toISOString().slice(0, 10),
-        traffic: currentEstTraffic,
-      });
-    }
-  }
+  // Chart data for keyword visualizations
+  const chartKeywords = (trafficKeywords ?? []).map((kw) => {
+    const pos = kw.current_position as number;
+    const vol = kw.search_volume as number;
+    const ctr = pos <= 10 ? (CTR_CURVE[pos] ?? 0.01) : 0.005;
+    return {
+      keyword: kw.keyword as string,
+      position: pos,
+      volume: vol,
+      estTraffic: Math.round(vol * ctr),
+    };
+  });
 
   const projectDomain = (project.domain ?? project.name ?? "").replace(/^https?:\/\//, "");
 
@@ -552,22 +496,32 @@ export default async function DashboardPage() {
               </Link>
             )}
 
-            {/* Organic Traffic Trend */}
-            <div>
-              <ColumnHeader
-                title="Organic Traffic Trend"
-                subtitle={`30-Day Performance — ${projectDomain.toUpperCase()}`}
-              />
-              {currentEstTraffic > 0 ? (
-                <OrganicTrafficChart
-                  data={trafficTrendData}
-                  domain={projectDomain}
+            {/* Keyword Analytics Carousel */}
+            {chartKeywords.length > 0 ? (
+              <div>
+                <ColumnHeader
+                  title="Keyword Analytics"
+                  subtitle={`${rankedPositions.length} Ranked Keywords — ${projectDomain.toUpperCase()}`}
                 />
-              ) : (
+                <KeywordChartCarousel
+                  slides={[
+                    { label: "Strength Map", chart: <KeywordStrengthMapChart data={chartKeywords} /> },
+                    { label: "Traffic Opportunity", chart: <TrafficOpportunityTreemapChart data={chartKeywords} /> },
+                    { label: "Rank vs Volume", chart: <RankVolumeScatterChart data={chartKeywords} /> },
+                    { label: "Top Traffic", chart: <TopTrafficKeywordsChart data={chartKeywords} /> },
+                  ]}
+                />
+              </div>
+            ) : (
+              <div>
+                <ColumnHeader
+                  title="Keyword Analytics"
+                  subtitle={`${projectDomain.toUpperCase()}`}
+                />
                 <div className="flex h-[220px] items-center justify-center border border-dashed border-rule bg-surface-raised">
                   <div className="flex flex-col items-center gap-2 px-4 text-center">
                     <span className="text-xs font-medium uppercase tracking-widest text-ink-muted">
-                      Add keywords with search volume to see traffic estimates
+                      Track keywords to see analytics
                     </span>
                     <Link
                       href="/dashboard/keywords"
@@ -577,8 +531,8 @@ export default async function DashboardPage() {
                     </Link>
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Keyword Rankings Table */}
             <div>

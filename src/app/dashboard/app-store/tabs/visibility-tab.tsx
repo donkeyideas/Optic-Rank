@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AsoVisibilityTrendChart } from "@/components/charts/aso-visibility-trend-chart";
+import { useActionProgress } from "@/components/shared/action-progress";
 import { calculateAppVisibility, getVisibilityRecommendations, type VisibilityRecommendation } from "@/lib/actions/app-store-visibility";
 import type { AppStoreListing } from "@/types";
 import type { AppStoreRanking, VisibilityHistoryPoint } from "@/lib/dal/app-store";
@@ -75,6 +76,7 @@ export function VisibilityTab({
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [actionId, setActionId] = useState<string | null>(null);
+  const { runAction, isRunning: isActionRunning } = useActionProgress();
   const [selectedListing, setSelectedListing] = useState<string>(listings[0]?.id ?? "");
   const [breakdowns, setBreakdowns] = useState<Record<string, VisibilityBreakdown[]>>({});
   const [recommendations, setRecommendations] = useState<Record<string, VisibilityRecommendation[]>>({});
@@ -155,46 +157,63 @@ export function VisibilityTab({
     : null;
 
   function handleCalculate(listingId: string) {
-    setActionId(listingId);
-    startTransition(async () => {
-      const result = await calculateAppVisibility(listingId);
-      if ("error" in result) onStatusMsg(`Error: ${result.error}`);
-      else {
+    runAction(
+      {
+        title: "Calculating Visibility Score",
+        description: "Computing organic visibility score for this app...",
+        steps: ["Collecting keyword rankings", "Weighting by search volume", "Computing score"],
+        estimatedDuration: 10,
+      },
+      async () => {
+        const result = await calculateAppVisibility(listingId);
+        if ("error" in result) return result;
         setBreakdowns((prev) => ({ ...prev, [listingId]: result.result.breakdown }));
         onStatusMsg(`Visibility Score: ${result.result.score}/100 (${result.result.ranked_count} ranked keywords)`);
         router.refresh();
+        return { message: `Visibility score: ${result.result.score}/100` };
       }
-      setActionId(null);
-    });
+    );
   }
 
   function handleCalculateAll() {
-    setActionId("all");
-    startTransition(async () => {
-      let count = 0;
-      for (const listing of listings) {
-        const result = await calculateAppVisibility(listing.id);
-        if (!("error" in result)) {
-          setBreakdowns((prev) => ({ ...prev, [listing.id]: result.result.breakdown }));
-          count++;
+    runAction(
+      {
+        title: "Calculating Visibility Scores",
+        description: `Calculating organic visibility for all ${listings.length} app${listings.length !== 1 ? "s" : ""}...`,
+        steps: ["Collecting keyword data", "Weighting positions by search volume", "Computing visibility scores", "Saving results"],
+        estimatedDuration: 15,
+      },
+      async () => {
+        let count = 0;
+        for (const listing of listings) {
+          const result = await calculateAppVisibility(listing.id);
+          if (!("error" in result)) {
+            setBreakdowns((prev) => ({ ...prev, [listing.id]: result.result.breakdown }));
+            count++;
+          }
         }
+        onStatusMsg(`Calculated visibility for ${count} app${count !== 1 ? "s" : ""}.`);
+        router.refresh();
+        return { message: `Calculated visibility for ${count} app${count !== 1 ? "s" : ""}` };
       }
-      onStatusMsg(`Calculated visibility for ${count} app${count !== 1 ? "s" : ""}.`);
-      router.refresh();
-      setActionId(null);
-    });
+    );
   }
 
   function handleGetRecommendations(listingId: string) {
-    setRecsLoading(true);
-    startTransition(async () => {
-      const result = await getVisibilityRecommendations(listingId);
-      if ("error" in result) onStatusMsg(`Error: ${result.error}`);
-      else {
+    runAction(
+      {
+        title: "Generating AI Recommendations",
+        description: "AI is analyzing your keyword data and generating optimization recommendations...",
+        steps: ["Analyzing keyword positions", "Evaluating search volume distribution", "Identifying optimization opportunities", "Generating recommendations"],
+        estimatedDuration: 20,
+      },
+      async () => {
+        const result = await getVisibilityRecommendations(listingId);
+        if ("error" in result) return result;
         setRecommendations((prev) => ({ ...prev, [listingId]: result.recommendations }));
+        return { message: `Generated ${result.recommendations.length} recommendations` };
       }
-      setRecsLoading(false);
-    });
+    );
   }
 
   // Build keyword table for selected listing
@@ -327,7 +346,7 @@ export function VisibilityTab({
             variant="primary"
             size="sm"
             onClick={handleCalculateAll}
-            disabled={actionId !== null}
+            disabled={actionId !== null || isActionRunning}
           >
             {actionId === "all" ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
             Calculate All Apps
@@ -442,7 +461,7 @@ export function VisibilityTab({
               variant="primary"
               size="sm"
               onClick={() => handleCalculate(selectedData.listing.id)}
-              disabled={actionId !== null}
+              disabled={actionId !== null || isActionRunning}
             >
               {actionId === selectedData.listing.id ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}
               {selectedData.listing.visibility_score != null ? "Recalculate" : "Calculate Score"}
@@ -798,7 +817,7 @@ export function VisibilityTab({
                     variant="outline"
                     size="sm"
                     onClick={() => handleGetRecommendations(d.listing.id)}
-                    disabled={recsLoading || actionId !== null}
+                    disabled={recsLoading || actionId !== null || isActionRunning}
                   >
                     {recsLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
                     {aiRecs ? "Refresh AI Analysis" : "Enhance with AI"}

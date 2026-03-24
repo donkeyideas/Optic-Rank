@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import {
   TrendingUp,
   TrendingDown,
@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PredictionChart } from "@/components/charts/prediction-chart";
+import { useActionProgress } from "@/components/shared/action-progress";
 import { generatePredictions } from "@/lib/actions/predictions";
 import type { PredictionWithKeyword, PredictionStats } from "@/lib/dal/predictions";
 
@@ -89,22 +90,18 @@ export function PredictionsClient({
 }: PredictionsClientProps) {
   const [tab, setTab] = useState<"all" | "improving" | "declining">("all");
   const [sortBy, setSortBy] = useState<"confidence" | "change" | "volume">("confidence");
-  const [isPending, startTransition] = useTransition();
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const { runAction, isRunning: isActionRunning } = useActionProgress();
 
   function handleGenerate() {
-    setIsGenerating(true);
-    setStatusMsg(null);
-    startTransition(async () => {
-      const result = await generatePredictions(projectId);
-      if ("error" in result) {
-        setStatusMsg(`Error: ${result.error}`);
-      } else {
-        setStatusMsg(`Generated ${result.predicted} predictions`);
-      }
-      setIsGenerating(false);
-    });
+    runAction(
+      {
+        title: "Generating Rank Predictions",
+        description: "Analyzing keyword trends and historical data to predict future rankings...",
+        steps: ["Analyzing keyword history", "Computing trend patterns", "Running prediction models", "Calculating confidence scores", "Generating predictions"],
+        estimatedDuration: 20,
+      },
+      () => generatePredictions(projectId)
+    );
   }
 
   // Headline stats
@@ -182,24 +179,13 @@ export function PredictionsClient({
           <Button
             variant="outline"
             size="sm"
-            disabled={isGenerating || isPending}
+            disabled={isActionRunning}
             onClick={handleGenerate}
           >
             <Sparkles size={14} />
-            {isGenerating ? "Generating..." : "Generate Predictions"}
+            Generate Predictions
           </Button>
         </div>
-        {statusMsg && (
-          <div
-            className={`border px-4 py-2 text-sm ${
-              statusMsg.startsWith("Error")
-                ? "border-editorial-red/30 bg-editorial-red/5 text-editorial-red"
-                : "border-editorial-green/30 bg-editorial-green/5 text-editorial-green"
-            }`}
-          >
-            {statusMsg}
-          </div>
-        )}
         <EmptyState
           icon={TrendingUp}
           title="No Predictions Yet"
@@ -228,25 +214,13 @@ export function PredictionsClient({
         <Button
           variant="outline"
           size="sm"
-          disabled={isGenerating || isPending}
+          disabled={isActionRunning}
           onClick={handleGenerate}
         >
           <Sparkles size={14} />
-          {isGenerating ? "Generating..." : "Generate Predictions"}
+          Generate Predictions
         </Button>
       </div>
-
-      {statusMsg && (
-        <div
-          className={`border px-4 py-2 text-sm ${
-            statusMsg.startsWith("Error")
-              ? "border-editorial-red/30 bg-editorial-red/5 text-editorial-red"
-              : "border-editorial-green/30 bg-editorial-green/5 text-editorial-green"
-          }`}
-        >
-          {statusMsg}
-        </div>
-      )}
 
       {/* Tabs & Sort */}
       <div className="flex flex-wrap items-center gap-2 border-b border-rule pb-4">
@@ -460,11 +434,11 @@ export function PredictionsClient({
                 variant="primary"
                 size="sm"
                 className="w-full justify-center"
-                disabled={isGenerating || isPending}
+                disabled={isActionRunning}
                 onClick={handleGenerate}
               >
                 <Sparkles size={14} />
-                {isGenerating ? "Generating..." : "Regenerate Predictions"}
+                Regenerate Predictions
               </Button>
             </div>
           </div>

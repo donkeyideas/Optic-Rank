@@ -21,9 +21,9 @@ export function ExecutiveSection({ data }: { data: ExecutiveSummary }) {
     <View>
       <PDFSectionTitle>Executive Summary</PDFSectionTitle>
 
-      {data.domain && (
+      {data.domain ? (
         <Text style={[s.muted, s.mb8]}>{data.domain}</Text>
-      )}
+      ) : null}
 
       {/* Key metrics */}
       <View style={[s.row, s.gap8, s.mb8]}>
@@ -41,7 +41,7 @@ export function ExecutiveSection({ data }: { data: ExecutiveSummary }) {
       </View>
 
       {/* Highlights */}
-      {data.highlights.length > 0 && (
+      {data.highlights.length > 0 ? (
         <View style={{ marginTop: 8 }}>
           <Text style={[s.bold, s.mb8]}>Key Highlights</Text>
           {data.highlights.map((h, i) => (
@@ -51,7 +51,7 @@ export function ExecutiveSection({ data }: { data: ExecutiveSummary }) {
             </View>
           ))}
         </View>
-      )}
+      ) : null}
     </View>
   );
 }

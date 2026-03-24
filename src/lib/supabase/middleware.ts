@@ -2,6 +2,14 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
+  // If an OAuth code lands on the homepage (Supabase redirect URL mismatch),
+  // forward it to the proper callback handler so the session is established
+  if (request.nextUrl.searchParams.has("code") && request.nextUrl.pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/callback";
+    return NextResponse.redirect(url);
+  }
+
   // Skip session refresh for auth callback routes — the callback handler
   // manages its own cookie exchange and middleware interference can break it
   if (request.nextUrl.pathname.startsWith("/auth/callback")) {
@@ -76,8 +84,9 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  // Redirect logged-in users away from auth pages (but not from 2FA page)
-  if (user && isAuthRoute && !is2FARoute) {
+  // Redirect logged-in users away from auth pages and homepage to dashboard
+  const isHomePage = request.nextUrl.pathname === "/";
+  if (user && ((isAuthRoute && !is2FARoute) || isHomePage)) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);

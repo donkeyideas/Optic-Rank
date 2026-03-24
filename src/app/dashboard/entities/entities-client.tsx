@@ -19,6 +19,7 @@ import {
   HelpCircle,
   Target,
 } from "lucide-react";
+import { useActionProgress } from "@/components/shared/action-progress";
 import { HeadlineBar } from "@/components/editorial/headline-bar";
 import { ColumnHeader } from "@/components/editorial/column-header";
 import { Badge } from "@/components/ui/badge";
@@ -75,32 +76,38 @@ export function EntitiesClient({ entities, stats, coverage, projectId }: Entitie
   const [typeFilter, setTypeFilter] = useState<EntityType | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isPending, startTransition] = useTransition();
-  const [isExtracting, setIsExtracting] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const { runAction, isRunning: isActionRunning } = useActionProgress();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [gapRecs, setGapRecs] = useState<string[]>([]);
 
   function handleExtract() {
-    setIsExtracting(true);
-    setStatusMsg(null);
-    startTransition(async () => {
-      const result = await extractProjectEntities(projectId);
-      if ("error" in result) setStatusMsg(`Error: ${result.error}`);
-      else setStatusMsg(`Extracted ${result.extracted} entities`);
-      setIsExtracting(false);
-    });
+    runAction(
+      {
+        title: "Extracting Entities",
+        description: "Analyzing your content to identify and extract key entities...",
+        steps: ["Scanning content pages", "Identifying entities", "Classifying entity types", "Computing relevance scores", "Saving entities"],
+        estimatedDuration: 20,
+      },
+      () => extractProjectEntities(projectId)
+    );
   }
 
   function handleGapAnalysis() {
-    setIsAnalyzing(true);
-    setStatusMsg(null);
-    startTransition(async () => {
-      const result = await runEntityGapAnalysis(projectId);
-      if ("error" in result) setStatusMsg(`Error: ${result.error}`);
-      else { setStatusMsg(`Found ${result.gaps} entity gaps`); setGapRecs(result.recommendations); }
-      setIsAnalyzing(false);
-    });
+    runAction(
+      {
+        title: "Running Entity Gap Analysis",
+        description: "Analyzing your entity coverage compared to competitors and industry standards...",
+        steps: ["Analyzing current entities", "Comparing with competitors", "Identifying gaps", "Generating recommendations"],
+        estimatedDuration: 15,
+      },
+      async () => {
+        const result = await runEntityGapAnalysis(projectId);
+        if (!("error" in result)) {
+          setGapRecs(result.recommendations);
+        }
+        return result;
+      }
+    );
   }
 
   function handleDelete(id: string) {
@@ -131,16 +138,11 @@ export function EntitiesClient({ entities, stats, coverage, projectId }: Entitie
             <h1 className="font-serif text-2xl font-bold text-ink">Entity SEO &amp; Knowledge Graph</h1>
             <p className="mt-1 font-sans text-sm text-ink-secondary">Extract and optimize named entities for semantic SEO and knowledge panel visibility</p>
           </div>
-          <Button variant="outline" size="sm" disabled={isExtracting || isPending} onClick={handleExtract}>
+          <Button variant="outline" size="sm" disabled={isActionRunning || isPending} onClick={handleExtract}>
             <Sparkles size={14} />
-            {isExtracting ? "Extracting..." : "Extract Entities"}
+            Extract Entities
           </Button>
         </div>
-        {statusMsg && (
-          <div className={`border px-4 py-2 text-sm ${statusMsg.startsWith("Error") ? "border-editorial-red/30 bg-editorial-red/5 text-editorial-red" : "border-editorial-green/30 bg-editorial-green/5 text-editorial-green"}`}>
-            {statusMsg}
-          </div>
-        )}
         <EmptyState icon={Network} title="No Entities Extracted Yet" description="Add keywords or content pages, then click 'Extract Entities' to discover named entities in your content." />
       </div>
     );
@@ -157,22 +159,16 @@ export function EntitiesClient({ entities, stats, coverage, projectId }: Entitie
           <p className="mt-1 font-sans text-sm text-ink-secondary">{stats.total} entities across {Object.keys(stats.byType).length} types</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" disabled={isAnalyzing || isPending} onClick={handleGapAnalysis}>
+          <Button variant="outline" size="sm" disabled={isActionRunning || isPending} onClick={handleGapAnalysis}>
             <Target size={14} />
-            {isAnalyzing ? "Analyzing..." : "Gap Analysis"}
+            Gap Analysis
           </Button>
-          <Button variant="outline" size="sm" disabled={isExtracting || isPending} onClick={handleExtract}>
+          <Button variant="outline" size="sm" disabled={isActionRunning || isPending} onClick={handleExtract}>
             <Sparkles size={14} />
-            {isExtracting ? "Extracting..." : "Re-Extract"}
+            Re-Extract
           </Button>
         </div>
       </div>
-
-      {statusMsg && (
-        <div className={`border px-4 py-2 text-sm ${statusMsg.startsWith("Error") ? "border-editorial-red/30 bg-editorial-red/5 text-editorial-red" : "border-editorial-green/30 bg-editorial-green/5 text-editorial-green"}`}>
-          {statusMsg}
-        </div>
-      )}
 
       {gapRecs.length > 0 && (
         <div className="border border-editorial-gold/30 bg-editorial-gold/5 p-4">
@@ -267,11 +263,11 @@ export function EntitiesClient({ entities, stats, coverage, projectId }: Entitie
           <div className="border border-rule bg-surface-card p-4">
             <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Actions</span>
             <div className="mt-3 flex flex-col gap-2">
-              <Button variant="primary" size="sm" className="w-full justify-center" disabled={isExtracting || isPending} onClick={handleExtract}>
-                <Sparkles size={14} /> {isExtracting ? "Extracting..." : "Extract Entities"}
+              <Button variant="primary" size="sm" className="w-full justify-center" disabled={isActionRunning || isPending} onClick={handleExtract}>
+                <Sparkles size={14} /> Extract Entities
               </Button>
-              <Button variant="outline" size="sm" className="w-full justify-center" disabled={isAnalyzing || isPending} onClick={handleGapAnalysis}>
-                <Target size={14} /> {isAnalyzing ? "Analyzing..." : "Run Gap Analysis"}
+              <Button variant="outline" size="sm" className="w-full justify-center" disabled={isActionRunning || isPending} onClick={handleGapAnalysis}>
+                <Target size={14} /> Run Gap Analysis
               </Button>
             </div>
           </div>

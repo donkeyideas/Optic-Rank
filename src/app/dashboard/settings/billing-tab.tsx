@@ -37,6 +37,7 @@ interface BillingTabProps {
     currency: string;
     created_at: string;
   }>;
+  isCompAccount?: boolean;
 }
 
 const PLAN_DISPLAY: Record<string, { color: string; badge: "muted" | "info" | "default" | "success" }> = {
@@ -212,7 +213,7 @@ function UsageBar({ label, current, limit }: { label: string; current: number; l
    Billing Tab
    ------------------------------------------------------------------ */
 
-export function BillingTab({ organization, usage, billingEvents }: BillingTabProps) {
+export function BillingTab({ organization, usage, billingEvents, isCompAccount }: BillingTabProps) {
   const timezone = useTimezone();
   const [isPending, startTransition] = useTransition();
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
@@ -299,20 +300,29 @@ export function BillingTab({ organization, usage, billingEvents }: BillingTabPro
       <div className="mt-6 border border-rule bg-surface-card p-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Crown size={18} className={planDisplay.color} />
+            <Crown size={18} className={isCompAccount ? "text-editorial-green" : planDisplay.color} />
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-serif text-lg font-bold text-ink capitalize">{organization.plan} Plan</h3>
-                <Badge variant={planDisplay.badge}>{organization.subscription_status}</Badge>
+                {isCompAccount ? (
+                  <>
+                    <h3 className="font-serif text-lg font-bold text-ink">Unlimited Plan</h3>
+                    <Badge variant="success">Complimentary — $0 forever</Badge>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="font-serif text-lg font-bold text-ink capitalize">{organization.plan} Plan</h3>
+                    <Badge variant={planDisplay.badge}>{organization.subscription_status}</Badge>
+                  </>
+                )}
               </div>
-              {organization.plan !== "free" && (
+              {!isCompAccount && organization.plan !== "free" && (
                 <p className="mt-0.5 font-mono text-[11px] text-ink-muted">
                   Stripe ID: {organization.stripe_subscription_id ?? "—"}
                 </p>
               )}
             </div>
           </div>
-          {organization.stripe_customer_id && (
+          {!isCompAccount && organization.stripe_customer_id && (
             <Button variant="outline" size="sm" disabled={isPending} onClick={handleManageSubscription}>
               <ExternalLink size={13} />
               Manage Subscription
@@ -326,16 +336,32 @@ export function BillingTab({ organization, usage, billingEvents }: BillingTabPro
         <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
           Current Usage
         </span>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <UsageBar label="Projects" current={usage.projects.current} limit={usage.projects.limit} />
-          <UsageBar label="Keywords" current={usage.keywords.current} limit={usage.keywords.limit} />
-          <UsageBar label="Pages Crawled (month)" current={usage.pages_crawl.current} limit={usage.pages_crawl.limit} />
-          <UsageBar label="Team Members" current={usage.users.current} limit={usage.users.limit} />
-        </div>
+        {isCompAccount ? (
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            {(["Projects", "Keywords", "Pages Crawled (month)", "Team Members"] as const).map((label) => (
+              <div key={label}>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-ink-muted">{label}</span>
+                  <span className="font-mono text-[11px] font-bold text-editorial-green">Unlimited</span>
+                </div>
+                <div className="mt-1.5 h-1.5 w-full bg-editorial-green/20">
+                  <div className="h-full w-full bg-editorial-green" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <UsageBar label="Projects" current={usage.projects.current} limit={usage.projects.limit} />
+            <UsageBar label="Keywords" current={usage.keywords.current} limit={usage.keywords.limit} />
+            <UsageBar label="Pages Crawled (month)" current={usage.pages_crawl.current} limit={usage.pages_crawl.limit} />
+            <UsageBar label="Team Members" current={usage.users.current} limit={usage.users.limit} />
+          </div>
+        )}
       </div>
 
-      {/* Upgrade Options */}
-      {organization.plan === "free" || organization.plan === "starter" ? (
+      {/* Upgrade Options (hidden for comp accounts) */}
+      {!isCompAccount && (organization.plan === "free" || organization.plan === "starter") ? (
         <div className="mt-6">
           <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
             Upgrade Your Plan

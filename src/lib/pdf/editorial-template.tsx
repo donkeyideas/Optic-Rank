@@ -5,32 +5,21 @@ import {
   Text,
   View,
   StyleSheet,
-  Font,
 } from "@react-pdf/renderer";
 
 /* ------------------------------------------------------------------ */
-/*  Font registration — Google Fonts CDN                              */
+/*  Font mapping — PDF built-in fonts                                  */
+/*  Times-Roman ≈ Playfair Display (serif headlines)                   */
+/*  Helvetica   ≈ IBM Plex Sans    (body text)                         */
+/*  Courier     ≈ IBM Plex Mono    (data / monospace)                  */
 /* ------------------------------------------------------------------ */
-Font.register({
-  family: "Playfair Display",
-  fonts: [
-    { src: "https://fonts.gstatic.com/s/playfairdisplay/v37/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKdFvXDXbtM.ttf", fontWeight: 400 },
-    { src: "https://fonts.gstatic.com/s/playfairdisplay/v37/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKd3unDXbtM.ttf", fontWeight: 700 },
-  ],
-});
+const SERIF = "Times-Roman";
+const SANS = "Helvetica";
+const MONO = "Courier";
 
-Font.register({
-  family: "IBM Plex Sans",
-  fonts: [
-    { src: "https://fonts.gstatic.com/s/ibmplexsans/v19/zYXgKVElMYYaJe8bpLHnCwDKhdHeFaxOedc.ttf", fontWeight: 400 },
-    { src: "https://fonts.gstatic.com/s/ibmplexsans/v19/zYX9KVElMYYaJe8bpLHnCwDKjSL9AIFsdP3pBms.ttf", fontWeight: 600 },
-  ],
-});
-
-Font.register({
-  family: "IBM Plex Mono",
-  src: "https://fonts.gstatic.com/s/ibmplexmono/v19/-F63fjptAgt5VM-kVkqdyU8n5igg1l9kn-s.ttf",
-});
+export function ensureFontsRegistered() {
+  // Built-in PDF fonts — no registration needed
+}
 
 /* ------------------------------------------------------------------ */
 /*  Shared colour palette                                             */
@@ -52,28 +41,28 @@ export const colors = {
 export const s = StyleSheet.create({
   page: {
     padding: 40,
-    fontFamily: "IBM Plex Sans",
+    fontFamily: SANS,
     fontSize: 9,
     color: colors.ink,
     backgroundColor: colors.white,
   },
   // --- Typography ---
   headline: {
-    fontFamily: "Playfair Display",
+    fontFamily: SERIF,
     fontSize: 22,
-    fontWeight: 700,
+    fontWeight: "bold",
     marginBottom: 4,
   },
   subHeadline: {
-    fontFamily: "Playfair Display",
+    fontFamily: SERIF,
     fontSize: 14,
-    fontWeight: 700,
+    fontWeight: "bold",
     marginBottom: 8,
   },
   sectionTitle: {
-    fontFamily: "Playfair Display",
+    fontFamily: SERIF,
     fontSize: 12,
-    fontWeight: 700,
+    fontWeight: "bold",
     borderBottomWidth: 2,
     borderBottomColor: colors.ink,
     paddingBottom: 3,
@@ -82,8 +71,8 @@ export const s = StyleSheet.create({
   },
   body: { fontSize: 9, lineHeight: 1.5 },
   muted: { fontSize: 8, color: colors.inkMuted },
-  mono: { fontFamily: "IBM Plex Mono", fontSize: 8 },
-  bold: { fontWeight: 600 },
+  mono: { fontFamily: MONO, fontSize: 8 },
+  bold: { fontWeight: "bold" },
 
   // --- Layout ---
   row: { flexDirection: "row" },
@@ -102,7 +91,7 @@ export const s = StyleSheet.create({
     borderColor: colors.rule,
   },
   statLabel: { fontSize: 7, color: colors.inkMuted, textTransform: "uppercase" as const, letterSpacing: 0.5 },
-  statValue: { fontFamily: "IBM Plex Mono", fontSize: 16, fontWeight: 600, marginTop: 2 },
+  statValue: { fontFamily: MONO, fontSize: 16, fontWeight: "bold", marginTop: 2 },
 
   // --- Tables ---
   tableHeader: {
@@ -177,7 +166,7 @@ export function PDFStatCard({
     <View style={s.statCard}>
       <Text style={s.statLabel}>{label}</Text>
       <Text style={s.statValue}>{value}</Text>
-      {change && <Text style={[s.muted, { marginTop: 2 }]}>{change}</Text>}
+      {change ? <Text style={[s.muted, { marginTop: 2 }]}>{change}</Text> : null}
     </View>
   );
 }
@@ -233,7 +222,7 @@ export function ReportDocument({
         {/* Masthead */}
         <View style={[s.row, s.spaceBetween, { alignItems: "flex-end", marginBottom: 4 }]}>
           <View>
-            <Text style={{ fontFamily: "IBM Plex Sans", fontSize: 8, letterSpacing: 2, textTransform: "uppercase" as const, color: colors.inkMuted }}>
+            <Text style={{ fontFamily: SANS, fontSize: 8, letterSpacing: 2, textTransform: "uppercase" as const, color: colors.inkMuted }}>
               RankPulse AI
             </Text>
             <Text style={s.headline}>{title}</Text>

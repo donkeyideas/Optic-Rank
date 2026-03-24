@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useTimezone } from "@/lib/context/timezone-context";
 import { formatShortDate, formatDate, formatDateTime } from "@/lib/utils/format-date";
 import {
@@ -21,6 +21,7 @@ import { ColumnHeader } from "@/components/editorial/column-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
+import { useActionProgress } from "@/components/shared/action-progress";
 import { runVisibilityCheck } from "@/lib/actions/ai-visibility";
 import type { KeywordVisibility, VisibilityStats } from "@/lib/dal/ai-visibility";
 
@@ -95,22 +96,18 @@ export function AIVisibilityClient({
   const [providerFilter, setProviderFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-  const [isRunning, setIsRunning] = useState(false);
-  const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const { runAction, isRunning: isActionRunning } = useActionProgress();
 
   function handleRunCheck() {
-    setIsRunning(true);
-    setStatusMsg(null);
-    startTransition(async () => {
-      const result = await runVisibilityCheck(projectId);
-      if ("error" in result) {
-        setStatusMsg(`Error: ${result.error}`);
-      } else {
-        setStatusMsg(`Completed ${result.checksRun} visibility checks across 5 LLMs`);
-      }
-      setIsRunning(false);
-    });
+    runAction(
+      {
+        title: "Running LLM Visibility Check",
+        description: "Checking how AI assistants mention your brand across 5 LLM platforms...",
+        steps: ["Querying OpenAI", "Querying Anthropic", "Querying Gemini", "Querying Perplexity", "Querying DeepSeek", "Analyzing results"],
+        estimatedDuration: 30,
+      },
+      () => runVisibilityCheck(projectId)
+    );
   }
 
   // Headline stats
@@ -183,24 +180,13 @@ export function AIVisibilityClient({
           <Button
             variant="outline"
             size="sm"
-            disabled={isRunning || isPending}
+            disabled={isActionRunning}
             onClick={handleRunCheck}
           >
             <Eye size={14} />
-            {isRunning ? "Checking..." : "Run Visibility Check"}
+            Run Visibility Check
           </Button>
         </div>
-        {statusMsg && (
-          <div
-            className={`border px-4 py-2 text-sm ${
-              statusMsg.startsWith("Error")
-                ? "border-editorial-red/30 bg-editorial-red/5 text-editorial-red"
-                : "border-editorial-green/30 bg-editorial-green/5 text-editorial-green"
-            }`}
-          >
-            {statusMsg}
-          </div>
-        )}
         <EmptyState
           icon={Eye}
           title="No Visibility Data Yet"
@@ -229,25 +215,13 @@ export function AIVisibilityClient({
         <Button
           variant="outline"
           size="sm"
-          disabled={isRunning || isPending}
+          disabled={isActionRunning}
           onClick={handleRunCheck}
         >
           <Sparkles size={14} />
-          {isRunning ? "Checking..." : "Run Visibility Check"}
+          Run Visibility Check
         </Button>
       </div>
-
-      {statusMsg && (
-        <div
-          className={`border px-4 py-2 text-sm ${
-            statusMsg.startsWith("Error")
-              ? "border-editorial-red/30 bg-editorial-red/5 text-editorial-red"
-              : "border-editorial-green/30 bg-editorial-green/5 text-editorial-green"
-          }`}
-        >
-          {statusMsg}
-        </div>
-      )}
 
       {/* Filter Bar */}
       <div className="flex flex-wrap items-center gap-2 border-b border-rule pb-4">
@@ -552,11 +526,11 @@ export function AIVisibilityClient({
                 variant="primary"
                 size="sm"
                 className="w-full justify-center"
-                disabled={isRunning || isPending}
+                disabled={isActionRunning}
                 onClick={handleRunCheck}
               >
                 <Eye size={14} />
-                {isRunning ? "Running..." : "Run Full Check"}
+                Run Full Check
               </Button>
             </div>
           </div>

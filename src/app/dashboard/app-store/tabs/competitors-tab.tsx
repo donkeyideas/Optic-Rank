@@ -14,6 +14,7 @@ import {
   Zap,
 } from "lucide-react";
 import { ColumnHeader } from "@/components/editorial/column-header";
+import { AppSelectorStrip } from "@/components/app-store/app-selector-strip";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -164,16 +165,9 @@ export function CompetitorsTab({ listings, competitors }: CompetitorsTabProps) {
   return (
     <div className="flex flex-col gap-4">
       {/* App Selector + Actions */}
+      <AppSelectorStrip listings={listings} selected={selectedListing} onSelect={setSelectedListing} />
+
       <div className="flex items-center gap-3 border-b border-rule pb-3">
-        <select
-          value={selectedListing}
-          onChange={(e) => setSelectedListing(e.target.value)}
-          className="h-9 flex-1 border border-rule bg-surface-card px-3 font-sans text-sm text-ink focus:border-editorial-red focus:outline-none"
-        >
-          {listings.map((l) => (
-            <option key={l.id} value={l.id}>{l.app_name} ({l.store === "apple" ? "iOS" : "Android"})</option>
-          ))}
-        </select>
         <Button variant="outline" size="sm" onClick={() => setShowAddDialog(true)}>
           <Plus size={12} /> Add Competitor
         </Button>

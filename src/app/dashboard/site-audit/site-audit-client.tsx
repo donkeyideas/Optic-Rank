@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useCallback } from "react";
+import { useState, useTransition, useCallback, useMemo } from "react";
 import { useTimezone } from "@/lib/context/timezone-context";
 import { formatDate, formatDateTime } from "@/lib/utils/format-date";
 import {
@@ -44,6 +44,8 @@ import {
 } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useActionProgress } from "@/components/shared/action-progress";
+import { RecommendationsTab, StrategyGuideTab } from "@/components/shared/page-guide";
+import type { Recommendation, StrategyContent } from "@/components/shared/page-guide";
 import {
   runSiteAudit,
   scheduleAudit,
@@ -480,6 +482,188 @@ export function SiteAuditClient({
     };
   }
 
+  // --- Recommendations ---
+  const recommendations = useMemo(() => {
+    if (!latestAudit) return [];
+    const recs: Recommendation[] = [];
+
+    // Critical issues
+    const criticalIssues = issues.filter(i => i.severity === "critical");
+    if (criticalIssues.length > 0) {
+      recs.push({
+        id: "critical-issues",
+        priority: "high",
+        category: "Critical Issues",
+        icon: AlertCircle,
+        item: `${criticalIssues.length} Critical Issues Found`,
+        action: "Fix all critical issues immediately. These directly impact your search rankings and may prevent pages from being indexed.",
+        where: "Go to the Issues tab, filter by 'Critical' severity, and work through each issue.",
+        estimatedImpact: "Fixing critical issues can improve rankings by 5-15 positions for affected pages.",
+        details: "Critical issues include broken pages, missing titles, duplicate content, and security vulnerabilities that Google penalizes.",
+      });
+    }
+
+    // Low health score
+    if (latestAudit.health_score != null && latestAudit.health_score < 70) {
+      recs.push({
+        id: "health-score",
+        priority: "high",
+        category: "Overall Health",
+        icon: Shield,
+        item: `Site Health Score: ${latestAudit.health_score}/100`,
+        action: "Your site health is below optimal. Systematically fix issues starting with critical, then warnings, to bring your score above 80.",
+        where: "Work through the Issues tab, prioritizing by severity level.",
+        estimatedImpact: "Sites with 80+ health scores rank significantly better across all keywords.",
+        details: "Focus on the highest-impact issues first. Each critical issue fixed typically improves the health score by 2-5 points.",
+      });
+    }
+
+    // Low SEO score
+    if (latestAudit.seo_score != null && latestAudit.seo_score < 70) {
+      recs.push({
+        id: "seo-score",
+        priority: "high",
+        category: "SEO Score",
+        icon: Search,
+        item: `SEO Score: ${latestAudit.seo_score}/100`,
+        action: "Improve on-page SEO elements: meta titles, descriptions, heading structure, image alt text, and canonical tags.",
+        where: "Filter issues by 'SEO' category in the Issues tab.",
+        estimatedImpact: "Improving SEO score from below 70 to above 85 typically yields 20-35% more indexed pages.",
+        details: "On-page SEO issues are usually the quickest wins. Most can be fixed in bulk with a CMS or plugin.",
+      });
+    }
+
+    // Performance issues
+    if (latestAudit.performance_score != null && latestAudit.performance_score < 60) {
+      recs.push({
+        id: "performance",
+        priority: "medium",
+        category: "Performance",
+        icon: Zap,
+        item: `Performance Score: ${latestAudit.performance_score}/100`,
+        action: "Improve page load speed. Optimize images, enable compression, reduce JavaScript, and leverage browser caching.",
+        where: "Filter issues by 'Performance' category. Check Core Web Vitals above for specific metrics.",
+        estimatedImpact: "Google uses page speed as a ranking factor. Improving to 80+ can boost mobile rankings by 3-8 positions.",
+        details: "Focus on LCP (Largest Contentful Paint) first — it has the most impact on user experience and rankings.",
+      });
+    }
+
+    // Accessibility issues
+    if (latestAudit.accessibility_score != null && latestAudit.accessibility_score < 70) {
+      recs.push({
+        id: "accessibility",
+        priority: "medium",
+        category: "Accessibility",
+        icon: Eye,
+        item: `Accessibility Score: ${latestAudit.accessibility_score}/100`,
+        action: "Improve accessibility: add alt text to images, ensure proper heading hierarchy, improve color contrast, and add ARIA labels.",
+        where: "Filter issues by 'Accessibility' category in the Issues tab.",
+        estimatedImpact: "Better accessibility improves user experience for all visitors and is an indirect ranking signal.",
+        details: "Accessibility improvements also benefit SEO — alt text helps image search, headings help content structure.",
+      });
+    }
+
+    // Many warning issues
+    const warningIssues = issues.filter(i => i.severity === "warning");
+    if (warningIssues.length > 10) {
+      recs.push({
+        id: "warnings",
+        priority: "medium",
+        category: "Warnings",
+        icon: AlertTriangle,
+        item: `${warningIssues.length} Warnings Need Attention`,
+        action: "Address warning-level issues to prevent them from becoming critical. Group by category and fix in batches.",
+        where: "Issues tab — filter by 'Warning' severity.",
+        estimatedImpact: "Resolving warnings improves overall site quality and prevents future ranking drops.",
+        details: "Warnings often indicate issues that aren't blocking now but could become problems as your site grows.",
+      });
+    }
+
+    // Schedule recommendation
+    if (!latestAudit) {
+      recs.push({
+        id: "run-audit",
+        priority: "high",
+        category: "Setup",
+        icon: RefreshCw,
+        item: "Run Your First Audit",
+        action: "Run a comprehensive site audit to identify technical SEO issues, performance problems, and accessibility gaps.",
+        where: "Click 'Run New Audit' at the top of this page.",
+        estimatedImpact: "A thorough technical audit is the foundation of any SEO strategy.",
+        details: "Schedule regular audits (weekly or biweekly) to catch issues early before they impact rankings.",
+      });
+    }
+
+    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    return recs.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+  }, [latestAudit, issues]);
+
+  // --- Strategy Guide ---
+  const strategyContent: StrategyContent = useMemo(() => ({
+    title: "Site Audit Strategy Guide",
+    intro: "Regular technical audits are essential for maintaining search engine visibility. This guide helps you understand audit results and prioritize fixes for maximum SEO impact.",
+    cards: [
+      {
+        icon: Shield,
+        iconColor: "text-editorial-red",
+        title: "Technical Health",
+        bullets: [
+          { bold: "Fix critical issues first", text: "Broken pages, 5xx errors, and missing titles have immediate ranking impact." },
+          { bold: "Monitor Core Web Vitals", text: "LCP, CLS, and INP directly affect Google's page experience signals." },
+          { bold: "Schedule regular audits", text: "Run audits weekly or biweekly to catch new issues before they impact rankings." },
+        ],
+      },
+      {
+        icon: Search,
+        iconColor: "text-editorial-gold",
+        title: "On-Page SEO",
+        bullets: [
+          { bold: "Unique meta titles", text: "Every page needs a unique, keyword-rich title under 60 characters." },
+          { bold: "Meta descriptions", text: "Write compelling descriptions (150-160 chars) that encourage clicks from search results." },
+          { bold: "Heading structure", text: "Use a single H1 per page and logical H2-H6 hierarchy for content organization." },
+        ],
+      },
+      {
+        icon: Zap,
+        iconColor: "text-editorial-green",
+        title: "Performance",
+        bullets: [
+          { bold: "Optimize images", text: "Compress images and use modern formats (WebP/AVIF) to reduce page weight." },
+          { bold: "Minimize JavaScript", text: "Reduce JS bundle size and defer non-critical scripts." },
+          { bold: "Enable caching", text: "Set proper cache headers to speed up repeat visits." },
+        ],
+      },
+    ],
+    steps: [
+      { step: "1", title: "Run a Full Audit", desc: "Start with a comprehensive crawl of your entire site to identify all issues." },
+      { step: "2", title: "Fix Critical Issues", desc: "Address all critical-severity issues first — these have the biggest ranking impact." },
+      { step: "3", title: "Improve Core Web Vitals", desc: "Optimize LCP, CLS, and INP to pass Google's page experience assessment." },
+      { step: "4", title: "Resolve Warnings", desc: "Work through warning-level issues grouped by category for efficient fixing." },
+      { step: "5", title: "Schedule Regular Audits", desc: "Set up automated audits (weekly/biweekly) to catch new issues proactively." },
+      { step: "6", title: "Track Progress", desc: "Compare audit history to verify your fixes are working and scores are improving." },
+    ],
+    dos: [
+      { text: "Run audits after every major site change (redesign, migration, new features)." },
+      { text: "Fix critical issues within 24-48 hours of detection." },
+      { text: "Monitor Core Web Vitals monthly — they're a direct Google ranking factor." },
+      { text: "Keep your XML sitemap and robots.txt up to date." },
+      { text: "Use HTTPS everywhere and ensure no mixed content warnings." },
+    ],
+    donts: [
+      { text: "Don't ignore 'warning' issues — they can escalate to critical over time." },
+      { text: "Don't block search engines from crawling important pages via robots.txt." },
+      { text: "Don't use JavaScript rendering for critical content without server-side rendering." },
+      { text: "Don't let your site accumulate 404 errors without redirecting or fixing them." },
+      { text: "Don't skip mobile optimization — most searches happen on mobile devices." },
+    ],
+    metrics: [
+      { label: "Health Score", desc: "Overall technical health (0-100). Combines all issue severities. Aim for 80+.", color: "text-editorial-red" },
+      { label: "SEO Score", desc: "On-page SEO optimization quality. Measures titles, descriptions, headings, and structure.", color: "text-editorial-gold" },
+      { label: "Performance Score", desc: "Page load speed and Core Web Vitals. Directly impacts Google rankings.", color: "text-editorial-green" },
+      { label: "Accessibility Score", desc: "How accessible your site is to all users. Affects user experience and indirectly impacts SEO.", color: "text-ink" },
+    ],
+  }), []);
+
   const fmtDate = (dateStr: string) => formatDateTime(dateStr, timezone);
 
   const getScoreColor = (score: number): "red" | "green" | "gold" => {
@@ -680,6 +864,12 @@ export function SiteAuditClient({
           <TabsTrigger value="history">
             <Clock size={12} className="mr-1.5" />
             History
+          </TabsTrigger>
+          <TabsTrigger value="recommendations">
+            Recommendations
+          </TabsTrigger>
+          <TabsTrigger value="strategy">
+            Strategy Guide
           </TabsTrigger>
         </TabsList>
 
@@ -963,6 +1153,20 @@ export function SiteAuditClient({
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* Recommendations Tab */}
+        <TabsContent value="recommendations">
+          <RecommendationsTab
+            recommendations={recommendations}
+            itemLabel="issue"
+            emptyMessage="Run a site audit to generate personalized technical SEO recommendations."
+          />
+        </TabsContent>
+
+        {/* Strategy Guide Tab */}
+        <TabsContent value="strategy">
+          <StrategyGuideTab content={strategyContent} />
         </TabsContent>
       </Tabs>
     </div>

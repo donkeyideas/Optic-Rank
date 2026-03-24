@@ -1,7 +1,7 @@
 import React from "react";
 import { renderToBuffer, View, Text } from "@react-pdf/renderer";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ReportDocument } from "./editorial-template";
+import { ReportDocument, ensureFontsRegistered } from "./editorial-template";
 import {
   KeywordsSection,
   buildKeywordRows,
@@ -30,18 +30,9 @@ import {
   buildExecutiveSummary,
 } from "./sections/executive-section";
 
-export type ReportTemplate = "full" | "keywords" | "backlinks" | "audit" | "executive" | "custom";
-
-export type ReportSection = "executive" | "keywords" | "backlinks" | "audit" | "competitors" | "insights";
-
-export const ALL_SECTIONS: { id: ReportSection; label: string }[] = [
-  { id: "executive", label: "Overview & Scores" },
-  { id: "keywords", label: "Keyword Rankings" },
-  { id: "backlinks", label: "Backlinks" },
-  { id: "audit", label: "Site Audit" },
-  { id: "competitors", label: "Competitors" },
-  { id: "insights", label: "AI Insights" },
-];
+export { ALL_SECTIONS } from "./report-constants";
+export type { ReportTemplate, ReportSection } from "./report-constants";
+import type { ReportTemplate, ReportSection } from "./report-constants";
 
 /**
  * Generate a PDF report for a project.
@@ -53,6 +44,9 @@ export async function generateReportPDF(
   template: ReportTemplate,
   customSections?: ReportSection[]
 ): Promise<Buffer> {
+  // Register fonts lazily — only runs server-side, only once
+  ensureFontsRegistered();
+
   const supabase = createAdminClient();
 
   // Fetch project info
@@ -170,6 +164,9 @@ export async function generateReportPDF(
     );
   }
 
+  // Filter out any null/undefined children just in case
+  const safeChildren = children.filter(Boolean);
+
   const doc = React.createElement(
     ReportDocument,
     {
@@ -177,10 +174,15 @@ export async function generateReportPDF(
       projectName: project.name,
       generatedAt,
     },
-    ...(children.length > 0 ? children : [React.createElement(View, { key: "empty" }, React.createElement(Text, null, "No data available for this report template."))])
+    ...(safeChildren.length > 0 ? safeChildren : [React.createElement(View, { key: "empty" }, React.createElement(Text, {}, "No data available for this report template."))])
   );
 
-  return renderToBuffer(doc);
+  try {
+    return await renderToBuffer(doc);
+  } catch (err) {
+    console.error("[PDF] renderToBuffer failed:", err);
+    throw new Error(`PDF generation failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -211,7 +213,7 @@ type AdminClient = ReturnType<typeof createAdminClient>;
 async function fetchKeywords(supabase: AdminClient, projectId: string) {
   const { data } = await supabase
     .from("keywords")
-    .select("keyword, current_position, previous_position, search_volume, keyword_difficulty, ranking_url")
+    .select("keyword, current_position, previous_position, search_volume, difficulty")
     .eq("project_id", projectId)
     .order("current_position", { ascending: true, nullsFirst: false })
     .limit(100);
@@ -237,26 +239,30 @@ async function fetchBacklinks(supabase: AdminClient, projectId: string) {
 async function fetchAudit(supabase: AdminClient, projectId: string) {
   const { data: audit } = await supabase
     .from("site_audits")
-    .select("health_score, pages_scanned, passed_checks")
+    .select("id, health_score, pages_crawled, issues_found")
     .eq("project_id", projectId)
     .order("created_at", { ascending: false })
     .limit(1)
     .single();
 
-  const { data: issues } = await supabase
-    .from("audit_issues")
-    .select("title, issue_type, severity, affected_pages, category")
-    .eq("project_id", projectId)
-    .order("severity", { ascending: true })
-    .limit(30);
+  let issues: Record<string, unknown>[] = [];
+  if (audit?.id) {
+    const { data } = await supabase
+      .from("audit_issues")
+      .select("title, severity, category, description, affected_url")
+      .eq("audit_id", audit.id)
+      .order("severity", { ascending: true })
+      .limit(30);
+    issues = (data as Record<string, unknown>[]) ?? [];
+  }
 
-  return buildAuditData(audit as Record<string, unknown> | null, (issues as Record<string, unknown>[]) ?? []);
+  return buildAuditData(audit as Record<string, unknown> | null, issues);
 }
 
 async function fetchCompetitors(supabase: AdminClient, projectId: string) {
   const { data } = await supabase
     .from("competitors")
-    .select("competitor_domain, domain, visibility_score, total_keywords, avg_position, common_keywords")
+    .select("name, domain, authority_score, organic_traffic, keywords_count")
     .eq("project_id", projectId)
     .limit(20);
 
@@ -266,7 +272,7 @@ async function fetchCompetitors(supabase: AdminClient, projectId: string) {
 async function fetchInsights(supabase: AdminClient, projectId: string) {
   const { data } = await supabase
     .from("ai_insights")
-    .select("title, description, recommendation, priority, category, status")
+    .select("title, description, priority, type, is_dismissed")
     .eq("project_id", projectId)
     .order("priority", { ascending: true })
     .limit(20);

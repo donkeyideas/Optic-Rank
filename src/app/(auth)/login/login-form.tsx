@@ -49,10 +49,11 @@ export function LoginForm() {
     setOauthLoading(provider);
     try {
       const supabase = createClient();
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${appUrl}/auth/callback`,
           skipBrowserRedirect: true,
         },
       });

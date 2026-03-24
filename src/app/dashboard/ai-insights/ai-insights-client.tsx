@@ -16,6 +16,7 @@ import {
   DollarSign,
   Sparkles,
 } from "lucide-react";
+import { useActionProgress } from "@/components/shared/action-progress";
 import { HeadlineBar } from "@/components/editorial/headline-bar";
 import { ColumnHeader } from "@/components/editorial/column-header";
 import { AIStory } from "@/components/editorial/ai-story";
@@ -87,8 +88,7 @@ export function AIInsightsClient({
   const [sortBy, setSortBy] = useState<"priority" | "revenue" | "date">("priority");
   const [isPending, startTransition] = useTransition();
   const [dismissingId, setDismissingId] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generateStatus, setGenerateStatus] = useState<string | null>(null);
+  const { runAction, isRunning: isActionRunning } = useActionProgress();
 
   function handleDismiss(id: string) {
     setDismissingId(id);
@@ -141,36 +141,23 @@ export function AIInsightsClient({
           <Button
             variant="outline"
             size="sm"
-            disabled={isGenerating || isPending}
+            disabled={isActionRunning || isPending}
             onClick={() => {
-              setIsGenerating(true);
-              setGenerateStatus(null);
-              startTransition(async () => {
-                const result = await generateInsightsForProject(projectId);
-                if ("error" in result) {
-                  setGenerateStatus(`Error: ${result.error}`);
-                } else {
-                  setGenerateStatus(`Generated ${result.generated} new insights`);
-                }
-                setIsGenerating(false);
-              });
+              runAction(
+                {
+                  title: "Generating AI Insights",
+                  description: "Analyzing your project data to generate intelligent SEO recommendations...",
+                  steps: ["Analyzing keyword data", "Reviewing backlink profile", "Checking site health", "Identifying opportunities", "Generating insights"],
+                  estimatedDuration: 25,
+                },
+                () => generateInsightsForProject(projectId)
+              );
             }}
           >
             <Sparkles size={14} />
-            {isGenerating ? "Generating..." : "Generate Insights"}
+            Generate Insights
           </Button>
         </div>
-        {generateStatus && (
-          <div
-            className={`border px-4 py-2 text-sm ${
-              generateStatus.startsWith("Error")
-                ? "border-editorial-red/30 bg-editorial-red/5 text-editorial-red"
-                : "border-editorial-green/30 bg-editorial-green/5 text-editorial-green"
-            }`}
-          >
-            {generateStatus}
-          </div>
-        )}
         <EmptyState
           icon={Brain}
           title="No AI Insights Yet"
@@ -218,37 +205,23 @@ export function AIInsightsClient({
         <Button
           variant="outline"
           size="sm"
-          disabled={isGenerating || isPending}
+          disabled={isActionRunning || isPending}
           onClick={() => {
-            setIsGenerating(true);
-            setGenerateStatus(null);
-            startTransition(async () => {
-              const result = await generateInsightsForProject(projectId);
-              if ("error" in result) {
-                setGenerateStatus(`Error: ${result.error}`);
-              } else {
-                setGenerateStatus(`Generated ${result.generated} new insights`);
-              }
-              setIsGenerating(false);
-            });
+            runAction(
+              {
+                title: "Generating AI Insights",
+                description: "Analyzing your project data to generate intelligent SEO recommendations...",
+                steps: ["Analyzing keyword data", "Reviewing backlink profile", "Checking site health", "Identifying opportunities", "Generating insights"],
+                estimatedDuration: 25,
+              },
+              () => generateInsightsForProject(projectId)
+            );
           }}
         >
           <Sparkles size={14} />
-          {isGenerating ? "Generating..." : "Generate Insights"}
+          Generate Insights
         </Button>
       </div>
-
-      {generateStatus && (
-        <div
-          className={`border px-4 py-2 text-sm ${
-            generateStatus.startsWith("Error")
-              ? "border-editorial-red/30 bg-editorial-red/5 text-editorial-red"
-              : "border-editorial-green/30 bg-editorial-green/5 text-editorial-green"
-          }`}
-        >
-          {generateStatus}
-        </div>
-      )}
 
       {/* Filter Bar */}
       <div className="flex flex-wrap items-center gap-2 border-b border-rule pb-4">

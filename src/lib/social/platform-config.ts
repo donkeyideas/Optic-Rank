@@ -49,18 +49,15 @@ export interface PlatformConfig {
     label: string;
     format?: (value: unknown) => string;
   }[];
+  /** How this platform calculates engagement rate */
+  engagementFormula: string;
+  /** Content formats available on this platform */
+  contentTypes: string[];
 }
 
 /* ------------------------------------------------------------------ */
 /*  Shared hero stat builders                                          */
 /* ------------------------------------------------------------------ */
-
-const earningsStat: PlatformHeroStat = {
-  label: "Est. Monthly Earnings",
-  // Overridden at render time with analysis data
-  getValue: () => "—",
-  getSubtext: () => "run analysis to project",
-};
 
 const engagementStat: PlatformHeroStat = {
   label: "Engagement Rate",
@@ -72,6 +69,7 @@ const engagementStat: PlatformHeroStat = {
 /* ------------------------------------------------------------------ */
 
 const CONFIGS: Record<SocialPlatform, PlatformConfig> = {
+  /* ── Instagram ─────────────────────────────────────────────── */
   instagram: {
     displayName: "Instagram",
     fields: {
@@ -81,9 +79,9 @@ const CONFIGS: Record<SocialPlatform, PlatformConfig> = {
     },
     heroStats: [
       { label: "Followers", getValue: (p) => p.followers_count.toLocaleString(), highlight: true },
+      { label: "Posts", getValue: (p) => p.posts_count.toLocaleString() },
+      { label: "Following", getValue: (p) => p.following_count.toLocaleString() },
       engagementStat,
-      earningsStat,
-      { label: "Avg. Likes/Post", getValue: (p) => p.posts_count.toLocaleString(), getSubtext: () => "total posts" },
     ],
     headlineLabels: { totalAudience: "Total Followers", totalContent: "Total Posts" },
     chartTitles: { followerGrowth: "Follower Growth", engagementRate: "Engagement Rate" },
@@ -93,8 +91,11 @@ const CONFIGS: Record<SocialPlatform, PlatformConfig> = {
       { key: "is_business", label: "Business", format: (v) => (v ? "Business Account" : "") },
       { key: "category", label: "Category" },
     ],
+    engagementFormula: "(Likes + Comments + Saves) / Followers × 100",
+    contentTypes: ["Reels", "Carousels", "Stories", "Posts", "Guides"],
   },
 
+  /* ── YouTube ───────────────────────────────────────────────── */
   youtube: {
     displayName: "YouTube",
     fields: {
@@ -104,8 +105,7 @@ const CONFIGS: Record<SocialPlatform, PlatformConfig> = {
     },
     heroStats: [
       { label: "Subscribers", getValue: (p) => p.followers_count.toLocaleString(), highlight: true },
-      engagementStat,
-      earningsStat,
+      { label: "Videos", getValue: (p) => p.posts_count.toLocaleString() },
       {
         label: "Total Views",
         getValue: (_p, extra) => {
@@ -114,14 +114,18 @@ const CONFIGS: Record<SocialPlatform, PlatformConfig> = {
         },
         getSubtext: (_p, extra) => (extra?.total_views ? "lifetime" : undefined),
       },
+      engagementStat,
     ],
     headlineLabels: { totalAudience: "Total Subscribers", totalContent: "Total Videos" },
     chartTitles: { followerGrowth: "Subscriber Growth", engagementRate: "Engagement Rate" },
     growthTitle: "Subscriber Growth Tips",
     tabs: { hashtags: true },
     extraBadges: [],
+    engagementFormula: "(Likes + Comments) / Views × 100",
+    contentTypes: ["Long-form Videos", "Shorts", "Community Posts", "Live Streams"],
   },
 
+  /* ── TikTok ────────────────────────────────────────────────── */
   tiktok: {
     displayName: "TikTok",
     fields: {
@@ -131,24 +135,27 @@ const CONFIGS: Record<SocialPlatform, PlatformConfig> = {
     },
     heroStats: [
       { label: "Followers", getValue: (p) => p.followers_count.toLocaleString(), highlight: true },
-      engagementStat,
-      earningsStat,
+      { label: "Following", getValue: (p) => p.following_count.toLocaleString() },
       {
-        label: "Hearts",
+        label: "Likes",
         getValue: (_p, extra) => {
           const h = extra?.hearts;
           return typeof h === "number" ? h.toLocaleString() : "—";
         },
         getSubtext: () => "total likes",
       },
+      engagementStat,
     ],
     headlineLabels: { totalAudience: "Total Followers", totalContent: "Total Videos" },
     chartTitles: { followerGrowth: "Follower Growth", engagementRate: "Engagement Rate" },
     growthTitle: "Follower Growth Tips",
     tabs: { hashtags: true },
     extraBadges: [],
+    engagementFormula: "(Likes + Comments + Shares) / Views × 100",
+    contentTypes: ["Videos", "Stories", "Photo Carousels", "Live Streams"],
   },
 
+  /* ── X (Twitter) ───────────────────────────────────────────── */
   twitter: {
     displayName: "X (Twitter)",
     fields: {
@@ -158,9 +165,9 @@ const CONFIGS: Record<SocialPlatform, PlatformConfig> = {
     },
     heroStats: [
       { label: "Followers", getValue: (p) => p.followers_count.toLocaleString(), highlight: true },
+      { label: "Following", getValue: (p) => p.following_count.toLocaleString() },
+      { label: "Tweets", getValue: (p) => p.posts_count.toLocaleString() },
       engagementStat,
-      earningsStat,
-      { label: "Total Tweets", getValue: (p) => p.posts_count.toLocaleString() },
     ],
     headlineLabels: { totalAudience: "Total Followers", totalContent: "Total Tweets" },
     chartTitles: { followerGrowth: "Follower Growth", engagementRate: "Engagement Rate" },
@@ -169,32 +176,27 @@ const CONFIGS: Record<SocialPlatform, PlatformConfig> = {
     extraBadges: [
       { key: "website", label: "Website" },
     ],
+    engagementFormula: "(Likes + Retweets + Replies) / Impressions × 100",
+    contentTypes: ["Tweets", "Threads", "Spaces", "Polls"],
   },
 
+  /* ── LinkedIn ──────────────────────────────────────────────── */
   linkedin: {
     displayName: "LinkedIn",
     fields: {
       followers: { label: "Connections", showInForm: true, placeholder: "e.g. 500" },
-      following: { label: "Following", showInForm: false },
+      following: { label: "Followers", showInForm: false },
       posts: { label: "Posts", showInForm: false },
     },
     heroStats: [
       { label: "Connections", getValue: (p) => p.followers_count.toLocaleString(), highlight: true },
-      earningsStat,
       {
-        label: "Industry",
-        getValue: (_p, extra) => {
-          const v = extra?.industry;
-          return typeof v === "string" && v ? v : "—";
-        },
+        label: "Followers",
+        getValue: (p) => p.following_count > 0 ? p.following_count.toLocaleString() : "—",
+        getSubtext: () => "page followers",
       },
-      {
-        label: "Company",
-        getValue: (_p, extra) => {
-          const v = extra?.works_for;
-          return typeof v === "string" && v ? v : "—";
-        },
-      },
+      { label: "Posts", getValue: (p) => p.posts_count.toLocaleString() },
+      engagementStat,
     ],
     headlineLabels: { totalAudience: "Total Connections", totalContent: "Total Content" },
     chartTitles: { followerGrowth: "Connection Growth", engagementRate: "Engagement Rate" },
@@ -204,6 +206,8 @@ const CONFIGS: Record<SocialPlatform, PlatformConfig> = {
       { key: "job_title", label: "Title" },
       { key: "works_for", label: "Company" },
     ],
+    engagementFormula: "(Likes + Comments + Shares) / Impressions × 100",
+    contentTypes: ["Posts", "Articles", "Newsletters", "Documents", "Polls"],
   },
 };
 

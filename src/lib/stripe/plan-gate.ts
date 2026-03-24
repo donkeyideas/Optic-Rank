@@ -20,16 +20,16 @@ export async function checkPlanLimit(
 ): Promise<PlanLimitResult> {
   const supabase = createAdminClient();
 
-  // Superadmin bypass — unlimited access for orgs with a superadmin owner
-  const { data: superadminOwner } = await supabase
+  // Superadmin or comp-account bypass — unlimited access
+  const { data: unlimitedMember } = await supabase
     .from("profiles")
     .select("id")
     .eq("organization_id", orgId)
-    .eq("system_role", "superadmin")
+    .or("system_role.eq.superadmin,comp_account.eq.true")
     .limit(1)
     .maybeSingle();
 
-  if (superadminOwner) {
+  if (unlimitedMember) {
     return { allowed: true, current: 0, limit: 999999, plan: "enterprise" };
   }
 

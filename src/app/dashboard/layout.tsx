@@ -7,6 +7,7 @@ import { BottomBar } from "@/components/editorial/bottom-bar";
 import { ProjectSelector } from "@/components/shared/project-selector";
 
 import { TrialBanner } from "@/components/shared/trial-banner";
+import { Notepad } from "@/components/shared/notepad";
 import { TimezoneProvider } from "@/lib/context/timezone-context";
 import { formatDateLine } from "@/lib/utils/format-date";
 import { createClient } from "@/lib/supabase/server";
@@ -47,11 +48,11 @@ const dashboardNavItems = [
   { href: "/dashboard/content",       label: "Content" },
   { href: "/dashboard/backlinks",     label: "Backlinks" },
   { href: "/dashboard/site-audit",    label: "Site Audit" },
-  { href: "/dashboard/recommendations", label: "Recommendations" },
-  { href: "/dashboard/app-store",     label: "App Store" },
-  { href: "/dashboard/social-intelligence", label: "Social Intel" },
+  { href: "/dashboard/recommendations", label: "Insights" },
   { href: "/dashboard/advanced-ai",   label: "Advanced AI", matchPaths: ["/dashboard/ai-visibility", "/dashboard/predictions", "/dashboard/entities", "/dashboard/ai-briefs", "/dashboard/ai-insights"] },
   { href: "/dashboard/search-ai",     label: "SEO & Analytics", matchPaths: ["/dashboard/optimization"] },
+  { href: "/dashboard/app-store",     label: "App Store" },
+  { href: "/dashboard/social-intelligence", label: "Social Intel" },
   { href: "/dashboard/reports",       label: "Reports" },
   { href: "/dashboard/settings",      label: "Settings" },
 ];
@@ -72,15 +73,17 @@ export default async function DashboardLayout({
   let subscriptionStatus: string | null = null;
   let plan: string | null = null;
   let userTimezone = "UTC";
+  let isCompAccount = false;
 
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("organization_id, timezone")
+      .select("organization_id, timezone, comp_account")
       .eq("id", user.id)
       .single();
 
     userTimezone = profile?.timezone || "UTC";
+    isCompAccount = profile?.comp_account === true;
 
     if (profile?.organization_id) {
       const [projectsRes, orgRes] = await Promise.all([
@@ -105,6 +108,7 @@ export default async function DashboardLayout({
 
   // Check if trial has expired and user hasn't subscribed
   const isTrialExpired =
+    !isCompAccount &&
     subscriptionStatus === "trialing" &&
     trialEndsAt &&
     new Date(trialEndsAt) < new Date();
@@ -114,8 +118,8 @@ export default async function DashboardLayout({
   const pathname = headersList.get("x-pathname") ?? "";
   const isSettingsPage = pathname.includes("/settings");
 
-  // Lock out all pages except settings when trial expired on free plan
-  const showLockout = isTrialExpired && plan === "free" && !isSettingsPage;
+  // Lock out all pages except settings when trial expired on free plan (comp accounts never locked)
+  const showLockout = !isCompAccount && isTrialExpired && plan === "free" && !isSettingsPage;
 
   const today = formatDateLine(new Date(), userTimezone);
   const activeProject = projects.find((p) => p.is_active) ?? null;
@@ -155,8 +159,8 @@ export default async function DashboardLayout({
 
         <PaperNav items={dashboardNavItems} />
 
-        {/* Trial banner — shown during trial or when expired */}
-        {subscriptionStatus === "trialing" && trialEndsAt && (
+        {/* Trial banner — shown during trial or when expired (never for comp accounts) */}
+        {!isCompAccount && subscriptionStatus === "trialing" && trialEndsAt && (
           <TrialBanner trialEndsAt={trialEndsAt} isExpired={!!isTrialExpired} />
         )}
 
@@ -166,8 +170,10 @@ export default async function DashboardLayout({
 
         <BottomBar
           leftText="Optic Rank — Intelligence Report"
-          rightText={`${(plan ?? "free").charAt(0).toUpperCase() + (plan ?? "free").slice(1)} Plan — Last sync: ${lastSyncText}`}
+          rightText={`${isCompAccount ? "Unlimited" : (plan ?? "free").charAt(0).toUpperCase() + (plan ?? "free").slice(1)} Plan — Last sync: ${lastSyncText}`}
         />
+
+        <Notepad />
       </div>
     </TimezoneProvider>
   );

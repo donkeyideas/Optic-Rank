@@ -21,6 +21,7 @@ import {
   ListChecks,
   BookOpen,
 } from "lucide-react";
+import { useActionProgress } from "@/components/shared/action-progress";
 import { HeadlineBar } from "@/components/editorial/headline-bar";
 import { ColumnHeader } from "@/components/editorial/column-header";
 import { Badge } from "@/components/ui/badge";
@@ -78,24 +79,26 @@ export function AIBriefsClient({
   );
   const [briefType, setBriefType] = useState<"daily" | "weekly" | "monthly" | "on_demand">("on_demand");
   const [isPending, startTransition] = useTransition();
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const { runAction, isRunning: isActionRunning } = useActionProgress();
 
   const selectedBrief = briefs.find((b) => b.id === selectedBriefId) ?? null;
 
   function handleGenerate() {
-    setIsGenerating(true);
-    setStatusMsg(null);
-    startTransition(async () => {
-      const result = await generateBrief(projectId, briefType);
-      if ("error" in result) {
-        setStatusMsg(`Error: ${result.error}`);
-      } else {
-        setStatusMsg("Brief generated successfully");
-        setSelectedBriefId(result.briefId);
+    runAction(
+      {
+        title: "Generating AI Brief",
+        description: "Creating a comprehensive AI-powered intelligence briefing for your project...",
+        steps: ["Gathering keyword data", "Analyzing rankings", "Reviewing backlink profile", "Checking site health", "Compiling intelligence brief"],
+        estimatedDuration: 25,
+      },
+      async () => {
+        const result = await generateBrief(projectId, briefType);
+        if (!("error" in result)) {
+          setSelectedBriefId(result.briefId);
+        }
+        return result;
       }
-      setIsGenerating(false);
-    });
+    );
   }
 
   function handleDelete(id: string) {
@@ -163,25 +166,14 @@ export function AIBriefsClient({
             <Button
               variant="outline"
               size="sm"
-              disabled={isGenerating || isPending}
+              disabled={isActionRunning || isPending}
               onClick={handleGenerate}
             >
               <Sparkles size={14} />
-              {isGenerating ? "Generating..." : "Generate Brief"}
+              Generate Brief
             </Button>
           </div>
         </div>
-        {statusMsg && (
-          <div
-            className={`border px-4 py-2 text-sm ${
-              statusMsg.startsWith("Error")
-                ? "border-editorial-red/30 bg-editorial-red/5 text-editorial-red"
-                : "border-editorial-green/30 bg-editorial-green/5 text-editorial-green"
-            }`}
-          >
-            {statusMsg}
-          </div>
-        )}
         <EmptyState
           icon={FileText}
           title="No Briefs Generated Yet"
@@ -220,26 +212,14 @@ export function AIBriefsClient({
           <Button
             variant="outline"
             size="sm"
-            disabled={isGenerating || isPending}
+            disabled={isActionRunning || isPending}
             onClick={handleGenerate}
           >
             <Sparkles size={14} />
-            {isGenerating ? "Generating..." : "Generate Brief"}
+            Generate Brief
           </Button>
         </div>
       </div>
-
-      {statusMsg && (
-        <div
-          className={`border px-4 py-2 text-sm ${
-            statusMsg.startsWith("Error")
-              ? "border-editorial-red/30 bg-editorial-red/5 text-editorial-red"
-              : "border-editorial-green/30 bg-editorial-green/5 text-editorial-green"
-          }`}
-        >
-          {statusMsg}
-        </div>
-      )}
 
       {/* Main Grid */}
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
@@ -386,11 +366,11 @@ export function AIBriefsClient({
                 variant="primary"
                 size="sm"
                 className="w-full justify-center"
-                disabled={isGenerating || isPending}
+                disabled={isActionRunning || isPending}
                 onClick={handleGenerate}
               >
                 <Sparkles size={14} />
-                {isGenerating ? "Generating..." : "Generate Brief"}
+                Generate Brief
               </Button>
             </div>
           </div>

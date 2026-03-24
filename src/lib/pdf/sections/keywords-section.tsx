@@ -56,11 +56,11 @@ export function KeywordsSection({
         widths={[200, 55, 50, 65, 40]}
       />
 
-      {keywords.length > 30 && (
+      {keywords.length > 30 ? (
         <Text style={[s.muted, { marginTop: 4 }]}>
           Showing top 30 of {keywords.length} tracked keywords.
         </Text>
-      )}
+      ) : null}
     </View>
   );
 }
@@ -71,8 +71,8 @@ export function buildKeywordRows(rawKeywords: Record<string, unknown>[]): Keywor
     position: typeof k.current_position === "number" ? k.current_position : null,
     previous_position: typeof k.previous_position === "number" ? k.previous_position : null,
     search_volume: typeof k.search_volume === "number" ? k.search_volume : null,
-    difficulty: typeof k.keyword_difficulty === "number" ? k.keyword_difficulty : null,
-    url: typeof k.ranking_url === "string" ? k.ranking_url : null,
+    difficulty: typeof k.difficulty === "number" ? k.difficulty : null,
+    url: null,
   }));
 }
 

@@ -22,9 +22,11 @@ export function AIInsightsSection({
   insights: InsightItem[];
   stats: InsightStats;
 }) {
+  const items = insights.slice(0, 15);
+
   return (
     <View>
-      <PDFSectionTitle>AI Insights & Recommendations</PDFSectionTitle>
+      <PDFSectionTitle>AI Insights &amp; Recommendations</PDFSectionTitle>
 
       <View style={[s.row, s.gap8, s.mb16]}>
         <PDFStatCard label="Total Insights" value={stats.total} />
@@ -32,43 +34,45 @@ export function AIInsightsSection({
         <PDFStatCard label="Implemented" value={stats.implemented} />
       </View>
 
-      {insights.slice(0, 15).map((insight, i) => (
-        <View
-          key={i}
-          style={[
-            s.mb8,
-            {
-              padding: 8,
-              borderLeftWidth: 3,
-              borderLeftColor:
-                insight.priority === "high"
-                  ? colors.red
-                  : insight.priority === "medium"
-                  ? colors.gold
-                  : colors.green,
-              backgroundColor: "#fafafa",
-            },
-          ]}
-        >
-          <View style={[s.row, s.spaceBetween]}>
-            <Text style={[s.bold, { fontSize: 9 }]}>{insight.title}</Text>
-            <Text
-              style={[
-                s.badge,
-                insight.priority === "high"
-                  ? s.badgeRed
-                  : insight.priority === "medium"
-                  ? s.badgeGold
-                  : s.badgeGreen,
-              ]}
-            >
-              {insight.priority.toUpperCase()}
-            </Text>
-          </View>
-          <Text style={[s.body, { marginTop: 3 }]}>{insight.description}</Text>
-          <Text style={[s.muted, { marginTop: 2 }]}>{insight.category}</Text>
+      {items.length > 0 ? (
+        <View>
+          {items.map((insight, i) => {
+            const borderColor = insight.priority === "high"
+              ? colors.red
+              : insight.priority === "medium"
+              ? colors.gold
+              : colors.green;
+            const badgeStyle = insight.priority === "high"
+              ? s.badgeRed
+              : insight.priority === "medium"
+              ? s.badgeGold
+              : s.badgeGreen;
+            const label = typeof insight.priority === "string"
+              ? insight.priority.toUpperCase()
+              : "MEDIUM";
+
+            return (
+              <View
+                key={String(i)}
+                style={{
+                  marginBottom: 8,
+                  padding: 8,
+                  borderLeftWidth: 3,
+                  borderLeftColor: borderColor,
+                  backgroundColor: "#fafafa",
+                }}
+              >
+                <View style={[s.row, s.spaceBetween]}>
+                  <Text style={[s.bold, { fontSize: 9 }]}>{String(insight.title)}</Text>
+                  <Text style={[s.badge, badgeStyle]}>{label}</Text>
+                </View>
+                <Text style={[s.body, { marginTop: 3 }]}>{String(insight.description)}</Text>
+                <Text style={[s.muted, { marginTop: 2 }]}>{String(insight.category)}</Text>
+              </View>
+            );
+          })}
         </View>
-      ))}
+      ) : null}
     </View>
   );
 }
@@ -76,16 +80,34 @@ export function AIInsightsSection({
 export function buildInsights(raw: Record<string, unknown>[]): InsightItem[] {
   return raw.map((r) => ({
     title: String(r.title ?? "Insight"),
-    description: String(r.description ?? r.recommendation ?? ""),
-    priority: (r.priority as InsightItem["priority"]) ?? "medium",
-    category: String(r.category ?? "General"),
+    description: String(r.description ?? ""),
+    priority: normalizePriority(r.priority),
+    category: String(r.type ?? "General"),
   }));
+}
+
+/** DB stores priority as INT (0-100). Convert to high/medium/low. */
+function normalizePriority(val: unknown): InsightItem["priority"] {
+  if (typeof val === "string") {
+    if (val === "high" || val === "medium" || val === "low") return val;
+    return "medium";
+  }
+  if (typeof val === "number") {
+    if (val <= 25) return "high";    // lower number = higher priority
+    if (val <= 60) return "medium";
+    return "low";
+  }
+  return "medium";
 }
 
 export function buildInsightStats(raw: Record<string, unknown>[]): InsightStats {
   return {
     total: raw.length,
-    highPriority: raw.filter((r) => r.priority === "high").length,
-    implemented: raw.filter((r) => r.status === "implemented").length,
+    highPriority: raw.filter((r) => {
+      if (r.priority === "high") return true;
+      if (typeof r.priority === "number") return r.priority <= 25;
+      return false;
+    }).length,
+    implemented: raw.filter((r) => r.is_dismissed === true).length,
   };
 }

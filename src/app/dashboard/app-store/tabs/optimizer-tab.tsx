@@ -12,6 +12,7 @@ import {
   Key,
 } from "lucide-react";
 import { ColumnHeader } from "@/components/editorial/column-header";
+import { AppSelectorStrip } from "@/components/app-store/app-selector-strip";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 
@@ -242,17 +243,7 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
   return (
     <div className="flex flex-col gap-4">
       {/* App Selector */}
-      <div className="flex items-center gap-3 border-b border-rule pb-3">
-        <select
-          value={selectedListing}
-          onChange={(e) => handleListingChange(e.target.value)}
-          className="h-9 flex-1 border border-rule bg-surface-card px-3 font-sans text-sm text-ink focus:border-editorial-red focus:outline-none"
-        >
-          {listings.map((l) => (
-            <option key={l.id} value={l.id}>{l.app_name} ({l.store === "apple" ? "iOS" : "Android"})</option>
-          ))}
-        </select>
-      </div>
+      <AppSelectorStrip listings={listings} selected={selectedListing} onSelect={handleListingChange} />
 
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Left: Editor */}
@@ -317,7 +308,7 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
               </div>
               <Button variant="outline" size="sm" onClick={handleGenerateSubtitle} disabled={actionId === "subtitle"}>
                 {actionId === "subtitle" ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
-                AI Generate
+                Generate
               </Button>
             </div>
             <input

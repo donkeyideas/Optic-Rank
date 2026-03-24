@@ -188,3 +188,23 @@ export async function updateNotificationPreferences(
   revalidatePath("/dashboard/settings");
   return { success: true };
 }
+
+/**
+ * Mark onboarding as complete for the current user.
+ */
+export async function completeOnboarding(): Promise<{ error: string } | { success: true }> {
+  const userClient = await createClient();
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ onboarding_completed: true, updated_at: new Date().toISOString() })
+    .eq("id", user.id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard");
+  return { success: true };
+}

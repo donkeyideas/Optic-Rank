@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo, useCallback } from "react";
 import { useTimezone } from "@/lib/context/timezone-context";
 import { formatDate } from "@/lib/utils/format-date";
 import {
@@ -9,6 +9,7 @@ import {
   ExternalLink,
   Plus,
   ChevronRight,
+  ChevronDown,
   ChevronLeft,
   Target,
   Pencil,
@@ -17,7 +18,12 @@ import {
   Copy,
   Link2,
   Calendar,
-  Loader2,
+  Shield,
+  Eye,
+  Zap,
+  BarChart3,
+  ArrowRight,
+  Check as CheckIcon,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -42,10 +48,13 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useActionProgress } from "@/components/shared/action-progress";
+import { RecommendationsTab, StrategyGuideTab } from "@/components/shared/page-guide";
+import type { Recommendation, StrategyContent } from "@/components/shared/page-guide";
 import {
   addContentPage,
   deleteContentPage,
   updateContentPageStatus,
+  scoreContentPages,
   detectContentDecay,
   detectCannibalization,
   suggestInternalLinks,
@@ -54,6 +63,8 @@ import {
   deleteCalendarEntry,
   generateContentBriefs,
   generateCalendarEntries,
+  updateContentBrief,
+  deleteContentBrief,
 } from "@/lib/actions/content";
 
 /* ------------------------------------------------------------------
@@ -166,8 +177,6 @@ export function ContentClient({
 
   // Intelligence action states
   const { runAction, isRunning: isActionRunning } = useActionProgress();
-  const [isGeneratingCalendar, setIsGeneratingCalendar] = useState(false);
-  const [calendarGenMsg, setCalendarGenMsg] = useState<string | null>(null);
 
   // Calendar month view state
   const [calendarMonth, setCalendarMonth] = useState(() => {
@@ -175,6 +184,7 @@ export function ContentClient({
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [expandedBriefId, setExpandedBriefId] = useState<string | null>(null);
 
   function handleAddContent(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -324,6 +334,170 @@ export function ContentClient({
 
   const hasNoData = contentPages.length === 0 && contentBriefs.length === 0;
 
+  const recommendations = useMemo(() => {
+    const recs: Recommendation[] = [];
+
+    // Low content score pages
+    contentPages.filter(p => p.content_score != null && p.content_score < 60).forEach((page) => {
+      recs.push({
+        id: `score-${page.id}`,
+        priority: page.content_score != null && page.content_score < 40 ? "high" : "medium",
+        category: "Content Quality",
+        icon: FileText,
+        item: page.title ?? page.url ?? "Untitled page",
+        action: `Improve content quality — current score is ${page.content_score}/100. Add more depth, update outdated information, and improve readability.`,
+        where: page.url ?? "Check your content inventory",
+        estimatedImpact: `Improving content score to 80+ typically results in 20-40% more organic traffic for this page.`,
+        details: "Focus on comprehensive coverage of the topic, add visuals, update statistics, and improve internal linking.",
+      });
+    });
+
+    // Decay risk pages
+    contentPages.filter(p => p.decay_risk === "high").forEach((page) => {
+      recs.push({
+        id: `decay-${page.id}`,
+        priority: "high",
+        category: "Content Decay",
+        icon: TrendingDown,
+        item: page.title ?? page.url ?? "Untitled page",
+        action: "This page is losing rankings. Refresh the content immediately — update facts, add new sections, and re-optimize for target keywords.",
+        where: page.url ?? "Check the Decay tab for affected pages",
+        estimatedImpact: "Refreshing decaying content typically recovers 50-80% of lost traffic within 4-8 weeks.",
+        details: "Content decay happens when competitors publish better content or search intent shifts. Regular updates maintain rankings.",
+      });
+    });
+
+    // Cannibalization issues
+    const groups = Array.from(new Map(contentPages.filter(p => p.cannibalization_group).map(p => [p.cannibalization_group, p])).values());
+    if (groups.length > 0) {
+      recs.push({
+        id: "cannibalization",
+        priority: "high",
+        category: "Cannibalization",
+        icon: Target,
+        item: `${groups.length} Keyword Cannibalization Groups`,
+        action: "Multiple pages compete for the same keywords, splitting your ranking power. Consolidate or differentiate these pages.",
+        where: "Check the Cannibalization tab for affected pages.",
+        estimatedImpact: "Resolving cannibalization can improve rankings by 2-5 positions for affected keywords.",
+        details: "Either merge competing pages into one comprehensive piece, add canonical tags, or differentiate their target keywords.",
+      });
+    }
+
+    // Pages needing internal links
+    const noLinks = contentPages.filter(p => !p.suggested_internal_links || (Array.isArray(p.suggested_internal_links) && p.suggested_internal_links.length === 0));
+    if (noLinks.length > 3) {
+      recs.push({
+        id: "internal-links",
+        priority: "medium",
+        category: "Internal Linking",
+        icon: Lightbulb,
+        item: `${noLinks.length} Pages Missing Internal Links`,
+        action: "Run the internal link suggestion tool to find linking opportunities between your content pages.",
+        where: "Go to the Internal Links tab and click 'Generate Suggestions'.",
+        estimatedImpact: "Strong internal linking improves crawlability and can boost page authority by 10-20%.",
+        details: "Internal links distribute page authority and help search engines understand your site's topical structure.",
+      });
+    }
+
+    // Low word count pages
+    contentPages.filter(p => p.word_count != null && p.word_count < 500 && p.status !== "archived").forEach((page) => {
+      recs.push({
+        id: `thin-${page.id}`,
+        priority: "medium",
+        category: "Thin Content",
+        icon: FileText,
+        item: page.title ?? page.url ?? "Untitled page",
+        action: `This page has only ${page.word_count} words. Expand it to at least 1,000-1,500 words with comprehensive topic coverage.`,
+        where: page.url ?? "Check your content inventory",
+        estimatedImpact: "Pages with 1,000+ words rank significantly better for competitive keywords.",
+        details: "Thin content often fails to satisfy search intent. Add sections addressing related questions, examples, and actionable advice.",
+      });
+    });
+
+    // Draft briefs ready to write
+    contentBriefs.filter(b => b.status === "ready" || b.status === "draft").forEach((brief) => {
+      recs.push({
+        id: `brief-${brief.id}`,
+        priority: "low",
+        category: "Content Creation",
+        icon: Pencil,
+        item: brief.topic ?? brief.target_keyword ?? "Untitled brief",
+        action: `You have a content brief ready for "${brief.target_keyword}". Start writing to capture an estimated ${brief.estimated_traffic ?? "unknown"} monthly visits.`,
+        where: "Go to the Briefs tab to view the full brief and start writing.",
+        estimatedImpact: brief.estimated_traffic ? `Potential ${brief.estimated_traffic.toLocaleString()} monthly organic visits.` : "New content expands your keyword footprint.",
+        details: `Target keyword: ${brief.target_keyword}, Difficulty: ${brief.difficulty ?? "N/A"}, Word target: ${brief.word_target ?? "1,500"}+.`,
+      });
+    });
+
+    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    return recs.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+  }, [contentPages, contentBriefs]);
+
+  const strategyContent: StrategyContent = useMemo(() => ({
+    title: "Content Optimization Strategy Guide",
+    intro: "Great content is the foundation of SEO success. This guide helps you create, optimize, and maintain content that ranks well and drives organic traffic to your site.",
+    cards: [
+      {
+        icon: FileText,
+        iconColor: "text-editorial-red",
+        title: "Content Quality",
+        bullets: [
+          { bold: "Comprehensive coverage", text: "Cover your topic thoroughly — aim for the best resource on the web for that query." },
+          { bold: "Search intent match", text: "Ensure your content format matches what searchers actually want (guide, list, tool, etc.)." },
+          { bold: "Regular updates", text: "Refresh content every 3-6 months to prevent decay and maintain rankings." },
+        ],
+      },
+      {
+        icon: Target,
+        iconColor: "text-editorial-gold",
+        title: "Content Strategy",
+        bullets: [
+          { bold: "Topic clusters", text: "Organize content into pillar pages and supporting articles for topical authority." },
+          { bold: "Content calendar", text: "Plan content production around keyword opportunities and seasonal trends." },
+          { bold: "Gap analysis", text: "Regularly identify topics your competitors cover that you don't." },
+        ],
+      },
+      {
+        icon: Lightbulb,
+        iconColor: "text-editorial-green",
+        title: "Technical Content SEO",
+        bullets: [
+          { bold: "Internal linking", text: "Every page should link to and from related content to distribute authority." },
+          { bold: "Avoid cannibalization", text: "Ensure only one page targets each primary keyword to avoid splitting ranking power." },
+          { bold: "Content pruning", text: "Remove or consolidate underperforming pages to improve overall site quality." },
+        ],
+      },
+    ],
+    steps: [
+      { step: "1", title: "Audit Existing Content", desc: "Review your content inventory. Identify high-performers, underperformers, and gaps." },
+      { step: "2", title: "Fix Decay & Cannibalization", desc: "Address decaying content first, then resolve any keyword cannibalization issues." },
+      { step: "3", title: "Optimize Internal Links", desc: "Ensure every page links to related content. Use the suggestions tool for ideas." },
+      { step: "4", title: "Create Content Briefs", desc: "Use keyword data to create detailed briefs for new content opportunities." },
+      { step: "5", title: "Produce & Publish", desc: "Write content following your briefs. Aim for comprehensive, well-structured articles." },
+      { step: "6", title: "Monitor & Refresh", desc: "Track performance monthly. Refresh content showing signs of decay before it drops." },
+    ],
+    dos: [
+      { text: "Update your highest-traffic pages at least every 6 months to prevent decay." },
+      { text: "Match content format to search intent (how-to, list, comparison, etc.)." },
+      { text: "Build topic clusters with a pillar page linking to supporting articles." },
+      { text: "Use the content calendar to maintain a consistent publishing schedule." },
+      { text: "Add unique value — original data, expert quotes, or custom visuals." },
+    ],
+    donts: [
+      { text: "Don't publish thin content under 500 words for competitive keywords." },
+      { text: "Don't target the same keyword with multiple pages (causes cannibalization)." },
+      { text: "Don't ignore content decay — it's easier to refresh than recover lost rankings." },
+      { text: "Don't write content without a clear target keyword and search intent." },
+      { text: "Don't forget to add internal links when publishing new content." },
+    ],
+    metrics: [
+      { label: "Content Score", desc: "Overall quality score (0-100) based on depth, readability, and optimization. Aim for 80+.", color: "text-editorial-red" },
+      { label: "Organic Traffic", desc: "Monthly visitors coming to this page from organic search results.", color: "text-editorial-gold" },
+      { label: "Word Count", desc: "Total words on the page. Longer, comprehensive content tends to rank better for competitive terms.", color: "text-editorial-green" },
+      { label: "Decay Risk", desc: "Likelihood that a page's rankings are declining. High-risk pages need immediate attention.", color: "text-ink" },
+    ],
+  }), []);
+
   if (hasNoData) {
     return (
       <div className="flex flex-col gap-6">
@@ -347,7 +521,43 @@ export function ContentClient({
           <h1 className="font-serif text-2xl font-bold text-ink">Content Intelligence</h1>
           <p className="mt-1 font-sans text-sm text-ink-secondary">Inventory, decay detection, cannibalization, internal links, calendar &amp; briefs</p>
         </div>
-        {addContentDialog}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={isActionRunning || isPending}
+            onClick={() => {
+              runAction(
+                {
+                  title: "Running Full Content Analysis",
+                  description: "Scoring pages, detecting decay & cannibalization, discovering internal links, generating briefs & calendar...",
+                  steps: [
+                    "Scoring content pages",
+                    "Detecting content decay",
+                    "Checking cannibalization",
+                    "Suggesting internal links",
+                    "Generating content briefs",
+                    "Generating calendar entries",
+                  ],
+                  estimatedDuration: 90,
+                },
+                async () => {
+                  await scoreContentPages(projectId);
+                  await detectContentDecay(projectId);
+                  await detectCannibalization(projectId);
+                  await suggestInternalLinks(projectId);
+                  await generateContentBriefs(projectId);
+                  await generateCalendarEntries(projectId);
+                  return { message: "Full content analysis complete" };
+                }
+              );
+            }}
+          >
+            <Zap size={14} />
+            Generate All
+          </Button>
+          {addContentDialog}
+        </div>
       </div>
 
       {/* Tabs */}
@@ -359,6 +569,8 @@ export function ContentClient({
           <TabsTrigger value="decay"><TrendingDown size={12} className="mr-1.5" />Decay</TabsTrigger>
           <TabsTrigger value="cannibalization"><Copy size={12} className="mr-1.5" />Cannibalization</TabsTrigger>
           <TabsTrigger value="links"><Link2 size={12} className="mr-1.5" />Internal Links</TabsTrigger>
+          <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
+          <TabsTrigger value="strategy">Strategy Guide</TabsTrigger>
         </TabsList>
 
         {/* ── Inventory Tab ── */}
@@ -573,25 +785,25 @@ export function ContentClient({
               <Button
                 variant="outline"
                 size="sm"
-                disabled={isGeneratingCalendar || isPending}
+                disabled={isActionRunning || isPending}
                 onClick={() => {
-                  setIsGeneratingCalendar(true);
-                  setCalendarGenMsg(null);
-                  startTransition(async () => {
-                    const r = await generateCalendarEntries(projectId);
-                    setCalendarGenMsg("error" in r ? r.error : `Generated ${r.generated} calendar entries from your content briefs.`);
-                    setIsGeneratingCalendar(false);
-                  });
+                  runAction(
+                    {
+                      title: "Generating Calendar Entries",
+                      description: "Creating editorial calendar entries from your content briefs...",
+                      steps: ["Reading content briefs", "Planning publication dates", "Creating calendar entries"],
+                      estimatedDuration: 15,
+                    },
+                    () => generateCalendarEntries(projectId)
+                  );
                 }}
               >
-                {isGeneratingCalendar ? <Loader2 size={12} className="mr-1.5 animate-spin" /> : <Calendar size={12} className="mr-1.5" />}
+                <Calendar size={12} className="mr-1.5" />
                 Generate Calendar
               </Button>
               {addCalendarDialog}
             </div>
           </div>
-          {calendarGenMsg && <div className="mb-3 border border-rule bg-surface-raised px-3 py-2 text-[12px] text-ink-secondary">{calendarGenMsg}</div>}
-
           {/* ── Month Grid ── */}
           {(() => {
             const year = calendarMonth.getFullYear();
@@ -788,32 +1000,138 @@ export function ContentClient({
           </div>
           {contentBriefs.length === 0 ? (
             <EmptyState icon={Lightbulb} title="No Content Briefs" description="Click 'Generate Briefs' to create AI-powered content recommendations from your tracked keywords." />
-          ) : contentBriefs.length === 0 ? null : (
+          ) : (
             <div className="flex flex-col gap-0">
-              {contentBriefs.map((brief, i) => (
-                <div key={brief.id} className={`flex items-start gap-4 py-4 ${i < contentBriefs.length - 1 ? "border-b border-rule" : ""}`}>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-serif text-[15px] font-bold text-ink">{brief.target_keyword ?? brief.topic ?? "Untitled Brief"}</h4>
-                      {brief.status === "generating" && <Badge variant="info">Generating</Badge>}
-                      {brief.status === "draft" && <Badge variant="muted">Draft</Badge>}
-                      {brief.status === "ready" && <Badge variant="success">Ready</Badge>}
+              {contentBriefs.map((brief, i) => {
+                const isExpanded = expandedBriefId === brief.id;
+                const titleSuggestions = (brief as Record<string, unknown>).title_suggestions as string[] | undefined;
+                const outline = (brief as Record<string, unknown>).outline as string[] | undefined;
+                const serpIntent = (brief as Record<string, unknown>).serp_intent as string | undefined;
+                const targetWordCount = ((brief as Record<string, unknown>).target_word_count as number | null) ?? brief.word_target;
+                return (
+                  <div key={brief.id} className={`${i < contentBriefs.length - 1 ? "border-b border-rule" : ""}`}>
+                    <div className="flex items-start gap-4 py-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-serif text-[15px] font-bold text-ink">{brief.target_keyword ?? brief.topic ?? "Untitled Brief"}</h4>
+                          {brief.status === "generating" && <Badge variant="info">Generating</Badge>}
+                          {brief.status === "draft" && <Badge variant="muted">Draft</Badge>}
+                          {brief.status === "ready" && <Badge variant="success">Ready</Badge>}
+                          {brief.status === "in_progress" && <Badge variant="warning">In Progress</Badge>}
+                          {brief.status === "published" && <Badge variant="success">Published</Badge>}
+                          {brief.status === "archived" && <Badge variant="muted">Archived</Badge>}
+                        </div>
+                        <div className="mt-2 flex items-center gap-4 flex-wrap">
+                          {brief.target_keyword && <span className="flex items-center gap-1 text-[11px] text-ink-secondary"><Target size={10} /><span className="font-mono">{brief.target_keyword}</span></span>}
+                          {brief.estimated_traffic != null && <span className="font-mono text-[11px] text-ink-secondary">Est. {brief.estimated_traffic.toLocaleString()}/mo</span>}
+                          {brief.difficulty != null && <span className="font-mono text-[11px] text-ink-secondary">Difficulty: {brief.difficulty}</span>}
+                          {targetWordCount != null && <span className="font-mono text-[11px] text-ink-secondary">Target: {targetWordCount.toLocaleString()} words</span>}
+                          {serpIntent && <span className="font-mono text-[11px] text-ink-secondary capitalize">Intent: {serpIntent}</span>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setExpandedBriefId(isExpanded ? null : brief.id)}>
+                          <Pencil size={12} />{isExpanded ? "Close" : "Edit"}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => setExpandedBriefId(isExpanded ? null : brief.id)}
+                        >
+                          {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                        </Button>
+                      </div>
                     </div>
-                    <div className="mt-2 flex items-center gap-4">
-                      {brief.target_keyword && <span className="flex items-center gap-1 text-[11px] text-ink-secondary"><Target size={10} /><span className="font-mono">{brief.target_keyword}</span></span>}
-                      {brief.estimated_traffic != null && <span className="font-mono text-[11px] text-ink-secondary">Est. {brief.estimated_traffic.toLocaleString()}/mo</span>}
-                      {brief.difficulty != null && <span className="font-mono text-[11px] text-ink-secondary">Difficulty: {brief.difficulty}</span>}
-                      {brief.word_target != null && <span className="font-mono text-[11px] text-ink-secondary">Target: {brief.word_target.toLocaleString()} words</span>}
-                    </div>
+
+                    {/* Expanded detail panel */}
+                    {isExpanded && (
+                      <div className="mb-4 border border-rule bg-surface-raised p-5">
+                        <div className="grid gap-5 sm:grid-cols-2">
+                          {/* Title Suggestions */}
+                          {titleSuggestions && titleSuggestions.length > 0 && (
+                            <div>
+                              <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Title Suggestions</span>
+                              <ul className="mt-2 flex flex-col gap-1.5">
+                                {titleSuggestions.map((title, ti) => (
+                                  <li key={ti} className="flex items-start gap-2 text-[12px] text-ink-secondary">
+                                    <span className="shrink-0 font-bold text-editorial-red">{ti + 1}.</span>
+                                    {title}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Outline */}
+                          {outline && Array.isArray(outline) && outline.length > 0 && (
+                            <div>
+                              <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Content Outline</span>
+                              <ul className="mt-2 flex flex-col gap-1.5">
+                                {outline.map((section, si) => (
+                                  <li key={si} className="flex items-start gap-2 text-[12px] text-ink-secondary">
+                                    <span className="shrink-0 font-bold text-editorial-gold">H{si + 1}.</span>
+                                    {typeof section === "string" ? section : String(section)}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Status + Actions */}
+                        <div className="mt-4 flex items-center gap-3 border-t border-rule pt-4">
+                          <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Status</span>
+                          <select
+                            value={brief.status ?? "draft"}
+                            onChange={(e) => {
+                              startTransition(async () => {
+                                await updateContentBrief(brief.id, { status: e.target.value });
+                              });
+                            }}
+                            className="border border-rule bg-surface-card px-2 py-1 font-sans text-[12px] text-ink focus:border-editorial-red focus:outline-none"
+                          >
+                            <option value="draft">Draft</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="published">Published</option>
+                            <option value="archived">Archived</option>
+                          </select>
+                          <div className="flex-1" />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              if (!confirm(`Delete brief "${brief.target_keyword ?? brief.topic}"?`)) return;
+                              startTransition(async () => {
+                                await deleteContentBrief(brief.id);
+                                setExpandedBriefId(null);
+                              });
+                            }}
+                            disabled={isPending}
+                            className="text-editorial-red hover:bg-editorial-red/10"
+                          >
+                            <Trash2 size={12} />Delete
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm"><Pencil size={12} />Edit</Button>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><ChevronRight size={14} /></Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="recommendations">
+          <RecommendationsTab
+            recommendations={recommendations}
+            itemLabel="page"
+            emptyMessage="Add content pages to generate personalized content optimization recommendations."
+          />
+        </TabsContent>
+
+        <TabsContent value="strategy">
+          <StrategyGuideTab content={strategyContent} />
         </TabsContent>
       </Tabs>
     </div>

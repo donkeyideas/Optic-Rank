@@ -2,15 +2,16 @@
 
 import { useState, useTransition, useEffect, useRef } from "react";
 import { useToast } from "@/components/shared/toast";
+import { useActionProgress } from "@/components/shared/action-progress";
 import {
   GitBranch,
-  Loader2,
   Sparkles,
   TrendingUp,
   TrendingDown,
   Lightbulb,
 } from "lucide-react";
 import { ColumnHeader } from "@/components/editorial/column-header";
+import { AppSelectorStrip } from "@/components/app-store/app-selector-strip";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { AiMarkdown } from "@/components/shared/ai-markdown";
@@ -33,6 +34,7 @@ interface UpdateImpactTabProps {
 export function UpdateImpactTab({ listings, versions, snapshots }: UpdateImpactTabProps) {
   const timezone = useTimezone();
   const { toast } = useToast();
+  const { runAction, isRunning: isActionRunning } = useActionProgress();
   const [selectedListing, setSelectedListing] = useState<string>(listings[0]?.id ?? "");
   const [, startTransition] = useTransition();
   const [actionId, setActionId] = useState<string | null>(null);
@@ -77,26 +79,35 @@ export function UpdateImpactTab({ listings, versions, snapshots }: UpdateImpactT
   }, [selectedListing, listings.length, versions]);
 
   function handleAnalyzeVersion(versionId: string) {
-    setActionId(versionId);
-    startTransition(async () => {
-      const result = await analyzeUpdateImpact(selectedListing, versionId);
-      if ("analysis" in result) setImpactAnalysis((prev) => ({ ...prev, [versionId]: result.analysis }));
-      setActionId(null);
-    });
+    runAction(
+      {
+        title: "Analyzing Version Impact",
+        description: "Evaluating the impact of this app update...",
+        steps: ["Comparing metrics", "Analyzing rating changes", "Reviewing feedback", "Generating report"],
+        estimatedDuration: 15,
+      },
+      async () => {
+        const result = await analyzeUpdateImpact(selectedListing, versionId);
+        if ("analysis" in result) setImpactAnalysis((prev) => ({ ...prev, [versionId]: result.analysis }));
+        return "error" in result ? result : { message: "Impact analysis complete" };
+      }
+    );
   }
 
   function handleRecommendations() {
-    setActionId("recs");
-    startTransition(async () => {
-      const result = await getUpdateRecommendations(selectedListing);
-      if ("recommendations" in result) {
-        setRecommendations(result.recommendations);
-      } else {
-        setRecommendations(null);
-        toast(result.error, "error");
+    runAction(
+      {
+        title: "Generating Update Recommendations",
+        description: "AI is analyzing your app's update history and reviews...",
+        steps: ["Analyzing version history", "Reviewing user feedback", "Identifying improvement areas", "Generating recommendations"],
+        estimatedDuration: 20,
+      },
+      async () => {
+        const result = await getUpdateRecommendations(selectedListing);
+        if ("recommendations" in result) setRecommendations(result.recommendations);
+        return "error" in result ? result : { message: "Recommendations generated" };
       }
-      setActionId(null);
-    });
+    );
   }
 
   if (listings.length === 0) {
@@ -105,19 +116,12 @@ export function UpdateImpactTab({ listings, versions, snapshots }: UpdateImpactT
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Selector */}
+      <AppSelectorStrip listings={listings} selected={selectedListing} onSelect={setSelectedListing} />
+
+      {/* Actions */}
       <div className="flex items-center gap-3 border-b border-rule pb-3">
-        <select
-          value={selectedListing}
-          onChange={(e) => setSelectedListing(e.target.value)}
-          className="h-9 flex-1 border border-rule bg-surface-card px-3 font-sans text-sm text-ink focus:border-editorial-red focus:outline-none"
-        >
-          {listings.map((l) => (
-            <option key={l.id} value={l.id}>{l.app_name} — v{l.current_version ?? "?"}</option>
-          ))}
-        </select>
-        <Button variant="primary" size="sm" onClick={handleRecommendations} disabled={actionId === "recs"}>
-          {actionId === "recs" ? <Loader2 size={12} className="animate-spin" /> : <Lightbulb size={12} />}
+        <Button variant="primary" size="sm" onClick={handleRecommendations} disabled={isActionRunning}>
+          <Lightbulb size={12} />
           Next Update Ideas
         </Button>
       </div>
@@ -204,9 +208,9 @@ export function UpdateImpactTab({ listings, versions, snapshots }: UpdateImpactT
                       variant="outline"
                       size="sm"
                       onClick={() => handleAnalyzeVersion(version.id)}
-                      disabled={actionId === version.id}
+                      disabled={isActionRunning}
                     >
-                      {actionId === version.id ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                      <Sparkles size={10} />
                       Analyze Impact
                     </Button>
                   </div>

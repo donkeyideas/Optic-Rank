@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import {
   Smartphone,
   Search,
@@ -12,8 +12,15 @@ import {
   GitBranch,
   Eye,
   Plus,
+  Zap,
+  Shield,
+  BarChart3,
+  Lightbulb,
+  AlertTriangle,
+  Star,
 } from "lucide-react";
 import { HeadlineBar } from "@/components/editorial/headline-bar";
+import { AppSelectorStrip } from "@/components/app-store/app-selector-strip";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +33,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/shared/empty-state";
+import { useActionProgress } from "@/components/shared/action-progress";
+import { RecommendationsTab, StrategyGuideTab } from "@/components/shared/page-guide";
+import type { Recommendation, StrategyContent } from "@/components/shared/page-guide";
 import { addAppListing, deleteAppListing } from "@/lib/actions/app-store";
+import { runAsoFullSync } from "@/lib/actions/app-store-generate";
 
 import { OverviewTab } from "./tabs/overview-tab";
 import { KeywordsTab } from "./tabs/keywords-tab";
@@ -88,10 +99,37 @@ export function AppStoreClient({
 }: AppStoreClientProps) {
   const [activeTab, setActiveTab] = useState("overview");
   const [showAddListing, setShowAddListing] = useState(false);
+  const [selectedRecsListing, setSelectedRecsListing] = useState<string>("all");
   const [addError, setAddError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const { runAction, isRunning: isActionRunning } = useActionProgress();
+
+  function handleGenerateAll() {
+    runAction(
+      {
+        title: "Running Full ASO Sync",
+        description: `Syncing all ${listings.length} app listing${listings.length !== 1 ? "s" : ""} — keywords, rankings, competitors, reviews, localization...`,
+        steps: [
+          "Refreshing app store data",
+          "Generating & refreshing keywords",
+          "Discovering competitors",
+          "Running ASO analysis",
+          "Extracting review topics",
+          "Recording snapshots",
+          "Analyzing localization opportunities",
+          "Finalizing results",
+        ],
+        estimatedDuration: 60 * listings.length,
+      },
+      async () => {
+        const result = await runAsoFullSync(projectId);
+        if (result.error) return { error: result.error };
+        return { message: `Refreshed ${result.refreshed} app${result.refreshed !== 1 ? "s" : ""} · Analyzed ${result.analyzed}` };
+      }
+    );
+  }
 
   function handleAddListing(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -155,6 +193,185 @@ export function AppStoreClient({
   ];
 
   // Org. Visibility now has its own dedicated tab — removed from headline bar
+
+  const recommendations = useMemo(() => {
+    const recs: Recommendation[] = [];
+
+    listings.forEach((listing) => {
+      // Low ASO score
+      if (listing.aso_score != null && listing.aso_score < 60) {
+        recs.push({
+          id: `aso-${listing.id}`,
+          priority: "high",
+          category: "ASO Score",
+          icon: Target,
+          item: listing.app_name,
+          action: `ASO score is ${listing.aso_score}/100. Optimize your app title, subtitle, and keyword field to improve discoverability.`,
+          where: "Go to the Optimizer tab for keyword suggestions and metadata optimization tips.",
+          estimatedImpact: "Improving ASO score to 80+ can increase organic installs by 30-50%.",
+          details: "Focus on including high-volume keywords in your title and subtitle. Keep descriptions compelling with clear value propositions.",
+        });
+      }
+
+      // Low rating
+      if (listing.rating != null && listing.rating < 4.0) {
+        recs.push({
+          id: `rating-${listing.id}`,
+          priority: "high",
+          category: "User Rating",
+          icon: Star,
+          item: listing.app_name,
+          action: `Average rating is ${listing.rating.toFixed(1)} stars. Address negative reviews and fix reported bugs to improve your rating.`,
+          where: "Check the Reviews tab for common complaints and prioritize bug fixes.",
+          estimatedImpact: "Apps with 4.5+ stars get 2-3x more installs than apps rated below 4.0.",
+          details: "Respond to negative reviews professionally. Show users you're actively improving the app.",
+        });
+      }
+
+      // Missing store URL
+      if (!listing.app_url || !listing.app_url.trim()) {
+        recs.push({
+          id: `store-url-${listing.id}`,
+          priority: "medium",
+          category: "Store Listing",
+          icon: Eye,
+          item: listing.app_name,
+          action: "Add your store URL so we can analyze your full store listing and provide better optimization suggestions.",
+          where: "Update the app listing with the correct App Store or Play Store URL.",
+          estimatedImpact: "Complete listings with store URLs enable comprehensive ASO analysis.",
+          details: "A complete store listing is essential for accurate keyword tracking and competitor comparison.",
+        });
+      }
+    });
+
+    // General recommendations
+    if (listings.length > 0 && rankings.length === 0) {
+      recs.push({
+        id: "track-keywords",
+        priority: "high",
+        category: "Keyword Tracking",
+        icon: Search,
+        item: "No Keywords Tracked",
+        action: "Add keywords to track your app's search rankings. Go to the Keywords tab to add target keywords.",
+        where: "Keywords tab — add keywords you want to rank for in the app store.",
+        estimatedImpact: "Keyword tracking is essential for measuring ASO improvements and finding new opportunities.",
+        details: "Start with your brand keywords, then add category keywords and competitor keywords.",
+      });
+    }
+
+    if (listings.length > 0 && competitors.length === 0) {
+      recs.push({
+        id: "track-competitors",
+        priority: "medium",
+        category: "Competitor Tracking",
+        icon: Users,
+        item: "No Competitors Tracked",
+        action: "Add competitors to compare your ASO performance and discover their keyword strategies.",
+        where: "Competitors tab — add apps that compete for the same users and keywords.",
+        estimatedImpact: "Competitor analysis reveals keyword gaps and positioning opportunities.",
+        details: "Track 3-5 direct competitors and 1-2 category leaders for best insights.",
+      });
+    }
+
+    if (reviews.length > 0) {
+      const negativeReviews = reviews.filter(r => r.rating != null && r.rating <= 2);
+      if (negativeReviews.length > 3) {
+        recs.push({
+          id: "negative-reviews",
+          priority: "medium",
+          category: "Review Management",
+          icon: MessageSquare,
+          item: `${negativeReviews.length} Negative Reviews`,
+          action: "Respond to negative reviews to show engagement and address user concerns. This can improve ratings and conversion.",
+          where: "Reviews tab — sort by lowest rating and respond to each.",
+          estimatedImpact: "Responding to reviews can increase conversion rate by 10-15% and improve your average rating.",
+          details: "Be professional and helpful in responses. Offer solutions and show that you're actively improving the app.",
+        });
+      }
+    }
+
+    if (listings.length === 0) {
+      recs.push({
+        id: "add-listing",
+        priority: "high",
+        category: "Setup",
+        icon: Smartphone,
+        item: "Add Your First App",
+        action: "Add an app listing to start tracking keywords, rankings, reviews, and competitors.",
+        where: "Click 'Add App Listing' at the top of this page.",
+        estimatedImpact: "App Store Optimization can increase organic installs by 30-100% when done correctly.",
+        details: "You'll need the app name, bundle ID, and store URL. Both iOS App Store and Google Play Store are supported.",
+      });
+    }
+
+    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    return recs.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+  }, [listings, rankings, competitors, reviews]);
+
+  const strategyContent: StrategyContent = useMemo(() => ({
+    title: "App Store Optimization (ASO) Strategy Guide",
+    intro: "ASO is the process of improving your app's visibility and conversion rate in app stores. Like SEO for websites, ASO helps users discover your app through organic search.",
+    cards: [
+      {
+        icon: Search,
+        iconColor: "text-editorial-red",
+        title: "Keyword Optimization",
+        bullets: [
+          { bold: "Title keywords", text: "Include your most important keywords in the app title (30 chars iOS, 50 chars Android)." },
+          { bold: "Subtitle/Short description", text: "Add secondary keywords in the subtitle field for additional ranking signals." },
+          { bold: "Keyword field (iOS)", text: "Use all 100 characters. No spaces after commas. Include misspellings and synonyms." },
+        ],
+      },
+      {
+        icon: Eye,
+        iconColor: "text-editorial-gold",
+        title: "Conversion Optimization",
+        bullets: [
+          { bold: "Screenshots", text: "First 2-3 screenshots should showcase your app's core value proposition clearly." },
+          { bold: "App icon", text: "Use a distinctive, recognizable icon that stands out in search results." },
+          { bold: "Preview video", text: "Add a short (15-30 sec) preview video demonstrating key features." },
+        ],
+      },
+      {
+        icon: MessageSquare,
+        iconColor: "text-editorial-green",
+        title: "Review Management",
+        bullets: [
+          { bold: "Prompt for reviews", text: "Ask satisfied users for reviews at peak moments (after achievements, milestones)." },
+          { bold: "Respond to feedback", text: "Reply to negative reviews professionally and show you're fixing issues." },
+          { bold: "Monitor sentiment", text: "Track review topics to identify recurring issues and feature requests." },
+        ],
+      },
+    ],
+    steps: [
+      { step: "1", title: "Add Your App", desc: "Add your app listing with store URL, bundle ID, and category information." },
+      { step: "2", title: "Track Keywords", desc: "Add 20-30 target keywords including brand, category, and competitor keywords." },
+      { step: "3", title: "Optimize Metadata", desc: "Use the Optimizer tab to improve your title, subtitle, and keyword field." },
+      { step: "4", title: "Monitor Rankings", desc: "Track keyword position changes weekly. Identify trending and dropping keywords." },
+      { step: "5", title: "Manage Reviews", desc: "Respond to reviews, track sentiment trends, and use feedback to improve your app." },
+      { step: "6", title: "Analyze Competitors", desc: "Study competitor keywords, ratings, and update strategies for competitive insights." },
+    ],
+    dos: [
+      { text: "Update your app regularly — stores reward consistent update cadence with better visibility." },
+      { text: "A/B test screenshots and descriptions to optimize conversion rate." },
+      { text: "Track keyword rankings weekly and optimize metadata monthly." },
+      { text: "Localize your listing for key markets to expand reach." },
+      { text: "Monitor competitor updates and keyword changes for opportunities." },
+    ],
+    donts: [
+      { text: "Don't keyword-stuff your title — it looks spammy and can get your listing penalized." },
+      { text: "Don't ignore negative reviews — they affect your rating and conversion rate." },
+      { text: "Don't use the same keywords in title and keyword field (iOS) — it wastes characters." },
+      { text: "Don't neglect screenshots — they're the biggest factor in conversion after your icon." },
+      { text: "Don't make major metadata changes right before a holiday or launch — changes need time to index." },
+    ],
+    metrics: [
+      { label: "ASO Score", desc: "Overall optimization quality (0-100). Measures keyword usage, metadata completeness, and best practices.", color: "text-editorial-red" },
+      { label: "Visibility Score", desc: "How discoverable your app is across tracked keywords, weighted by search volume.", color: "text-editorial-gold" },
+      { label: "Average Rating", desc: "Your app's star rating. Apps with 4.5+ stars convert significantly better.", color: "text-editorial-green" },
+      { label: "Keyword Rankings", desc: "Your position in app store search results for tracked keywords.", color: "text-ink" },
+    ],
+  }), []);
 
   function renderAddDialog() {
     return (
@@ -232,9 +449,20 @@ export function AppStoreClient({
             {listings.length} app{listings.length !== 1 ? "s" : ""} tracked · {competitors.length} competitors · {reviews.length} reviews
           </p>
         </div>
-        <Button variant="primary" size="sm" onClick={() => setShowAddListing(true)}>
-          <Plus size={14} /> Add App
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={isActionRunning}
+            onClick={handleGenerateAll}
+          >
+            <Zap size={14} />
+            Generate All
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowAddListing(true)}>
+            <Plus size={14} /> Add App
+          </Button>
+        </div>
       </div>
 
       {statusMsg && (
@@ -244,7 +472,7 @@ export function AppStoreClient({
         </div>
       )}
 
-      {/* 8 Tabs */}
+      {/* 11 Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="overview">
@@ -266,13 +494,19 @@ export function AppStoreClient({
             <Target size={12} className="mr-1.5" /> Optimizer
           </TabsTrigger>
           <TabsTrigger value="store-intel">
-            <TrendingUp size={12} className="mr-1.5" /> Store Intel
+            <TrendingUp size={12} className="mr-1.5" /> Intel
           </TabsTrigger>
           <TabsTrigger value="localization">
-            <Globe size={12} className="mr-1.5" /> Localization
+            <Globe size={12} className="mr-1.5" /> Locale
           </TabsTrigger>
           <TabsTrigger value="update-impact">
-            <GitBranch size={12} className="mr-1.5" /> Update Impact
+            <GitBranch size={12} className="mr-1.5" /> Updates
+          </TabsTrigger>
+          <TabsTrigger value="recommendations">
+            <Lightbulb size={12} className="mr-1.5" /> Recs
+          </TabsTrigger>
+          <TabsTrigger value="strategy">
+            <BarChart3 size={12} className="mr-1.5" /> Strategy
           </TabsTrigger>
         </TabsList>
 
@@ -341,6 +575,27 @@ export function AppStoreClient({
             versions={versions}
             snapshots={snapshots}
           />
+        </TabsContent>
+
+        <TabsContent value="recommendations">
+          <AppSelectorStrip listings={listings} selected={selectedRecsListing} onSelect={setSelectedRecsListing} showAll />
+          <RecommendationsTab
+            recommendations={
+              selectedRecsListing === "all"
+                ? recommendations
+                : recommendations.filter((r) => {
+                    const match = listings.find((l) => l.id === selectedRecsListing);
+                    return match ? r.item === match.app_name : true;
+                  })
+            }
+            itemLabel="app"
+            emptyMessage="Add app listings to generate personalized ASO recommendations."
+          />
+        </TabsContent>
+
+        <TabsContent value="strategy">
+          <AppSelectorStrip listings={listings} selected={selectedRecsListing} onSelect={setSelectedRecsListing} showAll />
+          <StrategyGuideTab content={strategyContent} />
         </TabsContent>
       </Tabs>
 

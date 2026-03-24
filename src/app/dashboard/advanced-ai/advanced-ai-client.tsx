@@ -9,14 +9,22 @@ import {
   Sparkles,
   Brain,
   Lightbulb,
+  Zap,
 } from "lucide-react";
 import { HeadlineBar } from "@/components/editorial/headline-bar";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useActionProgress } from "@/components/shared/action-progress";
 import { AIVisibilityClient } from "@/app/dashboard/ai-visibility/ai-visibility-client";
 import { PredictionsClient } from "@/app/dashboard/predictions/predictions-client";
 import { EntitiesClient } from "@/app/dashboard/entities/entities-client";
 import { AIBriefsClient } from "@/app/dashboard/ai-briefs/ai-briefs-client";
 import { AIInsightsClient } from "@/app/dashboard/ai-insights/ai-insights-client";
+import { generateInsightsForProject } from "@/lib/actions/insights";
+import { runVisibilityCheck } from "@/lib/actions/ai-visibility";
+import { generatePredictions } from "@/lib/actions/predictions";
+import { extractProjectEntities } from "@/lib/actions/entities";
+import { generateBrief } from "@/lib/actions/briefs";
 import type { VisibilityStats, KeywordVisibility } from "@/lib/dal/ai-visibility";
 import type { PredictionStats, PredictionWithKeyword } from "@/lib/dal/predictions";
 import type { EntityStats } from "@/lib/dal/entities";
@@ -90,6 +98,45 @@ export function AdvancedAIClient({
   insightStats,
 }: AdvancedAIClientProps) {
   const [activeTab, setActiveTab] = useState<TabId>("insights");
+  const { runAction, isRunning: isActionRunning } = useActionProgress();
+
+  function handleGenerateAll() {
+    runAction(
+      {
+        title: "Generating All AI Modules",
+        description: "Running all 5 AI intelligence modules for your project...",
+        steps: [
+          "Generating AI Insights",
+          "Running LLM Visibility Check",
+          "Generating Rank Predictions",
+          "Extracting Entities",
+          "Generating AI Brief",
+          "Finalizing results",
+        ],
+        estimatedDuration: 90,
+      },
+      async () => {
+        const results: string[] = [];
+
+        const r1 = await generateInsightsForProject(projectId);
+        results.push("error" in r1 ? `Insights: ${r1.error}` : `Insights: ${r1.generated} generated`);
+
+        const r2 = await runVisibilityCheck(projectId);
+        results.push("error" in r2 ? `Visibility: ${r2.error}` : `Visibility: ${r2.checksRun} checks`);
+
+        const r3 = await generatePredictions(projectId);
+        results.push("error" in r3 ? `Predictions: ${r3.error}` : `Predictions: ${r3.predicted} generated`);
+
+        const r4 = await extractProjectEntities(projectId);
+        results.push("error" in r4 ? `Entities: ${r4.error}` : `Entities: ${r4.extracted} extracted`);
+
+        const r5 = await generateBrief(projectId, "on_demand");
+        results.push("error" in r5 ? `Brief: ${r5.error}` : "Brief: generated");
+
+        return { message: results.join(" · ") };
+      }
+    );
+  }
 
   const headlineStats = [
     {
@@ -128,19 +175,31 @@ export function AdvancedAIClient({
 
       {/* Page Header */}
       <div className="border-b border-rule pb-4">
-        <div className="flex items-center gap-3">
-          <Brain size={24} className="text-editorial-red" />
-          <div>
-            <h1 className="font-serif text-2xl font-bold text-ink">
-              Advanced AI
-            </h1>
-            <p className="mt-1 font-sans text-sm text-ink-secondary">
-              AI-powered intelligence modules for{" "}
-              <span className="font-semibold">{projectDomain}</span> &mdash;
-              insights, visibility tracking, rank predictions, entity
-              optimization &amp; automated briefings
-            </p>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Brain size={24} className="text-editorial-red" />
+            <div>
+              <h1 className="font-serif text-2xl font-bold text-ink">
+                Advanced AI
+              </h1>
+              <p className="mt-1 font-sans text-sm text-ink-secondary">
+                AI-powered intelligence modules for{" "}
+                <span className="font-semibold">{projectDomain}</span> &mdash;
+                insights, visibility tracking, rank predictions, entity
+                optimization &amp; automated briefings
+              </p>
+            </div>
           </div>
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={isActionRunning}
+            onClick={handleGenerateAll}
+            className="shrink-0"
+          >
+            <Zap size={14} />
+            Generate All
+          </Button>
         </div>
       </div>
 

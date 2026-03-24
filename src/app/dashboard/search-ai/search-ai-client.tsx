@@ -20,6 +20,7 @@ import {
   Check,
   X,
   Zap,
+  Lightbulb,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,6 +43,8 @@ import {
   PolarRadiusAxis,
 } from "recharts";
 import type { GeoStats, GeoPageScore, CitationMatrixEntry, SchemaAuditData, CroStats, KeywordWithRevenue } from "@/lib/dal/optimization";
+import { RecommendationsTab, StrategyGuideTab } from "@/components/shared/page-guide";
+import type { Recommendation, StrategyContent } from "@/components/shared/page-guide";
 import type { SnippetOpportunity, AnswerReadiness, VoiceSearchKeyword } from "@/lib/ai/aeo-analysis";
 import type { VisibilityStats } from "@/lib/dal/ai-visibility";
 import type { SiteAudit, AIVisibilityCheck } from "@/types";
@@ -54,9 +57,11 @@ const TABS = [
   { id: "aeo", label: "AEO", icon: MessageSquare, color: "bg-editorial-gold" },
   { id: "geo", label: "GEO", icon: Brain, color: "bg-editorial-green" },
   { id: "cro", label: "CRO", icon: Target, color: "bg-[#8b5cf6]" },
-] as const;
+  { id: "recommendations", label: "Recommendations", icon: Lightbulb, color: "bg-editorial-gold" },
+  { id: "strategy", label: "Strategy Guide", icon: FileText, color: "bg-editorial-green" },
+];
 
-type TabId = (typeof TABS)[number]["id"];
+type TabId = "summary" | "seo" | "aeo" | "geo" | "cro" | "recommendations" | "strategy";
 
 /* ── Interfaces ────────────────────────────────────────────────── */
 
@@ -334,6 +339,226 @@ export function SearchAIClient(props: SearchAIClientProps) {
 
   const overallScore = Math.round((seoScore + technicalScore + contentScore + geoScore + aeoScore + croScore) / 6);
 
+  /* ── Recommendations ── */
+  const recommendations = useMemo(() => {
+    const recs: Recommendation[] = [];
+
+    // SEO recommendations
+    if (props.latestAudit) {
+      if (props.latestAudit.health_score != null && props.latestAudit.health_score < 70) {
+        recs.push({
+          id: "seo-health",
+          priority: "high",
+          category: "SEO Health",
+          icon: Shield,
+          item: `Site Health: ${props.latestAudit.health_score}/100`,
+          action: "Your site health needs improvement. Fix critical technical issues to establish a strong SEO foundation.",
+          where: "Go to the Site Audit page for detailed issue breakdown and fix recommendations.",
+          estimatedImpact: "Improving health score to 80+ is a prerequisite for ranking improvements across all channels.",
+          details: "Technical SEO is the foundation — AEO, GEO, and CRO optimizations won't help if basic SEO is broken.",
+        });
+      }
+    }
+
+    // AEO recommendations
+    if (props.snippetOpportunities.length > 0) {
+      const highOpp = props.snippetOpportunities.filter(s => s.score > 70);
+      if (highOpp.length > 0) {
+        recs.push({
+          id: "aeo-snippets",
+          priority: "high",
+          category: "AEO — Featured Snippets",
+          icon: MessageSquare,
+          item: `${highOpp.length} High-Potential Snippet Opportunities`,
+          action: "Structure content with clear Q&A format, lists, and tables to capture featured snippets for these queries.",
+          where: "Check the AEO tab for specific snippet opportunities and readiness scores.",
+          estimatedImpact: "Featured snippets get 8-12% of clicks and position your brand as the authoritative answer.",
+          details: "Focus on queries where you already rank in top 10 — these have the highest chance of winning the snippet.",
+        });
+      }
+    }
+
+    if (props.answerReadiness.length > 0) {
+      const lowReadiness = props.answerReadiness.filter(a => a.score < 50);
+      if (lowReadiness.length > 3) {
+        recs.push({
+          id: "aeo-readiness",
+          priority: "medium",
+          category: "AEO — Answer Readiness",
+          icon: Bot,
+          item: `${lowReadiness.length} Pages with Low Answer Readiness`,
+          action: "Improve answer readiness by adding structured Q&A sections, concise definitions, and clear step-by-step instructions.",
+          where: "AEO tab — review pages with low readiness scores.",
+          estimatedImpact: "Higher answer readiness increases chances of being cited by AI assistants and voice search.",
+          details: "AI engines prefer content with clear, authoritative answers near the top of the page.",
+        });
+      }
+    }
+
+    // Voice search
+    if (props.voiceSearchKeywords.length > 0) {
+      recs.push({
+        id: "voice-search",
+        priority: "medium",
+        category: "AEO — Voice Search",
+        icon: MessageSquare,
+        item: `${props.voiceSearchKeywords.length} Voice Search Keywords`,
+        action: "Optimize for voice search by using conversational language, question phrases, and concise answers.",
+        where: "AEO tab — review voice search keywords and adapt your content accordingly.",
+        estimatedImpact: "Voice search is growing 20% yearly. Early optimization gives you a significant advantage.",
+        details: "Voice queries are typically longer and conversational. Use natural language and FAQ formats.",
+      });
+    }
+
+    // GEO recommendations
+    if (props.geoStats.avgGeoScore < 60) {
+      recs.push({
+        id: "geo-score",
+        priority: "high",
+        category: "GEO — AI Visibility",
+        icon: Brain,
+        item: `GEO Score: ${props.geoStats.avgGeoScore}/100`,
+        action: "Improve your Generative Engine Optimization score. Structure content to be cited by AI models like ChatGPT, Gemini, and Perplexity.",
+        where: "Check the GEO tab for page-level scores and optimization suggestions.",
+        estimatedImpact: "AI-powered search is rapidly growing. High GEO scores mean your brand appears in AI-generated answers.",
+        details: "Focus on authoritative content, clear entity definitions, and comprehensive topic coverage.",
+      });
+    }
+
+    if (props.citationMatrix.length > 0) {
+      const lowCitation = props.citationMatrix.filter(c => !c.mentioned);
+      if (lowCitation.length > 3) {
+        recs.push({
+          id: "geo-citations",
+          priority: "medium",
+          category: "GEO — Citations",
+          icon: Globe,
+          item: `${lowCitation.length} Topics with Low AI Citations`,
+          action: "Create more authoritative, well-structured content for these topics to increase AI citation frequency.",
+          where: "GEO tab — review the citation matrix for underperforming topics.",
+          estimatedImpact: "Increasing citations in AI responses directly drives qualified traffic from AI-powered search.",
+          details: "AI models cite content that is authoritative, well-structured, and provides unique insights.",
+        });
+      }
+    }
+
+    // CRO recommendations
+    if (props.croStats.estimatedMonthlyRevenue < 100 && props.keywords.length > 0) {
+      recs.push({
+        id: "cro-conversion",
+        priority: "high",
+        category: "CRO — Conversion",
+        icon: Target,
+        item: `Est. Monthly Revenue: $${props.croStats.estimatedMonthlyRevenue.toLocaleString()}`,
+        action: "Improve conversion rates by optimizing CTAs, page layouts, and user experience on high-traffic pages.",
+        where: "Check the CRO tab for page-level conversion data and revenue opportunities.",
+        estimatedImpact: "Improving conversion rate from 1% to 2% effectively doubles your revenue from existing traffic.",
+        details: "Focus on high-traffic, low-converting pages first — these offer the biggest ROI improvements.",
+      });
+    }
+
+    if (props.keywordsWithRevenue.length > 0) {
+      const highRevenue = props.keywordsWithRevenue.filter(k => k.estimatedRevenue > 1000);
+      if (highRevenue.length > 0) {
+        recs.push({
+          id: "cro-revenue",
+          priority: "medium",
+          category: "CRO — Revenue",
+          icon: Zap,
+          item: `${highRevenue.length} High-Revenue Keywords`,
+          action: "Prioritize ranking improvements for keywords with the highest revenue potential.",
+          where: "CRO tab — sort by revenue potential and focus on top opportunities.",
+          estimatedImpact: `Top ${highRevenue.length} keywords represent significant monthly revenue potential.`,
+          details: "Revenue-focused optimization means prioritizing keywords by business value, not just search volume.",
+        });
+      }
+    }
+
+    // Schema audit
+    if (props.schemaAudit && props.schemaAudit.totalPages > 0 && props.schemaAudit.coveragePct < 50) {
+      recs.push({
+        id: "schema-coverage",
+        priority: "medium",
+        category: "Technical — Schema",
+        icon: FileText,
+        item: `Schema Coverage: ${props.schemaAudit.coveragePct}%`,
+        action: "Add structured data markup to more pages to improve rich result eligibility across search engines.",
+        where: "AEO tab — review the schema audit section for specific recommendations.",
+        estimatedImpact: "Proper schema markup increases rich result eligibility by 2-4x and improves click-through rates.",
+        details: "Priority schema types: FAQ, HowTo, Article, Product, LocalBusiness, and Organization.",
+      });
+    }
+
+    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    return recs.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+  }, [props.latestAudit, props.snippetOpportunities, props.answerReadiness, props.voiceSearchKeywords, props.geoStats, props.citationMatrix, props.croStats, props.keywordsWithRevenue, props.schemaAudit, props.keywords]);
+
+  /* ── Strategy Guide ── */
+  const strategyContent: StrategyContent = useMemo(() => ({
+    title: "Search & AI Optimization Strategy Guide",
+    intro: "Modern SEO goes beyond traditional search. This guide covers SEO, AEO (Answer Engine Optimization), GEO (Generative Engine Optimization), and CRO (Conversion Rate Optimization) for comprehensive search visibility.",
+    cards: [
+      {
+        icon: Search,
+        iconColor: "text-editorial-red",
+        title: "SEO Fundamentals",
+        bullets: [
+          { bold: "Technical foundation", text: "Ensure your site is fast, mobile-friendly, and free of critical errors." },
+          { bold: "On-page optimization", text: "Optimize titles, meta descriptions, headings, and content for target keywords." },
+          { bold: "Content quality", text: "Create comprehensive, authoritative content that matches search intent." },
+        ],
+      },
+      {
+        icon: MessageSquare,
+        iconColor: "text-editorial-gold",
+        title: "AEO & Voice Search",
+        bullets: [
+          { bold: "Featured snippets", text: "Structure content for featured snippet capture — use Q&A format, lists, and tables." },
+          { bold: "Voice optimization", text: "Target conversational queries and provide concise, direct answers." },
+          { bold: "Schema markup", text: "Implement structured data (FAQ, HowTo, Article) for rich result eligibility." },
+        ],
+      },
+      {
+        icon: Brain,
+        iconColor: "text-editorial-green",
+        title: "GEO & CRO",
+        bullets: [
+          { bold: "AI visibility", text: "Optimize content to be cited by AI models — structure, authority, and clarity matter." },
+          { bold: "Conversion optimization", text: "Turn organic traffic into revenue with optimized CTAs and user experience." },
+          { bold: "Revenue keywords", text: "Prioritize keyword optimization by business value, not just search volume." },
+        ],
+      },
+    ],
+    steps: [
+      { step: "1", title: "Audit Your SEO", desc: "Run a technical site audit to establish your baseline scores across SEO, AEO, GEO, and CRO." },
+      { step: "2", title: "Fix Technical Issues", desc: "Address critical SEO issues first — they block all other optimization efforts." },
+      { step: "3", title: "Optimize for Snippets", desc: "Identify high-potential snippet opportunities and restructure content to capture them." },
+      { step: "4", title: "Improve AI Visibility", desc: "Enhance your GEO score by adding authoritative, well-structured content that AI models prefer to cite." },
+      { step: "5", title: "Optimize Conversions", desc: "Focus CRO efforts on high-traffic pages with the most revenue potential." },
+      { step: "6", title: "Monitor All Channels", desc: "Track performance across SEO, AEO, GEO, and CRO monthly. Adjust strategy based on data." },
+    ],
+    dos: [
+      { text: "Optimize for multiple search channels simultaneously — traditional, voice, and AI-powered search." },
+      { text: "Use structured data markup on every page to improve rich result eligibility." },
+      { text: "Create content that directly answers questions — AI engines and featured snippets reward this." },
+      { text: "Prioritize optimizations by revenue potential, not just traffic volume." },
+      { text: "Monitor AI visibility trends — this is the fastest-growing search channel." },
+    ],
+    donts: [
+      { text: "Don't focus only on traditional SEO rankings — AI search is changing how users find information." },
+      { text: "Don't ignore voice search — it's growing rapidly and requires different optimization strategies." },
+      { text: "Don't optimize for traffic without considering conversion — high traffic with low conversion wastes potential." },
+      { text: "Don't skip schema markup — it's a low-effort, high-impact optimization." },
+      { text: "Don't treat SEO, AEO, GEO, and CRO as separate silos — they work best as an integrated strategy." },
+    ],
+    metrics: [
+      { label: "SEO Score", desc: "Traditional search engine optimization quality. Measures technical health, on-page factors, and content quality.", color: "text-editorial-red" },
+      { label: "AEO Score", desc: "Answer Engine Optimization — how well your content is structured for featured snippets and voice search.", color: "text-editorial-gold" },
+      { label: "GEO Score", desc: "Generative Engine Optimization — likelihood of being cited by AI models like ChatGPT and Gemini.", color: "text-editorial-green" },
+      { label: "CRO Score", desc: "Conversion Rate Optimization — how effectively your organic traffic converts to business outcomes.", color: "text-ink" },
+    ],
+  }), []);
+
   return (
     <div className="space-y-6">
       {/* ── Header ── */}
@@ -345,14 +570,14 @@ export function SearchAIClient(props: SearchAIClientProps) {
       </div>
 
       {/* ── Tab Navigation ── */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => setActiveTab(tab.id as TabId)}
               className={cn(
                 "flex items-center gap-2 px-5 py-2.5 text-sm font-bold uppercase tracking-widest transition-colors",
                 isActive
@@ -430,6 +655,16 @@ export function SearchAIClient(props: SearchAIClientProps) {
           keywords={props.keywords}
           contentPages={props.contentPages}
         />
+      )}
+      {activeTab === "recommendations" && (
+        <RecommendationsTab
+          recommendations={recommendations}
+          itemLabel="item"
+          emptyMessage="Run analyses to generate personalized search optimization recommendations."
+        />
+      )}
+      {activeTab === "strategy" && (
+        <StrategyGuideTab content={strategyContent} />
       )}
     </div>
   );

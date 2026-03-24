@@ -16,6 +16,7 @@ import {
   Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useActionProgress } from "@/components/shared/action-progress";
 import { AsoRatingTrendChart } from "@/components/charts/aso-rating-trend-chart";
 import {
   refreshAppListing,
@@ -70,6 +71,7 @@ export function OverviewTab({
   const [, startTransition] = useTransition();
   const [actionId, setActionId] = useState<string | null>(null);
   const [asoResults, setAsoResults] = useState<Record<string, { score: number; recs: string[] }>>({});
+  const { runAction, isRunning: isActionRunning } = useActionProgress();
 
   function handleRefresh(listingId: string) {
     setActionId(listingId);
@@ -85,43 +87,55 @@ export function OverviewTab({
   }
 
   function handleAnalyze(listingId: string) {
-    setActionId(listingId);
-    startTransition(async () => {
-      const result = await analyzeAppListing(listingId);
-      if ("error" in result) onStatusMsg(`Error: ${result.error}`);
-      else {
+    runAction(
+      {
+        title: "Analyzing ASO Score",
+        description: "Running AI analysis on your app store listing...",
+        steps: ["Reading app metadata", "Analyzing keywords", "Evaluating store listing", "Scoring optimization", "Generating recommendations"],
+        estimatedDuration: 20,
+      },
+      async () => {
+        const result = await analyzeAppListing(listingId);
+        if ("error" in result) return result;
         setAsoResults((prev) => ({ ...prev, [listingId]: { score: result.score, recs: result.recommendations } }));
-        onStatusMsg(`ASO Score: ${result.score}/100`);
         router.refresh();
+        return { message: `ASO Score: ${result.score}/100` };
       }
-      setActionId(null);
-    });
+    );
   }
 
   function handleGenerateKeywords(listingId: string) {
-    setActionId(listingId);
-    startTransition(async () => {
-      const result = await generateAppKeywords(listingId);
-      if ("error" in result) onStatusMsg(`Error: ${result.error}`);
-      else {
-        onStatusMsg(`Generated ${result.keywords.length} keywords`);
+    runAction(
+      {
+        title: "Generating App Keywords",
+        description: "AI is discovering high-value keywords for your app...",
+        steps: ["Analyzing app category", "Researching search trends", "Evaluating competition", "Scoring opportunities", "Generating keyword list"],
+        estimatedDuration: 20,
+      },
+      async () => {
+        const result = await generateAppKeywords(listingId);
+        if ("error" in result) return result;
         router.refresh();
+        return { message: `Generated ${result.keywords.length} keywords` };
       }
-      setActionId(null);
-    });
+    );
   }
 
   function handleDiscoverCompetitors(listingId: string) {
-    setActionId(listingId);
-    startTransition(async () => {
-      const result = await discoverCompetitors(listingId);
-      if ("error" in result) onStatusMsg(`Error: ${result.error}`);
-      else {
-        onStatusMsg(`Discovered ${result.discovered.length} potential competitors`);
+    runAction(
+      {
+        title: "Discovering Competitors",
+        description: "Searching app stores for similar apps...",
+        steps: ["Searching app stores", "Analyzing app categories", "Comparing feature sets", "Ranking similarity scores", "Compiling results"],
+        estimatedDuration: 20,
+      },
+      async () => {
+        const result = await discoverCompetitors(listingId);
+        if ("error" in result) return result;
         router.refresh();
+        return { message: `Discovered ${result.discovered.length} potential competitors` };
       }
-      setActionId(null);
-    });
+    );
   }
 
   return (
@@ -271,16 +285,16 @@ export function OverviewTab({
 
             {/* Actions */}
             <div className="flex gap-2 p-4">
-              <Button variant="outline" size="sm" className="flex-1" onClick={() => handleGenerateKeywords(listing.id)} disabled={actionId === listing.id}>
-                {actionId === listing.id ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+              <Button variant="outline" size="sm" className="flex-1" onClick={() => handleGenerateKeywords(listing.id)} disabled={isActionRunning}>
+                <Sparkles size={12} />
                 Gen Keywords
               </Button>
-              <Button variant="outline" size="sm" className="flex-1" onClick={() => handleAnalyze(listing.id)} disabled={actionId === listing.id}>
-                {actionId === listing.id ? <Loader2 size={12} className="animate-spin" /> : <BarChart3 size={12} />}
+              <Button variant="outline" size="sm" className="flex-1" onClick={() => handleAnalyze(listing.id)} disabled={isActionRunning}>
+                <BarChart3 size={12} />
                 ASO Score
               </Button>
-              <Button variant="outline" size="sm" className="flex-1" onClick={() => handleDiscoverCompetitors(listing.id)} disabled={actionId === listing.id}>
-                {actionId === listing.id ? <Loader2 size={12} className="animate-spin" /> : <Users size={12} />}
+              <Button variant="outline" size="sm" className="flex-1" onClick={() => handleDiscoverCompetitors(listing.id)} disabled={isActionRunning}>
+                <Users size={12} />
                 Discover
               </Button>
             </div>

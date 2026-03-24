@@ -18,6 +18,8 @@ import {
   Square,
 } from "lucide-react";
 import { ColumnHeader } from "@/components/editorial/column-header";
+import { AppSelectorStrip } from "@/components/app-store/app-selector-strip";
+import { useActionProgress } from "@/components/shared/action-progress";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -76,6 +78,7 @@ const TOPIC_LABELS: Record<string, string> = {
 
 export function ReviewsTab({ listings, reviews, topics }: ReviewsTabProps) {
   const timezone = useTimezone();
+  const { runAction, isRunning: isActionRunning } = useActionProgress();
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [actionId, setActionId] = useState<string | null>(null);
@@ -117,25 +120,39 @@ export function ReviewsTab({ listings, reviews, topics }: ReviewsTabProps) {
   }
 
   function handleExtractTopics(listingId: string) {
-    setActionId("topics-" + listingId);
-    startTransition(async () => {
-      await extractReviewTopics(listingId);
-      router.refresh();
-      setActionId(null);
-    });
+    runAction(
+      {
+        title: "Extracting Review Topics",
+        description: "AI is analyzing reviews to identify common themes...",
+        steps: ["Reading reviews", "Analyzing sentiment", "Identifying topics", "Categorizing themes"],
+        estimatedDuration: 20,
+      },
+      async () => {
+        await extractReviewTopics(listingId);
+        router.refresh();
+        return { message: "Topics extracted successfully" };
+      }
+    );
   }
 
   function handleBulkReply() {
     if (selectedReviews.size === 0) return;
     const listingId = reviews.find((r) => selectedReviews.has(r.id))?.listing_id;
     if (!listingId) return;
-    setActionId("bulk-reply");
-    startTransition(async () => {
-      await bulkGenerateReplies(listingId, Array.from(selectedReviews));
-      setSelectedReviews(new Set());
-      router.refresh();
-      setActionId(null);
-    });
+    runAction(
+      {
+        title: "Generating Review Replies",
+        description: `Generating AI replies for ${selectedReviews.size} review${selectedReviews.size !== 1 ? "s" : ""}...`,
+        steps: ["Analyzing reviews", "Crafting personalized replies", "Saving responses"],
+        estimatedDuration: 10 * selectedReviews.size,
+      },
+      async () => {
+        await bulkGenerateReplies(listingId, Array.from(selectedReviews));
+        setSelectedReviews(new Set());
+        router.refresh();
+        return { message: `Generated ${selectedReviews.size} replies` };
+      }
+    );
   }
 
   function toggleReviewSelection(id: string) {
@@ -202,9 +219,9 @@ export function ReviewsTab({ listings, reviews, topics }: ReviewsTabProps) {
                 variant="outline"
                 size="sm"
                 onClick={() => handleExtractTopics(l.id)}
-                disabled={actionId === "topics-" + l.id}
+                disabled={isActionRunning}
               >
-                {actionId === "topics-" + l.id ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                {isActionRunning ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
                 Extract Topics {listings.length > 1 ? `(${l.app_name})` : ""}
               </Button>
             ))}
@@ -235,14 +252,7 @@ export function ReviewsTab({ listings, reviews, topics }: ReviewsTabProps) {
       {/* Filters + Bulk Actions */}
       <div className="flex items-center justify-between border-b border-rule pb-3">
         <div className="flex items-center gap-2">
-          <select
-            value={selectedListing}
-            onChange={(e) => setSelectedListing(e.target.value)}
-            className="h-8 border border-rule bg-surface-card px-2 text-xs text-ink focus:border-editorial-red focus:outline-none"
-          >
-            <option value="all">All Apps</option>
-            {listings.map((l) => (<option key={l.id} value={l.id}>{l.app_name}</option>))}
-          </select>
+          <AppSelectorStrip listings={listings} selected={selectedListing} onSelect={setSelectedListing} showAll />
           {["all", "positive", "neutral", "negative"].map((s) => (
             <button
               key={s}
@@ -265,8 +275,8 @@ export function ReviewsTab({ listings, reviews, topics }: ReviewsTabProps) {
           ))}
         </div>
         {selectedReviews.size > 0 && (
-          <Button variant="primary" size="sm" onClick={handleBulkReply} disabled={actionId === "bulk-reply"}>
-            {actionId === "bulk-reply" ? <Loader2 size={12} className="animate-spin" /> : <Reply size={12} />}
+          <Button variant="primary" size="sm" onClick={handleBulkReply} disabled={isActionRunning}>
+            {isActionRunning ? <Loader2 size={12} className="animate-spin" /> : <Reply size={12} />}
             Bulk Reply ({selectedReviews.size})
           </Button>
         )}

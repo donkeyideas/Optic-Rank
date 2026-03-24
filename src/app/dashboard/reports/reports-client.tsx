@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { createScheduledReport, deleteScheduledReport, toggleScheduledReport, generateReport } from "@/lib/actions/reports";
-import { ALL_SECTIONS, type ReportSection } from "@/lib/pdf/generate-report";
+import { ALL_SECTIONS, type ReportSection } from "@/lib/pdf/report-constants";
 
 /* ------------------------------------------------------------------
    Props

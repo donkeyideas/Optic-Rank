@@ -659,6 +659,51 @@ export async function generateCalendarEntries(
  * Generate content briefs from the project's tracked keywords.
  * Uses AI to create title suggestions, outlines, and target metrics.
  */
+/**
+ * Update a content brief's fields.
+ */
+export async function updateContentBrief(
+  briefId: string,
+  updates: { status?: string; target_keyword?: string; target_word_count?: number }
+): Promise<{ error: string } | { success: true }> {
+  const userClient = await createClient();
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("content_briefs")
+    .update(updates)
+    .eq("id", briefId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard/content");
+  return { success: true };
+}
+
+/**
+ * Delete a content brief by ID.
+ */
+export async function deleteContentBrief(
+  briefId: string
+): Promise<{ error: string } | { success: true }> {
+  const userClient = await createClient();
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("content_briefs")
+    .delete()
+    .eq("id", briefId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard/content");
+  return { success: true };
+}
+
 export async function generateContentBriefs(
   projectId: string
 ): Promise<{ error: string } | { success: true; generated: number }> {

@@ -509,18 +509,24 @@ export function SettingsClient({
                       />
                     </div>
                     <div className="flex items-center gap-3">
-                      <Badge variant="default">{organization.plan} Plan</Badge>
-                      <Badge
-                        variant={
-                          organization.subscription_status === "active"
-                            ? "success"
-                            : organization.subscription_status === "trialing"
-                              ? "info"
-                              : "warning"
-                        }
-                      >
-                        {organization.subscription_status}
-                      </Badge>
+                      {profile.comp_account ? (
+                        <Badge variant="success">Unlimited — Complimentary</Badge>
+                      ) : (
+                        <>
+                          <Badge variant="default">{organization.plan} Plan</Badge>
+                          <Badge
+                            variant={
+                              organization.subscription_status === "active"
+                                ? "success"
+                                : organization.subscription_status === "trialing"
+                                  ? "info"
+                                  : "warning"
+                            }
+                          >
+                            {organization.subscription_status}
+                          </Badge>
+                        </>
+                      )}
                     </div>
                   </div>
                 </>
@@ -1065,6 +1071,7 @@ export function SettingsClient({
               organization={organization}
               usage={usage}
               billingEvents={billingEvents}
+              isCompAccount={profile.comp_account}
             />
           ) : (
             <EmptyState

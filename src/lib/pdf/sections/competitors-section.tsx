@@ -17,10 +17,9 @@ export function CompetitorsSection({
 }) {
   const rows = competitors.map((c) => [
     c.domain,
-    c.visibilityScore.toFixed(1),
-    c.totalKeywords,
-    c.avgPosition.toFixed(1),
-    c.commonKeywords,
+    c.visibilityScore.toFixed(0),
+    c.totalKeywords.toLocaleString(),
+    c.commonKeywords.toLocaleString(),
   ]);
 
   return (
@@ -29,9 +28,9 @@ export function CompetitorsSection({
 
       {rows.length > 0 ? (
         <PDFTable
-          headers={["Competitor", "Visibility", "Keywords", "Avg Position", "Common KWs"]}
+          headers={["Competitor", "Authority", "Keywords", "Organic Traffic"]}
           rows={rows}
-          widths={[160, 70, 65, 70, 70]}
+          widths={[180, 70, 80, 100]}
         />
       ) : (
         <Text style={s.muted}>No competitor data available.</Text>
@@ -42,10 +41,10 @@ export function CompetitorsSection({
 
 export function buildCompetitorRows(raw: Record<string, unknown>[]): CompetitorRow[] {
   return raw.map((c) => ({
-    domain: String(c.competitor_domain ?? c.domain ?? "—"),
-    visibilityScore: typeof c.visibility_score === "number" ? c.visibility_score : 0,
-    totalKeywords: typeof c.total_keywords === "number" ? c.total_keywords : 0,
-    avgPosition: typeof c.avg_position === "number" ? c.avg_position : 0,
-    commonKeywords: typeof c.common_keywords === "number" ? c.common_keywords : 0,
+    domain: String(c.domain ?? c.name ?? "—"),
+    visibilityScore: typeof c.authority_score === "number" ? c.authority_score : 0,
+    totalKeywords: typeof c.keywords_count === "number" ? c.keywords_count : 0,
+    avgPosition: 0,
+    commonKeywords: typeof c.organic_traffic === "number" ? c.organic_traffic : 0,
   }));
 }

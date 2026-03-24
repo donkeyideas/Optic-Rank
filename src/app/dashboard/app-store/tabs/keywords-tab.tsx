@@ -1,17 +1,18 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/shared/toast";
+import { useActionProgress } from "@/components/shared/action-progress";
 import {
   Search,
   ChevronDown,
   ChevronRight,
-  Loader2,
   Sparkles,
   RefreshCw,
 } from "lucide-react";
 import { ColumnHeader } from "@/components/editorial/column-header";
+import { AppSelectorStrip } from "@/components/app-store/app-selector-strip";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -38,12 +39,13 @@ interface KeywordsTabProps {
 export function KeywordsTab({ listings, rankings, keywordHistory }: KeywordsTabProps) {
   const timezone = useTimezone();
   const { toast } = useToast();
+  const { runAction, isRunning: isActionRunning } = useActionProgress();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [storeFilter, setStoreFilter] = useState<"all" | "apple" | "google">("all");
+  const [selectedListing, setSelectedListing] = useState<string>("all");
   const [expandedKeyword, setExpandedKeyword] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
-  const [actionId, setActionId] = useState<string | null>(null);
+
   // Local rankings from generate action (bypasses server prop refresh issues)
   const [localRankings, setLocalRankings] = useState<AppStoreRanking[]>([]);
 
@@ -63,6 +65,9 @@ export function KeywordsTab({ listings, rankings, keywordHistory }: KeywordsTabP
   let keywordRows = Array.from(keywordMap.values());
 
   // Filters
+  if (selectedListing !== "all") {
+    keywordRows = keywordRows.filter((r) => r.listing_id === selectedListing);
+  }
   if (searchQuery) {
     const q = searchQuery.toLowerCase();
     keywordRows = keywordRows.filter((r) => r.keyword.toLowerCase().includes(q));
@@ -84,44 +89,43 @@ export function KeywordsTab({ listings, rankings, keywordHistory }: KeywordsTabP
   }
 
   function handleGenerateKeywords(listingId: string) {
-    setActionId("generate");
-    startTransition(async () => {
-      try {
+    runAction(
+      {
+        title: "Generating App Keywords",
+        description: "AI is discovering high-value keywords for your app...",
+        steps: ["Analyzing app category", "Researching search trends", "Evaluating competition", "Scoring opportunities", "Generating keyword list"],
+        estimatedDuration: 20,
+      },
+      async () => {
         const result = await generateAppKeywords(listingId);
-        if ("error" in result) {
-          toast(result.error, "error");
-        } else {
-          toast(`Generated ${result.keywords.length} keywords with ranking data`, "success");
-          // Store the rankings returned by the action for immediate display
-          if (result.rankings && result.rankings.length > 0) {
-            setLocalRankings(result.rankings);
-          }
-          router.refresh();
+        if ("error" in result) return result;
+        if (result.rankings && result.rankings.length > 0) {
+          setLocalRankings(result.rankings);
         }
-      } catch (err) {
-        toast(`Failed to generate keywords: ${err instanceof Error ? err.message : "Unknown error"}`, "error");
+        router.refresh();
+        return { message: `Generated ${result.keywords.length} keywords` };
       }
-      setActionId(null);
-    });
+    );
   }
 
   function handleRefreshRankings(listingId: string) {
-    setActionId("refresh");
-    startTransition(async () => {
-      try {
+    runAction(
+      {
+        title: "Refreshing Keyword Rankings",
+        description: "Checking current positions for all tracked keywords...",
+        steps: ["Querying app stores", "Updating positions", "Calculating changes"],
+        estimatedDuration: 15,
+      },
+      async () => {
         const result = await refreshKeywordRankings(listingId);
-        if ("error" in result) {
-          toast(result.error, "error");
-        } else {
-          toast(`Updated positions for ${result.updated} keywords`, "success");
-          router.refresh();
-        }
-      } catch (err) {
-        toast(`Failed to refresh rankings: ${err instanceof Error ? err.message : "Unknown error"}`, "error");
+        if ("error" in result) return result;
+        router.refresh();
+        return { message: `Updated positions for ${result.updated} keywords` };
       }
-      setActionId(null);
-    });
+    );
   }
+
+  const activeListing = selectedListing !== "all" ? selectedListing : listings[0]?.id;
 
   if (allRankings.length === 0) {
     return (
@@ -133,11 +137,11 @@ export function KeywordsTab({ listings, rankings, keywordHistory }: KeywordsTabP
           variant="primary"
           size="md"
           className="mt-6"
-          onClick={() => listings[0] && handleGenerateKeywords(listings[0].id)}
-          disabled={actionId === "generate"}
+          onClick={() => activeListing && handleGenerateKeywords(activeListing)}
+          disabled={isActionRunning}
         >
-          {actionId === "generate" ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-          {actionId === "generate" ? "Generating Keywords..." : "Generate Keywords"}
+          <Sparkles size={14} />
+          Generate Keywords
         </Button>
       </div>
     );
@@ -145,6 +149,13 @@ export function KeywordsTab({ listings, rankings, keywordHistory }: KeywordsTabP
 
   return (
     <div className="flex flex-col gap-4">
+      <AppSelectorStrip
+        listings={listings}
+        selected={selectedListing}
+        onSelect={setSelectedListing}
+        showAll
+      />
+
       {/* Toolbar */}
       <div className="flex items-center gap-3 border-b border-rule pb-3">
         <div className="relative flex-1">
@@ -169,19 +180,19 @@ export function KeywordsTab({ listings, rankings, keywordHistory }: KeywordsTabP
         <Button
           variant="outline"
           size="sm"
-          onClick={() => listings[0] && handleRefreshRankings(listings[0].id)}
-          disabled={actionId === "refresh"}
+          onClick={() => activeListing && handleRefreshRankings(activeListing)}
+          disabled={isActionRunning}
         >
-          {actionId === "refresh" ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-          {actionId === "refresh" ? "Checking..." : "Refresh Positions"}
+          <RefreshCw size={12} />
+          Refresh Positions
         </Button>
         <Button
           variant="outline"
           size="sm"
-          onClick={() => listings[0] && handleGenerateKeywords(listings[0].id)}
-          disabled={actionId === "generate"}
+          onClick={() => activeListing && handleGenerateKeywords(activeListing)}
+          disabled={isActionRunning}
         >
-          {actionId === "generate" ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+          <Sparkles size={12} />
           Generate More
         </Button>
       </div>
