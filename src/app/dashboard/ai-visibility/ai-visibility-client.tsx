@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useTimezone } from "@/lib/context/timezone-context";
 import { formatShortDate, formatDate, formatDateTime } from "@/lib/utils/format-date";
 import {
@@ -27,6 +27,14 @@ import type { KeywordVisibility, VisibilityStats } from "@/lib/dal/ai-visibility
 import type { ComparisonTimeRange } from "@/types";
 import type { GenericPeriodComparison } from "@/lib/utils/period-comparison";
 import { PeriodComparisonBar } from "@/components/editorial/period-comparison-bar";
+import { SortableHeader } from "@/components/editorial/sortable-header";
+import { useTableSort } from "@/hooks/use-table-sort";
+
+/* ------------------------------------------------------------------
+   Sort key for the visibility table
+   ------------------------------------------------------------------ */
+
+type VisibilitySortKey = "keyword" | "score" | "volume" | "mentions";
 
 /* ------------------------------------------------------------------
    Props
@@ -102,6 +110,7 @@ export function AIVisibilityClient({
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const { runAction, isRunning: isActionRunning } = useActionProgress();
+  const { sortKey, sortDir, toggleSort, sort } = useTableSort<VisibilitySortKey>("score", "desc");
 
   function handleRunCheck() {
     runAction(
@@ -154,6 +163,30 @@ export function AIVisibilityClient({
     }
     return true;
   });
+
+  // Sort filtered keywords
+  const sortedData = useMemo(
+    () =>
+      sort(filtered, (item, key) => {
+        switch (key) {
+          case "keyword":
+            return item.keyword;
+          case "score":
+            return item.ai_visibility_score ?? -1;
+          case "volume":
+            return item.search_volume ?? -1;
+          case "mentions": {
+            const total = item.checks.length;
+            if (total === 0) return -1;
+            const mentioned = item.checks.filter((c) => c.brand_mentioned).length;
+            return mentioned / total;
+          }
+          default:
+            return null;
+        }
+      }),
+    [filtered, sort]
+  );
 
   // Compute provider breakdown from all checks
   const providerBreakdown = LLM_PROVIDERS.filter((p) => p.id !== "all").map((provider) => {
@@ -279,12 +312,38 @@ export function AIVisibilityClient({
             <table className="w-full">
               <thead>
                 <tr className="border-b-2 border-ink">
-                  <th className="py-2 text-left font-sans text-[10px] font-bold uppercase tracking-[0.15em] text-ink">
-                    Keyword
-                  </th>
-                  <th className="px-2 py-2 text-center font-sans text-[10px] font-bold uppercase tracking-[0.15em] text-ink">
-                    Score
-                  </th>
+                  <SortableHeader<VisibilitySortKey>
+                    label="Keyword"
+                    sortKey="keyword"
+                    currentSort={sortKey}
+                    currentDir={sortDir}
+                    onSort={toggleSort}
+                    className="py-2 text-left"
+                  />
+                  <SortableHeader<VisibilitySortKey>
+                    label="Score"
+                    sortKey="score"
+                    currentSort={sortKey}
+                    currentDir={sortDir}
+                    onSort={toggleSort}
+                    className="px-2 py-2 text-center"
+                  />
+                  <SortableHeader<VisibilitySortKey>
+                    label="Volume"
+                    sortKey="volume"
+                    currentSort={sortKey}
+                    currentDir={sortDir}
+                    onSort={toggleSort}
+                    className="px-2 py-2 text-center"
+                  />
+                  <SortableHeader<VisibilitySortKey>
+                    label="Mentions"
+                    sortKey="mentions"
+                    currentSort={sortKey}
+                    currentDir={sortDir}
+                    onSort={toggleSort}
+                    className="px-2 py-2 text-center"
+                  />
                   {(providerFilter === "all"
                     ? LLM_PROVIDERS.filter((p) => p.id !== "all")
                     : LLM_PROVIDERS.filter((p) => p.id === providerFilter)
@@ -301,7 +360,7 @@ export function AIVisibilityClient({
                   </th>
                 </tr>
               </thead>
-                {filtered.map((kv) => {
+                {sortedData.map((kv) => {
                   const isExpanded = expandedRow === kv.keyword_id;
                   const providers =
                     providerFilter === "all"
@@ -315,11 +374,6 @@ export function AIVisibilityClient({
                           <span className="font-sans text-[13px] font-medium text-ink">
                             {kv.keyword}
                           </span>
-                          {kv.search_volume != null && (
-                            <span className="ml-2 font-mono text-[10px] text-ink-muted">
-                              {kv.search_volume.toLocaleString()} vol
-                            </span>
-                          )}
                         </td>
                         <td className="px-2 py-2.5 text-center">
                           <span
@@ -332,6 +386,20 @@ export function AIVisibilityClient({
                             }`}
                           >
                             {kv.ai_visibility_score ?? "—"}
+                          </span>
+                        </td>
+                        <td className="px-2 py-2.5 text-center">
+                          <span className="font-mono text-[11px] tabular-nums text-ink-secondary">
+                            {kv.search_volume != null
+                              ? kv.search_volume.toLocaleString()
+                              : "—"}
+                          </span>
+                        </td>
+                        <td className="px-2 py-2.5 text-center">
+                          <span className="font-mono text-[11px] tabular-nums text-ink-secondary">
+                            {kv.checks.length > 0
+                              ? `${kv.checks.filter((c) => c.brand_mentioned).length}/${kv.checks.length}`
+                              : "—"}
                           </span>
                         </td>
                         {providers.map((p) => {
@@ -376,7 +444,7 @@ export function AIVisibilityClient({
                       {isExpanded && (
                         <tr>
                           <td
-                            colSpan={providers.length + 3}
+                            colSpan={providers.length + 5}
                             className="border-b border-rule bg-surface-card/50 px-4 py-4"
                           >
                             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">

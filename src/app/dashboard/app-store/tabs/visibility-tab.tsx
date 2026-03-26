@@ -22,6 +22,8 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SortableHeader } from "@/components/editorial/sortable-header";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { AsoVisibilityTrendChart } from "@/components/charts/aso-visibility-trend-chart";
 import { useActionProgress } from "@/components/shared/action-progress";
 import { calculateAppVisibility, getVisibilityRecommendations, type VisibilityRecommendation } from "@/lib/actions/app-store-visibility";
@@ -29,6 +31,8 @@ import type { AppStoreListing } from "@/types";
 import type { AppStoreRanking, VisibilityHistoryPoint } from "@/lib/dal/app-store";
 import type { VisibilityBreakdown } from "@/lib/app-store/visibility";
 import { getPositionWeight } from "@/lib/app-store/visibility";
+
+type VisSortKey = "keyword" | "position" | "search_volume" | "weight" | "contribution_pct";
 
 interface VisibilityTabProps {
   listings: AppStoreListing[];
@@ -81,7 +85,7 @@ export function VisibilityTab({
   const [breakdowns, setBreakdowns] = useState<Record<string, VisibilityBreakdown[]>>({});
   const [recommendations, setRecommendations] = useState<Record<string, VisibilityRecommendation[]>>({});
   const [recsLoading, setRecsLoading] = useState(false);
-  const [sortBy, setSortBy] = useState<"contribution" | "position" | "volume">("contribution");
+  const { sortKey: visSortKey, sortDir: visSortDir, toggleSort: toggleVisSort, sort: visSort } = useTableSort<VisSortKey>("contribution_pct", "desc");
   const [filterTier, setFilterTier] = useState<string>("all");
 
   // Compute per-listing data
@@ -216,8 +220,8 @@ export function VisibilityTab({
     );
   }
 
-  // Build keyword table for selected listing
-  const keywordRows = useMemo(() => {
+  // Build keyword table for selected listing (filtering only — sorting handled by hook)
+  const filteredKeywordRows = useMemo(() => {
     if (!selectedData) return [];
 
     // Use breakdown if available (more accurate), otherwise build from rankings
@@ -233,15 +237,7 @@ export function VisibilityTab({
         tier: getPositionTier(b.position),
       }));
 
-      // Filter
-      const filtered = filterTier === "all" ? rows : rows.filter((r) => r.tier.tier === filterTier);
-
-      // Sort
-      if (sortBy === "position") filtered.sort((a, b) => (a.position ?? 999) - (b.position ?? 999));
-      else if (sortBy === "volume") filtered.sort((a, b) => b.search_volume - a.search_volume);
-      // Default: contribution (already sorted)
-
-      return filtered;
+      return filterTier === "all" ? rows : rows.filter((r) => r.tier.tier === filterTier);
     }
 
     // Fallback: build from deduplicated rankings data
@@ -266,15 +262,22 @@ export function VisibilityTab({
       r.contribution_pct = totalContribution > 0 ? (r.contribution / totalContribution) * 100 : 0;
     }
 
-    rows.sort((a, b) => b.contribution - a.contribution);
+    return filterTier === "all" ? rows : rows.filter((r) => r.tier.tier === filterTier);
+  }, [selectedData, breakdowns, filterTier]);
 
-    const filtered = filterTier === "all" ? rows : rows.filter((r) => r.tier.tier === filterTier);
-
-    if (sortBy === "position") filtered.sort((a, b) => (a.position ?? 999) - (b.position ?? 999));
-    else if (sortBy === "volume") filtered.sort((a, b) => b.search_volume - a.search_volume);
-
-    return filtered;
-  }, [selectedData, breakdowns, sortBy, filterTier]);
+  const keywordRows = useMemo(
+    () => visSort(filteredKeywordRows, (r, key) => {
+      switch (key) {
+        case "keyword": return r.keyword;
+        case "position": return r.position;
+        case "search_volume": return r.search_volume;
+        case "weight": return r.weight;
+        case "contribution_pct": return r.contribution_pct;
+        default: return null;
+      }
+    }),
+    [filteredKeywordRows, visSort]
+  );
 
   if (listings.length === 0) {
     return (
@@ -584,16 +587,6 @@ export function VisibilityTab({
                   <option value="top25">Top 25</option>
                   <option value="unranked">Not Ranked</option>
                 </select>
-                {/* Sort */}
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-                  className="h-7 border border-rule bg-surface-card px-2 text-[10px] text-ink focus:border-editorial-red focus:outline-none"
-                >
-                  <option value="contribution">Sort: Contribution</option>
-                  <option value="position">Sort: Position</option>
-                  <option value="volume">Sort: Search Volume</option>
-                </select>
               </div>
             </div>
 
@@ -612,12 +605,12 @@ export function VisibilityTab({
                   <thead>
                     <tr className="border-b border-rule bg-surface-raised">
                       <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">#</th>
-                      <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Keyword</th>
-                      <th className="px-4 py-2 text-right text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Position</th>
-                      <th className="px-4 py-2 text-right text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Search Vol</th>
-                      <th className="px-4 py-2 text-right text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Weight</th>
-                      <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Contribution</th>
-                      <th className="px-4 py-2 text-right text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">% Share</th>
+                      <SortableHeader label="Keyword" sortKey="keyword" currentSort={visSortKey} currentDir={visSortDir} onSort={toggleVisSort} className="px-4 py-2" />
+                      <SortableHeader label="Position" sortKey="position" currentSort={visSortKey} currentDir={visSortDir} onSort={toggleVisSort} className="px-4 py-2 text-right" />
+                      <SortableHeader label="Search Vol" sortKey="search_volume" currentSort={visSortKey} currentDir={visSortDir} onSort={toggleVisSort} className="px-4 py-2 text-right" />
+                      <SortableHeader label="Weight" sortKey="weight" currentSort={visSortKey} currentDir={visSortDir} onSort={toggleVisSort} className="px-4 py-2 text-right" />
+                      <SortableHeader label="Contribution" sortKey="contribution_pct" currentSort={visSortKey} currentDir={visSortDir} onSort={toggleVisSort} className="px-4 py-2" />
+                      <SortableHeader label="% Share" sortKey="contribution_pct" currentSort={visSortKey} currentDir={visSortDir} onSort={toggleVisSort} className="px-4 py-2 text-right" />
                     </tr>
                   </thead>
                   <tbody>

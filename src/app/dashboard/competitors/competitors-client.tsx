@@ -44,6 +44,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { RecommendationsTab, StrategyGuideTab } from "@/components/shared/page-guide";
 import type { Recommendation, StrategyContent } from "@/components/shared/page-guide";
 import { EmptyState } from "@/components/shared/empty-state";
+import { SortableHeader } from "@/components/editorial/sortable-header";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { addCompetitor, removeCompetitor, generateCompetitorsAI } from "@/lib/actions/competitors";
 import { useActionProgress } from "@/components/shared/action-progress";
 import type { Competitor, ComparisonTimeRange } from "@/types";
@@ -222,6 +224,28 @@ export function CompetitorsClient({
     }
     return map;
   }, [snapshots]);
+
+  type CompSortKey = "name" | "authority_score" | "organic_traffic" | "keywords_count";
+  const { sortKey, sortDir, toggleSort, sort } = useTableSort<CompSortKey>("authority_score", "desc");
+
+  const sortedCompetitors = useMemo(
+    () =>
+      sort(competitors, (comp, key) => {
+        switch (key) {
+          case "name":
+            return comp.name;
+          case "authority_score":
+            return comp.authority_score;
+          case "organic_traffic":
+            return comp.organic_traffic;
+          case "keywords_count":
+            return comp.keywords_count;
+          default:
+            return null;
+        }
+      }),
+    [competitors, sort]
+  );
 
   const recommendations = useMemo(() => {
     const recs: Recommendation[] = [];
@@ -459,16 +483,40 @@ export function CompetitorsClient({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
+                      <SortableHeader<CompSortKey>
+                        label="Name"
+                        sortKey="name"
+                        currentSort={sortKey}
+                        currentDir={sortDir}
+                        onSort={toggleSort}
+                      />
                       <TableHead>Domain</TableHead>
-                      <TableHead>Authority</TableHead>
-                      <TableHead>Organic Traffic</TableHead>
-                      <TableHead>Keywords</TableHead>
+                      <SortableHeader<CompSortKey>
+                        label="Authority"
+                        sortKey="authority_score"
+                        currentSort={sortKey}
+                        currentDir={sortDir}
+                        onSort={toggleSort}
+                      />
+                      <SortableHeader<CompSortKey>
+                        label="Organic Traffic"
+                        sortKey="organic_traffic"
+                        currentSort={sortKey}
+                        currentDir={sortDir}
+                        onSort={toggleSort}
+                      />
+                      <SortableHeader<CompSortKey>
+                        label="Keywords"
+                        sortKey="keywords_count"
+                        currentSort={sortKey}
+                        currentDir={sortDir}
+                        onSort={toggleSort}
+                      />
                       <TableHead className="w-10" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {competitors.map((comp) => (
+                    {sortedCompetitors.map((comp) => (
                       <TableRow key={comp.id}>
                         <TableCell className="font-sans text-sm font-bold text-ink">
                           {comp.name}

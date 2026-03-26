@@ -49,6 +49,7 @@ export interface Project {
   target_countries: string[];
   target_languages: string[];
   search_engines: string[];
+  ga4_property_id: string | null;
   is_active: boolean;
   authority_score: number | null;
   health_score: number | null;

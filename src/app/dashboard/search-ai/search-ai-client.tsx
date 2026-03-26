@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo, useTransition } from "react";
+import { SortableHeader } from "@/components/editorial/sortable-header";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { useTimezone } from "@/lib/context/timezone-context";
 import { formatShortDate } from "@/lib/utils/format-date";
 import {
@@ -884,6 +886,26 @@ function SeoTab({
     : 0;
   const thinPages = contentPages.filter((p) => (p.word_count ?? 0) < 300).length;
 
+  // Sorting — Keyword Rankings
+  type SeoKwSortKey = "keyword" | "current_position" | "search_volume" | "intent" | "difficulty";
+  const { sortKey: seoKwSort, sortDir: seoKwDir, toggleSort: toggleSeoKw, sort: sortSeoKw } = useTableSort<SeoKwSortKey>("current_position", "asc");
+  const sortedKeywords = useMemo(
+    () => sortSeoKw(keywords, (row, key) => row[key as keyof KeywordRow]),
+    [sortSeoKw, keywords]
+  );
+
+  // Sorting — Page Performance
+  type SeoPageSortKey = "title" | "lcp_ms" | "cls" | "inp_ms" | "has_schema" | "issues_count";
+  const { sortKey: seoPageSort, sortDir: seoPageDir, toggleSort: toggleSeoPage, sort: sortSeoPage } = useTableSort<SeoPageSortKey>("issues_count", "desc");
+  const sortedAuditPages = useMemo(
+    () => sortSeoPage(auditPages, (row, key) => {
+      if (key === "title") return row.title ?? row.url;
+      if (key === "has_schema") return row.has_schema ? 1 : 0;
+      return row[key as keyof AuditPage];
+    }),
+    [sortSeoPage, auditPages]
+  );
+
   return (
     <div className="space-y-6">
       {/* SEO Scores */}
@@ -968,15 +990,15 @@ function SeoTab({
               <table className="w-full min-w-[600px] text-sm">
                 <thead className="border-b-2 border-rule-dark">
                   <tr>
-                    <th className="py-2 pr-4 text-left text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Keyword</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Position</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Volume</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Intent</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Difficulty</th>
+                    <SortableHeader<SeoKwSortKey> label="Keyword" sortKey="keyword" currentSort={seoKwSort} currentDir={seoKwDir} onSort={toggleSeoKw} className="py-2 pr-4" />
+                    <SortableHeader<SeoKwSortKey> label="Position" sortKey="current_position" currentSort={seoKwSort} currentDir={seoKwDir} onSort={toggleSeoKw} className="px-3 py-2 text-center" />
+                    <SortableHeader<SeoKwSortKey> label="Volume" sortKey="search_volume" currentSort={seoKwSort} currentDir={seoKwDir} onSort={toggleSeoKw} className="px-3 py-2 text-center" />
+                    <SortableHeader<SeoKwSortKey> label="Intent" sortKey="intent" currentSort={seoKwSort} currentDir={seoKwDir} onSort={toggleSeoKw} className="px-3 py-2 text-center" />
+                    <SortableHeader<SeoKwSortKey> label="Difficulty" sortKey="difficulty" currentSort={seoKwSort} currentDir={seoKwDir} onSort={toggleSeoKw} className="px-3 py-2 text-center" />
                   </tr>
                 </thead>
                 <tbody>
-                  {keywords.slice(0, 20).map((kw) => (
+                  {sortedKeywords.slice(0, 20).map((kw) => (
                     <tr key={kw.id} className="border-b border-rule transition-colors hover:bg-surface-raised">
                       <td className="py-2.5 pr-4 text-sm font-medium text-ink">{kw.keyword}</td>
                       <td className="px-3 py-2.5 text-center">
@@ -1031,16 +1053,16 @@ function SeoTab({
               <table className="w-full min-w-[700px] text-sm">
                 <thead className="border-b-2 border-rule-dark">
                   <tr>
-                    <th className="py-2 pr-4 text-left text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Page</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">LCP</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">CLS</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">INP</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Schema</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Issues</th>
+                    <SortableHeader<SeoPageSortKey> label="Page" sortKey="title" currentSort={seoPageSort} currentDir={seoPageDir} onSort={toggleSeoPage} className="py-2 pr-4" />
+                    <SortableHeader<SeoPageSortKey> label="LCP" sortKey="lcp_ms" currentSort={seoPageSort} currentDir={seoPageDir} onSort={toggleSeoPage} className="px-3 py-2 text-center" />
+                    <SortableHeader<SeoPageSortKey> label="CLS" sortKey="cls" currentSort={seoPageSort} currentDir={seoPageDir} onSort={toggleSeoPage} className="px-3 py-2 text-center" />
+                    <SortableHeader<SeoPageSortKey> label="INP" sortKey="inp_ms" currentSort={seoPageSort} currentDir={seoPageDir} onSort={toggleSeoPage} className="px-3 py-2 text-center" />
+                    <SortableHeader<SeoPageSortKey> label="Schema" sortKey="has_schema" currentSort={seoPageSort} currentDir={seoPageDir} onSort={toggleSeoPage} className="px-3 py-2 text-center" />
+                    <SortableHeader<SeoPageSortKey> label="Issues" sortKey="issues_count" currentSort={seoPageSort} currentDir={seoPageDir} onSort={toggleSeoPage} className="px-3 py-2 text-center" />
                   </tr>
                 </thead>
                 <tbody>
-                  {auditPages.slice(0, 15).map((page) => (
+                  {sortedAuditPages.slice(0, 15).map((page) => (
                     <tr key={page.id} className="border-b border-rule transition-colors hover:bg-surface-raised">
                       <td className="py-2.5 pr-4">
                         <p className="max-w-xs truncate text-sm font-medium text-ink">{page.title ?? page.url}</p>
@@ -1150,6 +1172,31 @@ function AeoTab({
     ? aeoSignals.filter((s) => s.signals.hasFaqSchema === true).length
     : auditPages.filter((p) => p.has_schema).length;
 
+  // Sorting — Page AEO Signals
+  type AeoPageSortKey = "title" | "faq" | "howto" | "questions" | "lists" | "speakable";
+  const { sortKey: aeoPageSort, sortDir: aeoPageDir, toggleSort: toggleAeoPage, sort: sortAeoPage } = useTableSort<AeoPageSortKey>("title", "asc");
+  const sortedAeoPages = useMemo(
+    () => sortAeoPage(auditPages, (row, key) => {
+      if (key === "title") return row.title ?? row.url;
+      const sig = signalMap.get(row.url.replace(/\/$/, ""));
+      if (key === "faq") return sig ? (sig.hasFaqSchema === true ? 1 : 0) : (row.has_schema ? 1 : 0);
+      if (key === "howto") return sig ? (sig.hasHowToSchema === true ? 1 : 0) : 0;
+      if (key === "questions") return sig ? (sig.questionCount as number ?? 0) : 0;
+      if (key === "lists") return sig ? (sig.listCount as number ?? 0) : 0;
+      if (key === "speakable") return sig ? (sig.hasSpeakableSchema === true ? 1 : 0) : 0;
+      return null;
+    }),
+    [sortAeoPage, auditPages, signalMap]
+  );
+
+  // Sorting — Snippet Opportunities
+  type SnippetSortKey = "keyword" | "position" | "searchVolume" | "score";
+  const { sortKey: snippetSort, sortDir: snippetDir, toggleSort: toggleSnippet, sort: sortSnippet } = useTableSort<SnippetSortKey>("score", "desc");
+  const sortedSnippets = useMemo(
+    () => sortSnippet(snippetOpportunities, (row, key) => row[key as keyof SnippetOpportunity]),
+    [sortSnippet, snippetOpportunities]
+  );
+
   return (
     <div className="space-y-6">
       {/* AEO Score + Description */}
@@ -1225,16 +1272,16 @@ function AeoTab({
               <table className="w-full min-w-[700px] text-sm">
                 <thead className="border-b-2 border-rule-dark">
                   <tr>
-                    <th className="py-2 pr-4 text-left text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Page</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">FAQ Schema</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">HowTo Schema</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Questions</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Lists</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Speakable</th>
+                    <SortableHeader<AeoPageSortKey> label="Page" sortKey="title" currentSort={aeoPageSort} currentDir={aeoPageDir} onSort={toggleAeoPage} className="py-2 pr-4" />
+                    <SortableHeader<AeoPageSortKey> label="FAQ Schema" sortKey="faq" currentSort={aeoPageSort} currentDir={aeoPageDir} onSort={toggleAeoPage} className="px-3 py-2 text-center" />
+                    <SortableHeader<AeoPageSortKey> label="HowTo Schema" sortKey="howto" currentSort={aeoPageSort} currentDir={aeoPageDir} onSort={toggleAeoPage} className="px-3 py-2 text-center" />
+                    <SortableHeader<AeoPageSortKey> label="Questions" sortKey="questions" currentSort={aeoPageSort} currentDir={aeoPageDir} onSort={toggleAeoPage} className="px-3 py-2 text-center" />
+                    <SortableHeader<AeoPageSortKey> label="Lists" sortKey="lists" currentSort={aeoPageSort} currentDir={aeoPageDir} onSort={toggleAeoPage} className="px-3 py-2 text-center" />
+                    <SortableHeader<AeoPageSortKey> label="Speakable" sortKey="speakable" currentSort={aeoPageSort} currentDir={aeoPageDir} onSort={toggleAeoPage} className="px-3 py-2 text-center" />
                   </tr>
                 </thead>
                 <tbody>
-                  {auditPages.slice(0, 15).map((page) => {
+                  {sortedAeoPages.slice(0, 15).map((page) => {
                     const sig = signalMap.get(page.url.replace(/\/$/, ""));
                     const hasFaq = sig ? sig.hasFaqSchema === true : page.has_schema;
                     const hasHowTo = sig ? sig.hasHowToSchema === true : false;
@@ -1274,14 +1321,14 @@ function AeoTab({
               <table className="w-full min-w-[500px] text-sm">
                 <thead className="border-b-2 border-rule-dark">
                   <tr>
-                    <th className="py-2 pr-4 text-left text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Keyword</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Position</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Volume</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Opportunity</th>
+                    <SortableHeader<SnippetSortKey> label="Keyword" sortKey="keyword" currentSort={snippetSort} currentDir={snippetDir} onSort={toggleSnippet} className="py-2 pr-4" />
+                    <SortableHeader<SnippetSortKey> label="Position" sortKey="position" currentSort={snippetSort} currentDir={snippetDir} onSort={toggleSnippet} className="px-3 py-2 text-center" />
+                    <SortableHeader<SnippetSortKey> label="Volume" sortKey="searchVolume" currentSort={snippetSort} currentDir={snippetDir} onSort={toggleSnippet} className="px-3 py-2 text-center" />
+                    <SortableHeader<SnippetSortKey> label="Opportunity" sortKey="score" currentSort={snippetSort} currentDir={snippetDir} onSort={toggleSnippet} className="px-3 py-2 text-center" />
                   </tr>
                 </thead>
                 <tbody>
-                  {snippetOpportunities.slice(0, 10).map((opp) => (
+                  {sortedSnippets.slice(0, 10).map((opp) => (
                     <tr key={opp.keywordId} className="border-b border-rule transition-colors hover:bg-surface-raised">
                       <td className="py-2.5 pr-4 text-sm font-medium text-ink">{opp.keyword}</td>
                       <td className="px-3 py-2.5 text-center font-mono text-sm">{opp.position}</td>
@@ -1502,6 +1549,22 @@ function GeoTab({
     return items.slice(0, 6);
   }, [pageGeoScores, dimensions]);
 
+  // Sorting — Page GEO Signals
+  type GeoPageSortKey = "path" | "hasSchema" | "hasOg" | "hasBread" | "hasOrgSchema" | "hasLang";
+  const { sortKey: geoPageSort, sortDir: geoPageDir, toggleSort: toggleGeoPage, sort: sortGeoPage } = useTableSort<GeoPageSortKey>("path", "asc");
+  const sortedGeoPages = useMemo(
+    () => sortGeoPage(pageGeoScores, (row, key) => {
+      if (key === "path") return row.path;
+      if (key === "hasSchema") return row.hasSchema ? 1 : 0;
+      if (key === "hasOg") return row.hasOg ? 1 : 0;
+      if (key === "hasBread") return row.hasBread ? 1 : 0;
+      if (key === "hasOrgSchema") return row.hasOrgSchema ? 1 : 0;
+      if (key === "hasLang") return row.hasLang ? 1 : 0;
+      return null;
+    }),
+    [sortGeoPage, pageGeoScores]
+  );
+
   return (
     <div className="space-y-6">
       {/* GEO Score + Description */}
@@ -1613,16 +1676,16 @@ function GeoTab({
               <table className="w-full min-w-[700px] text-sm">
                 <thead className="border-b-2 border-rule-dark">
                   <tr>
-                    <th className="py-2 pr-4 text-left text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Path</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Schema</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">OG Tags</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Breadcrumbs</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Org Schema</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Lang</th>
+                    <SortableHeader<GeoPageSortKey> label="Path" sortKey="path" currentSort={geoPageSort} currentDir={geoPageDir} onSort={toggleGeoPage} className="py-2 pr-4" />
+                    <SortableHeader<GeoPageSortKey> label="Schema" sortKey="hasSchema" currentSort={geoPageSort} currentDir={geoPageDir} onSort={toggleGeoPage} className="px-3 py-2 text-center" />
+                    <SortableHeader<GeoPageSortKey> label="OG Tags" sortKey="hasOg" currentSort={geoPageSort} currentDir={geoPageDir} onSort={toggleGeoPage} className="px-3 py-2 text-center" />
+                    <SortableHeader<GeoPageSortKey> label="Breadcrumbs" sortKey="hasBread" currentSort={geoPageSort} currentDir={geoPageDir} onSort={toggleGeoPage} className="px-3 py-2 text-center" />
+                    <SortableHeader<GeoPageSortKey> label="Org Schema" sortKey="hasOrgSchema" currentSort={geoPageSort} currentDir={geoPageDir} onSort={toggleGeoPage} className="px-3 py-2 text-center" />
+                    <SortableHeader<GeoPageSortKey> label="Lang" sortKey="hasLang" currentSort={geoPageSort} currentDir={geoPageDir} onSort={toggleGeoPage} className="px-3 py-2 text-center" />
                   </tr>
                 </thead>
                 <tbody>
-                  {pageGeoScores.map((pg) => (
+                  {sortedGeoPages.map((pg) => (
                     <tr key={pg.id} className="border-b border-rule transition-colors hover:bg-surface-raised">
                       <td className="py-2 pr-4 font-mono text-xs text-ink">{pg.path}</td>
                       <td className="px-3 py-2 text-center"><BoolIcon value={pg.hasSchema} /></td>
@@ -1713,6 +1776,39 @@ function CroTab({
     (kw) => kw.currentPosition !== null && kw.currentPosition > 5
   );
 
+  // Sorting — Top Revenue Keywords
+  type CroRevSortKey = "keyword" | "currentPosition" | "searchVolume" | "estimatedCtr" | "estimatedTraffic" | "estimatedRevenue";
+  const { sortKey: croRevSort, sortDir: croRevDir, toggleSort: toggleCroRev, sort: sortCroRev } = useTableSort<CroRevSortKey>("estimatedRevenue", "desc");
+  const sortedRevKeywords = useMemo(
+    () => sortCroRev(keywordsWithRevenue, (row, key) => row[key as keyof KeywordWithRevenue]),
+    [sortCroRev, keywordsWithRevenue]
+  );
+
+  // Sorting — CRO Opportunities
+  type CroOppSortKey = "keyword" | "currentPosition" | "searchVolume" | "estimatedRevenue" | "potentialGap";
+  const { sortKey: croOppSort, sortDir: croOppDir, toggleSort: toggleCroOpp, sort: sortCroOpp } = useTableSort<CroOppSortKey>("potentialGap", "desc");
+  const sortedOpportunities = useMemo(
+    () => sortCroOpp(opportunities, (row, key) => {
+      if (key === "potentialGap") {
+        const potentialRev = row.searchVolume * 0.11 * 0.02 * 10;
+        return potentialRev - row.estimatedRevenue;
+      }
+      return row[key as keyof typeof row] as unknown;
+    }),
+    [sortCroOpp, opportunities]
+  );
+
+  // Sorting — Landing Page Performance
+  type CroLandingSortKey = "title" | "word_count" | "status";
+  const { sortKey: croLandSort, sortDir: croLandDir, toggleSort: toggleCroLand, sort: sortCroLand } = useTableSort<CroLandingSortKey>("word_count", "desc");
+  const sortedLandingPages = useMemo(
+    () => sortCroLand(contentPages, (row, key) => {
+      if (key === "title") return row.title ?? row.url;
+      return row[key as keyof ContentPage];
+    }),
+    [sortCroLand, contentPages]
+  );
+
   return (
     <div className="space-y-6">
       {/* CRO Score + Stats */}
@@ -1750,16 +1846,16 @@ function CroTab({
               <table className="w-full min-w-[600px] text-sm">
                 <thead className="border-b-2 border-rule-dark">
                   <tr>
-                    <th className="py-2 pr-4 text-left text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Keyword</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Position</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Volume</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">CTR</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Traffic</th>
-                    <th className="px-3 py-2 text-right text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Est. Revenue</th>
+                    <SortableHeader<CroRevSortKey> label="Keyword" sortKey="keyword" currentSort={croRevSort} currentDir={croRevDir} onSort={toggleCroRev} className="py-2 pr-4" />
+                    <SortableHeader<CroRevSortKey> label="Position" sortKey="currentPosition" currentSort={croRevSort} currentDir={croRevDir} onSort={toggleCroRev} className="px-3 py-2 text-center" />
+                    <SortableHeader<CroRevSortKey> label="Volume" sortKey="searchVolume" currentSort={croRevSort} currentDir={croRevDir} onSort={toggleCroRev} className="px-3 py-2 text-center" />
+                    <SortableHeader<CroRevSortKey> label="CTR" sortKey="estimatedCtr" currentSort={croRevSort} currentDir={croRevDir} onSort={toggleCroRev} className="px-3 py-2 text-center" />
+                    <SortableHeader<CroRevSortKey> label="Traffic" sortKey="estimatedTraffic" currentSort={croRevSort} currentDir={croRevDir} onSort={toggleCroRev} className="px-3 py-2 text-center" />
+                    <SortableHeader<CroRevSortKey> label="Est. Revenue" sortKey="estimatedRevenue" currentSort={croRevSort} currentDir={croRevDir} onSort={toggleCroRev} className="px-3 py-2 text-right" />
                   </tr>
                 </thead>
                 <tbody>
-                  {keywordsWithRevenue.slice(0, 12).map((kw) => (
+                  {sortedRevKeywords.slice(0, 12).map((kw) => (
                     <tr key={kw.keywordId} className="border-b border-rule transition-colors hover:bg-surface-raised">
                       <td className="py-2.5 pr-4 text-sm font-medium text-ink">{kw.keyword}</td>
                       <td className="px-3 py-2.5 text-center font-mono text-sm">{kw.currentPosition ?? "—"}</td>
@@ -1792,15 +1888,15 @@ function CroTab({
               <table className="w-full min-w-[500px] text-sm">
                 <thead className="border-b-2 border-rule-dark">
                   <tr>
-                    <th className="py-2 pr-4 text-left text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Keyword</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Pos</th>
-                    <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Volume</th>
-                    <th className="px-3 py-2 text-right text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Current $</th>
-                    <th className="px-3 py-2 text-right text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Potential +$</th>
+                    <SortableHeader<CroOppSortKey> label="Keyword" sortKey="keyword" currentSort={croOppSort} currentDir={croOppDir} onSort={toggleCroOpp} className="py-2 pr-4" />
+                    <SortableHeader<CroOppSortKey> label="Pos" sortKey="currentPosition" currentSort={croOppSort} currentDir={croOppDir} onSort={toggleCroOpp} className="px-3 py-2 text-center" />
+                    <SortableHeader<CroOppSortKey> label="Volume" sortKey="searchVolume" currentSort={croOppSort} currentDir={croOppDir} onSort={toggleCroOpp} className="px-3 py-2 text-center" />
+                    <SortableHeader<CroOppSortKey> label="Current $" sortKey="estimatedRevenue" currentSort={croOppSort} currentDir={croOppDir} onSort={toggleCroOpp} className="px-3 py-2 text-right" />
+                    <SortableHeader<CroOppSortKey> label="Potential +$" sortKey="potentialGap" currentSort={croOppSort} currentDir={croOppDir} onSort={toggleCroOpp} className="px-3 py-2 text-right" />
                   </tr>
                 </thead>
                 <tbody>
-                  {opportunities.slice(0, 15).map((kw) => {
+                  {sortedOpportunities.slice(0, 15).map((kw) => {
                     // Potential if moved to position 3 (11% CTR)
                     const potentialRev = kw.searchVolume * 0.11 * 0.02 * 10;
                     const gap = potentialRev - kw.estimatedRevenue;
@@ -1836,13 +1932,13 @@ function CroTab({
             <table className="w-full min-w-[500px] text-sm">
               <thead className="border-b-2 border-rule-dark">
                 <tr>
-                  <th className="py-2 pr-4 text-left text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Page</th>
-                  <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Words</th>
-                  <th className="px-3 py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Status</th>
+                  <SortableHeader<CroLandingSortKey> label="Page" sortKey="title" currentSort={croLandSort} currentDir={croLandDir} onSort={toggleCroLand} className="py-2 pr-4" />
+                  <SortableHeader<CroLandingSortKey> label="Words" sortKey="word_count" currentSort={croLandSort} currentDir={croLandDir} onSort={toggleCroLand} className="px-3 py-2 text-center" />
+                  <SortableHeader<CroLandingSortKey> label="Status" sortKey="status" currentSort={croLandSort} currentDir={croLandDir} onSort={toggleCroLand} className="px-3 py-2 text-center" />
                 </tr>
               </thead>
               <tbody>
-                {contentPages.slice(0, 10).map((page) => (
+                {sortedLandingPages.slice(0, 10).map((page) => (
                   <tr key={page.id} className="border-b border-rule transition-colors hover:bg-surface-raised">
                     <td className="py-2.5 pr-4">
                       <p className="max-w-xs truncate text-sm font-medium text-ink">{page.title ?? page.url}</p>

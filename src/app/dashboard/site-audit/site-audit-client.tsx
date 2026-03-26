@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition, useCallback, useMemo } from "react";
+import { SortableHeader } from "@/components/editorial/sortable-header";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { useTimezone } from "@/lib/context/timezone-context";
 import { formatDate, formatDateTime } from "@/lib/utils/format-date";
 import {
@@ -33,7 +35,6 @@ import {
   TableHeader,
   TableBody,
   TableRow,
-  TableHead,
   TableCell,
 } from "@/components/ui/table";
 import {
@@ -320,6 +321,13 @@ export function SiteAuditClient({
   const [schedule, setSchedule] = useState<ScheduledAudit | null>(initialSchedule ?? null);
   const [showScheduleMenu, setShowScheduleMenu] = useState(false);
   const [isScheduling, setIsScheduling] = useState(false);
+
+  // Table sorting
+  type PageSortKey = "url" | "title" | "status_code" | "load_time" | "issues_count";
+  type HistorySortKey = "started_at" | "status" | "pages_crawled" | "issues_found" | "health_score" | "seo_score" | "performance_score" | "accessibility_score";
+
+  const pagesSort = useTableSort<PageSortKey>("url", "asc");
+  const historySort = useTableSort<HistorySortKey>("started_at", "desc");
 
   async function handleSchedule(frequency: AuditFrequency) {
     setIsScheduling(true);
@@ -1018,15 +1026,15 @@ export function SiteAuditClient({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>URL</TableHead>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Load Time</TableHead>
-                      <TableHead>Issues</TableHead>
+                      <SortableHeader label="URL" sortKey="url" currentSort={pagesSort.sortKey} currentDir={pagesSort.sortDir} onSort={pagesSort.toggleSort} />
+                      <SortableHeader label="Title" sortKey="title" currentSort={pagesSort.sortKey} currentDir={pagesSort.sortDir} onSort={pagesSort.toggleSort} />
+                      <SortableHeader label="Status" sortKey="status_code" currentSort={pagesSort.sortKey} currentDir={pagesSort.sortDir} onSort={pagesSort.toggleSort} />
+                      <SortableHeader label="Load Time" sortKey="load_time" currentSort={pagesSort.sortKey} currentDir={pagesSort.sortDir} onSort={pagesSort.toggleSort} />
+                      <SortableHeader label="Issues" sortKey="issues_count" currentSort={pagesSort.sortKey} currentDir={pagesSort.sortDir} onSort={pagesSort.toggleSort} />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {pages.map((page) => (
+                    {pagesSort.sort(pages, (row, key) => row[key] as string | number | null | undefined).map((page) => (
                       <TableRow key={page.id}>
                         <TableCell className="font-mono text-xs text-ink">
                           <div className="flex items-center gap-1.5">
@@ -1102,18 +1110,18 @@ export function SiteAuditClient({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Pages</TableHead>
-                      <TableHead>Issues</TableHead>
-                      <TableHead>Health</TableHead>
-                      <TableHead>SEO</TableHead>
-                      <TableHead>Performance</TableHead>
-                      <TableHead>A11y</TableHead>
+                      <SortableHeader label="Date" sortKey="started_at" currentSort={historySort.sortKey} currentDir={historySort.sortDir} onSort={historySort.toggleSort} />
+                      <SortableHeader label="Status" sortKey="status" currentSort={historySort.sortKey} currentDir={historySort.sortDir} onSort={historySort.toggleSort} />
+                      <SortableHeader label="Pages" sortKey="pages_crawled" currentSort={historySort.sortKey} currentDir={historySort.sortDir} onSort={historySort.toggleSort} />
+                      <SortableHeader label="Issues" sortKey="issues_found" currentSort={historySort.sortKey} currentDir={historySort.sortDir} onSort={historySort.toggleSort} />
+                      <SortableHeader label="Health" sortKey="health_score" currentSort={historySort.sortKey} currentDir={historySort.sortDir} onSort={historySort.toggleSort} />
+                      <SortableHeader label="SEO" sortKey="seo_score" currentSort={historySort.sortKey} currentDir={historySort.sortDir} onSort={historySort.toggleSort} />
+                      <SortableHeader label="Performance" sortKey="performance_score" currentSort={historySort.sortKey} currentDir={historySort.sortDir} onSort={historySort.toggleSort} />
+                      <SortableHeader label="A11y" sortKey="accessibility_score" currentSort={historySort.sortKey} currentDir={historySort.sortDir} onSort={historySort.toggleSort} />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {history.map((audit) => (
+                    {historySort.sort(history, (row, key) => (row as unknown as Record<string, unknown>)[key] as string | number | null | undefined).map((audit) => (
                       <TableRow key={audit.id} className="cursor-pointer">
                         <TableCell className="font-sans text-sm text-ink">
                           {fmtDate(audit.started_at)}

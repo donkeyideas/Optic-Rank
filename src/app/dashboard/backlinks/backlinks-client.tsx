@@ -25,15 +25,14 @@ import {
   Copy,
   Check,
   Info,
-  ArrowUp,
-  ArrowDown,
 } from "lucide-react";
 
-import { cn } from "@/lib/utils";
 import { useTimezone } from "@/lib/context/timezone-context";
 import { formatDate } from "@/lib/utils/format-date";
 import { HeadlineBar } from "@/components/editorial/headline-bar";
 import { ColumnHeader } from "@/components/editorial/column-header";
+import { SortableHeader } from "@/components/editorial/sortable-header";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -196,51 +195,10 @@ function MetricTooltip({ metric, open, onToggle }: { metric: string; open: boole
 }
 
 /* ------------------------------------------------------------------
-   Sortable Table Head
+   Sort key types
    ------------------------------------------------------------------ */
 
-type SortKey = "source_domain" | "target_url" | "anchor_text" | "da" | "tf" | "cf" | "link_type" | "status" | "first_seen" | "risk";
-type SortDir = "asc" | "desc";
-
-function SortableHead({
-  label,
-  sortKey,
-  currentSort,
-  currentDir,
-  onSort,
-  className,
-  children,
-}: {
-  label: string;
-  sortKey: SortKey;
-  currentSort: SortKey;
-  currentDir: SortDir;
-  onSort: (key: SortKey) => void;
-  className?: string;
-  children?: React.ReactNode;
-}) {
-  const active = currentSort === sortKey;
-  return (
-    <th
-      className={cn(
-        "h-10 px-3 text-left align-middle text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted bg-surface-card cursor-pointer select-none transition-colors hover:text-ink",
-        active && "text-ink",
-        className
-      )}
-      onClick={() => onSort(sortKey)}
-    >
-      <span className="inline-flex items-center gap-1">
-        {label}
-        {children}
-        {active && (
-          currentDir === "asc"
-            ? <ArrowUp size={10} className="text-ink" />
-            : <ArrowDown size={10} className="text-ink" />
-        )}
-      </span>
-    </th>
-  );
-}
+type BLSortKey = "source_domain" | "target_url" | "anchor_text" | "da" | "tf" | "cf" | "link_type" | "status" | "first_seen" | "risk";
 
 /* ------------------------------------------------------------------
    Backlinks Page Client Component
@@ -266,10 +224,8 @@ export function BacklinksPageClient({
   const [addUrlValue, setAddUrlValue] = useState("");
   const [addUrlError, setAddUrlError] = useState<string | null>(null);
   const [openTooltip, setOpenTooltip] = useState<string | null>(null);
-  const [colSort, setColSort] = useState<SortKey>("first_seen");
-  const [colDir, setColDir] = useState<SortDir>("desc");
-  const [toxicSort, setToxicSort] = useState<SortKey>("risk");
-  const [toxicDir, setToxicDir] = useState<SortDir>("desc");
+  const { sortKey: colSort, sortDir: colDir, toggleSort: toggleColSort, sort: colSortFn } = useTableSort<BLSortKey>("first_seen", "desc");
+  const { sortKey: toxicSort, sortDir: toxicDir, toggleSort: toggleToxicSort, sort: toxicSortFn } = useTableSort<BLSortKey>("risk", "desc");
 
   function handleDisavow(id: string) {
     setActionError(null);
@@ -340,60 +296,38 @@ export function BacklinksPageClient({
     URL.revokeObjectURL(url);
   }
 
-  function handleColSort(key: SortKey) {
-    if (colSort === key) {
-      setColDir(colDir === "asc" ? "desc" : "asc");
-    } else {
-      setColSort(key);
-      setColDir(key === "source_domain" || key === "anchor_text" || key === "link_type" || key === "status" ? "asc" : "desc");
-    }
-  }
-
-  function handleToxicSort(key: SortKey) {
-    if (toxicSort === key) {
-      setToxicDir(toxicDir === "asc" ? "desc" : "asc");
-    } else {
-      setToxicSort(key);
-      setToxicDir(key === "source_domain" || key === "anchor_text" ? "asc" : "desc");
-    }
-  }
-
-  function sortBacklinks(list: Backlink[], key: SortKey, dir: SortDir): Backlink[] {
-    const mult = dir === "asc" ? 1 : -1;
-    return [...list].sort((a, b) => {
-      switch (key) {
-        case "source_domain": return mult * a.source_domain.localeCompare(b.source_domain);
-        case "target_url": return mult * a.target_url.localeCompare(b.target_url);
-        case "anchor_text": return mult * a.anchor_text.localeCompare(b.anchor_text);
-        case "da": return mult * ((a.domain_authority ?? 0) - (b.domain_authority ?? 0));
-        case "tf": return mult * ((a.trust_flow ?? 0) - (b.trust_flow ?? 0));
-        case "cf": return mult * ((a.citation_flow ?? 0) - (b.citation_flow ?? 0));
-        case "link_type": return mult * a.link_type.localeCompare(b.link_type);
-        case "status": return mult * a.status.localeCompare(b.status);
-        case "first_seen": return mult * (new Date(a.first_seen).getTime() - new Date(b.first_seen).getTime());
-        case "risk": {
-          const ratioA = (a.trust_flow ?? 0) > 0 ? (a.citation_flow ?? 0) / (a.trust_flow ?? 0) : 10;
-          const ratioB = (b.trust_flow ?? 0) > 0 ? (b.citation_flow ?? 0) / (b.trust_flow ?? 0) : 10;
-          return mult * (ratioA - ratioB);
-        }
-        default: return 0;
+  // Accessor for the shared sort hook
+  const blAccessor = (bl: Backlink, key: BLSortKey) => {
+    switch (key) {
+      case "source_domain": return bl.source_domain;
+      case "target_url": return bl.target_url;
+      case "anchor_text": return bl.anchor_text;
+      case "da": return bl.domain_authority;
+      case "tf": return bl.trust_flow;
+      case "cf": return bl.citation_flow;
+      case "link_type": return bl.link_type;
+      case "status": return bl.status;
+      case "first_seen": return bl.first_seen;
+      case "risk": {
+        const tf = bl.trust_flow ?? 0;
+        return tf > 0 ? (bl.citation_flow ?? 0) / tf : 10;
       }
-    });
-  }
+      default: return null;
+    }
+  };
 
   // Client-side filtering of server-fetched data
-  const filteredBacklinks = sortBacklinks(
-    backlinks.filter((bl) => {
+  const filteredBacklinks = useMemo(() => {
+    const filtered = backlinks.filter((bl) => {
       const matchesSearch =
         bl.source_domain.toLowerCase().includes(searchQuery.toLowerCase()) ||
         bl.anchor_text.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesType =
         linkTypeFilter === "all" || bl.link_type === linkTypeFilter;
       return matchesSearch && matchesType;
-    }),
-    colSort,
-    colDir
-  );
+    });
+    return colSortFn(filtered, blAccessor);
+  }, [backlinks, searchQuery, linkTypeFilter, colSortFn]);
 
   const newBacklinks = backlinks.filter((bl) => bl.status === "new");
   const lostBacklinks = backlinks.filter((bl) => bl.status === "lost");
@@ -772,10 +706,10 @@ export function BacklinksPageClient({
               <span className="bg-surface-raised px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-ink-muted">
                 Sort
               </span>
-              {([{ key: "first_seen" as SortKey, label: "Newest" }, { key: "da" as SortKey, label: "DA" }, { key: "tf" as SortKey, label: "Trust" }]).map((s) => (
+              {([{ key: "first_seen" as BLSortKey, label: "Newest" }, { key: "da" as BLSortKey, label: "DA" }, { key: "tf" as BLSortKey, label: "Trust" }]).map((s) => (
                 <button
                   key={s.key}
-                  onClick={() => handleColSort(s.key)}
+                  onClick={() => toggleColSort(s.key)}
                   className={`border-l border-rule px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.15em] transition-colors ${
                     colSort === s.key
                       ? "bg-ink text-surface-cream"
@@ -794,21 +728,21 @@ export function BacklinksPageClient({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <SortableHead label="Source URL" sortKey="source_domain" currentSort={colSort} currentDir={colDir} onSort={handleColSort} className="min-w-[220px]" />
-                    <SortableHead label="Target Page" sortKey="target_url" currentSort={colSort} currentDir={colDir} onSort={handleColSort} className="min-w-[140px]" />
-                    <SortableHead label="Anchor Text" sortKey="anchor_text" currentSort={colSort} currentDir={colDir} onSort={handleColSort} className="min-w-[160px]" />
-                    <SortableHead label="DA" sortKey="da" currentSort={colSort} currentDir={colDir} onSort={handleColSort} className="w-[60px]">
+                    <SortableHeader<BLSortKey> label="Source URL" sortKey="source_domain" currentSort={colSort} currentDir={colDir} onSort={toggleColSort} className="min-w-[220px]" />
+                    <SortableHeader<BLSortKey> label="Target Page" sortKey="target_url" currentSort={colSort} currentDir={colDir} onSort={toggleColSort} className="min-w-[140px]" />
+                    <SortableHeader<BLSortKey> label="Anchor Text" sortKey="anchor_text" currentSort={colSort} currentDir={colDir} onSort={toggleColSort} className="min-w-[160px]" />
+                    <SortableHeader<BLSortKey> label="DA" sortKey="da" currentSort={colSort} currentDir={colDir} onSort={toggleColSort} className="w-[60px]">
                       <MetricTooltip metric="da" open={openTooltip === "da"} onToggle={() => setOpenTooltip(openTooltip === "da" ? null : "da")} />
-                    </SortableHead>
-                    <SortableHead label="TF" sortKey="tf" currentSort={colSort} currentDir={colDir} onSort={handleColSort} className="w-[60px]">
+                    </SortableHeader>
+                    <SortableHeader<BLSortKey> label="TF" sortKey="tf" currentSort={colSort} currentDir={colDir} onSort={toggleColSort} className="w-[60px]">
                       <MetricTooltip metric="tf" open={openTooltip === "tf"} onToggle={() => setOpenTooltip(openTooltip === "tf" ? null : "tf")} />
-                    </SortableHead>
-                    <SortableHead label="CF" sortKey="cf" currentSort={colSort} currentDir={colDir} onSort={handleColSort} className="w-[60px]">
+                    </SortableHeader>
+                    <SortableHeader<BLSortKey> label="CF" sortKey="cf" currentSort={colSort} currentDir={colDir} onSort={toggleColSort} className="w-[60px]">
                       <MetricTooltip metric="cf" open={openTooltip === "cf"} onToggle={() => setOpenTooltip(openTooltip === "cf" ? null : "cf")} />
-                    </SortableHead>
-                    <SortableHead label="Link Type" sortKey="link_type" currentSort={colSort} currentDir={colDir} onSort={handleColSort} className="w-[100px]" />
-                    <SortableHead label="Status" sortKey="status" currentSort={colSort} currentDir={colDir} onSort={handleColSort} className="w-[80px]" />
-                    <SortableHead label="First Seen" sortKey="first_seen" currentSort={colSort} currentDir={colDir} onSort={handleColSort} className="w-[100px]" />
+                    </SortableHeader>
+                    <SortableHeader<BLSortKey> label="Link Type" sortKey="link_type" currentSort={colSort} currentDir={colDir} onSort={toggleColSort} className="w-[100px]" />
+                    <SortableHeader<BLSortKey> label="Status" sortKey="status" currentSort={colSort} currentDir={colDir} onSort={toggleColSort} className="w-[80px]" />
+                    <SortableHeader<BLSortKey> label="First Seen" sortKey="first_seen" currentSort={colSort} currentDir={colDir} onSort={toggleColSort} className="w-[100px]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1108,23 +1042,23 @@ export function BacklinksPageClient({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <SortableHead label="Source Domain" sortKey="source_domain" currentSort={toxicSort} currentDir={toxicDir} onSort={handleToxicSort} className="min-w-[200px]" />
-                      <SortableHead label="Anchor Text" sortKey="anchor_text" currentSort={toxicSort} currentDir={toxicDir} onSort={handleToxicSort} className="min-w-[140px]" />
-                      <SortableHead label="DA" sortKey="da" currentSort={toxicSort} currentDir={toxicDir} onSort={handleToxicSort} className="w-[60px]">
+                      <SortableHeader<BLSortKey> label="Source Domain" sortKey="source_domain" currentSort={toxicSort} currentDir={toxicDir} onSort={toggleToxicSort} className="min-w-[200px]" />
+                      <SortableHeader<BLSortKey> label="Anchor Text" sortKey="anchor_text" currentSort={toxicSort} currentDir={toxicDir} onSort={toggleToxicSort} className="min-w-[140px]" />
+                      <SortableHeader<BLSortKey> label="DA" sortKey="da" currentSort={toxicSort} currentDir={toxicDir} onSort={toggleToxicSort} className="w-[60px]">
                         <MetricTooltip metric="da" open={openTooltip === "toxic-da"} onToggle={() => setOpenTooltip(openTooltip === "toxic-da" ? null : "toxic-da")} />
-                      </SortableHead>
-                      <SortableHead label="TF" sortKey="tf" currentSort={toxicSort} currentDir={toxicDir} onSort={handleToxicSort} className="w-[60px]">
+                      </SortableHeader>
+                      <SortableHeader<BLSortKey> label="TF" sortKey="tf" currentSort={toxicSort} currentDir={toxicDir} onSort={toggleToxicSort} className="w-[60px]">
                         <MetricTooltip metric="tf" open={openTooltip === "toxic-tf"} onToggle={() => setOpenTooltip(openTooltip === "toxic-tf" ? null : "toxic-tf")} />
-                      </SortableHead>
-                      <SortableHead label="CF" sortKey="cf" currentSort={toxicSort} currentDir={toxicDir} onSort={handleToxicSort} className="w-[60px]">
+                      </SortableHeader>
+                      <SortableHeader<BLSortKey> label="CF" sortKey="cf" currentSort={toxicSort} currentDir={toxicDir} onSort={toggleToxicSort} className="w-[60px]">
                         <MetricTooltip metric="cf" open={openTooltip === "toxic-cf"} onToggle={() => setOpenTooltip(openTooltip === "toxic-cf" ? null : "toxic-cf")} />
-                      </SortableHead>
-                      <SortableHead label="Risk Level" sortKey="risk" currentSort={toxicSort} currentDir={toxicDir} onSort={handleToxicSort} className="w-[100px]" />
+                      </SortableHeader>
+                      <SortableHeader<BLSortKey> label="Risk Level" sortKey="risk" currentSort={toxicSort} currentDir={toxicDir} onSort={toggleToxicSort} className="w-[100px]" />
                       <TableHead className="w-[100px]">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sortBacklinks(toxicBacklinks, toxicSort, toxicDir).map((bl) => {
+                    {toxicSortFn(toxicBacklinks, blAccessor).map((bl) => {
                       const tf = bl.trust_flow ?? 0;
                       const cf = bl.citation_flow ?? 0;
                       const cfTfRatio = tf > 0 ? cf / tf : 10;

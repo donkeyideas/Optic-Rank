@@ -48,6 +48,8 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useActionProgress } from "@/components/shared/action-progress";
+import { SortableHeader } from "@/components/editorial/sortable-header";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { RecommendationsTab, StrategyGuideTab } from "@/components/shared/page-guide";
 import type { Recommendation, StrategyContent } from "@/components/shared/page-guide";
 import {
@@ -185,6 +187,28 @@ export function ContentClient({
   });
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [expandedBriefId, setExpandedBriefId] = useState<string | null>(null);
+
+  // ── Table sort hooks ──
+  const {
+    sortKey: invSortKey,
+    sortDir: invSortDir,
+    toggleSort: invToggleSort,
+    sort: invSort,
+  } = useTableSort<"title" | "content_score" | "organic_traffic" | "word_count" | "updated_at" | "status">("title", "asc");
+
+  const {
+    sortKey: decaySortKey,
+    sortDir: decaySortDir,
+    toggleSort: decayToggleSort,
+    sort: decaySort,
+  } = useTableSort<"title" | "decay_risk" | "organic_traffic" | "updated_at">("decay_risk", "desc");
+
+  const {
+    sortKey: calSortKey,
+    sortDir: calSortDir,
+    toggleSort: calToggleSort,
+    sort: calSort,
+  } = useTableSort<"title" | "target_keyword" | "target_date" | "status">("target_date", "asc");
 
   function handleAddContent(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -588,17 +612,27 @@ export function ContentClient({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Page</TableHead>
-                    <TableHead>Score</TableHead>
-                    <TableHead>Est. Traffic</TableHead>
-                    <TableHead>Words</TableHead>
-                    <TableHead>Updated</TableHead>
-                    <TableHead>Status</TableHead>
+                    <SortableHeader<typeof invSortKey> label="Page" sortKey="title" currentSort={invSortKey} currentDir={invSortDir} onSort={invToggleSort} />
+                    <SortableHeader<typeof invSortKey> label="Score" sortKey="content_score" currentSort={invSortKey} currentDir={invSortDir} onSort={invToggleSort} className="w-[140px]" />
+                    <SortableHeader<typeof invSortKey> label="Est. Traffic" sortKey="organic_traffic" currentSort={invSortKey} currentDir={invSortDir} onSort={invToggleSort} />
+                    <SortableHeader<typeof invSortKey> label="Words" sortKey="word_count" currentSort={invSortKey} currentDir={invSortDir} onSort={invToggleSort} />
+                    <SortableHeader<typeof invSortKey> label="Updated" sortKey="updated_at" currentSort={invSortKey} currentDir={invSortDir} onSort={invToggleSort} />
+                    <SortableHeader<typeof invSortKey> label="Status" sortKey="status" currentSort={invSortKey} currentDir={invSortDir} onSort={invToggleSort} />
                     <TableHead className="w-10" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {contentPages.map((page) => {
+                  {invSort(contentPages, (row, key) => {
+                    switch (key) {
+                      case "title": return row.title ?? row.url ?? "";
+                      case "content_score": return row.content_score ?? null;
+                      case "organic_traffic": return row.organic_traffic ?? null;
+                      case "word_count": return row.word_count ?? null;
+                      case "updated_at": return row.last_modified ?? row.updated_at ?? null;
+                      case "status": return row.status ?? "";
+                      default: return null;
+                    }
+                  }).map((page) => {
                     const badge = statusBadge(page.status);
                     return (
                       <TableRow key={page.id}>
@@ -664,14 +698,23 @@ export function ContentClient({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Page</TableHead>
-                  <TableHead>Risk Level</TableHead>
-                  <TableHead>Est. Traffic</TableHead>
-                  <TableHead>Last Updated</TableHead>
+                  <SortableHeader<typeof decaySortKey> label="Page" sortKey="title" currentSort={decaySortKey} currentDir={decaySortDir} onSort={decayToggleSort} />
+                  <SortableHeader<typeof decaySortKey> label="Risk Level" sortKey="decay_risk" currentSort={decaySortKey} currentDir={decaySortDir} onSort={decayToggleSort} />
+                  <SortableHeader<typeof decaySortKey> label="Est. Traffic" sortKey="organic_traffic" currentSort={decaySortKey} currentDir={decaySortDir} onSort={decayToggleSort} />
+                  <SortableHeader<typeof decaySortKey> label="Last Updated" sortKey="updated_at" currentSort={decaySortKey} currentDir={decaySortDir} onSort={decayToggleSort} />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {decayPages.map((page) => {
+                {decaySort(decayPages, (row, key) => {
+                  const riskOrder: Record<string, number> = { high: 3, medium: 2, low: 1, none: 0 };
+                  switch (key) {
+                    case "title": return row.title ?? row.url ?? "";
+                    case "decay_risk": return riskOrder[row.decay_risk ?? "none"] ?? 0;
+                    case "organic_traffic": return row.organic_traffic ?? null;
+                    case "updated_at": return row.last_modified ?? row.updated_at ?? null;
+                    default: return null;
+                  }
+                }).map((page) => {
                   const db = decayBadge(page.decay_risk);
                   return (
                     <TableRow key={page.id}>
@@ -930,16 +973,24 @@ export function ContentClient({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Target Keyword</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Status</TableHead>
+                    <SortableHeader<typeof calSortKey> label="Title" sortKey="title" currentSort={calSortKey} currentDir={calSortDir} onSort={calToggleSort} />
+                    <SortableHeader<typeof calSortKey> label="Target Keyword" sortKey="target_keyword" currentSort={calSortKey} currentDir={calSortDir} onSort={calToggleSort} />
+                    <SortableHeader<typeof calSortKey> label="Date" sortKey="target_date" currentSort={calSortKey} currentDir={calSortDir} onSort={calToggleSort} />
+                    <SortableHeader<typeof calSortKey> label="Status" sortKey="status" currentSort={calSortKey} currentDir={calSortDir} onSort={calToggleSort} />
                     <TableHead>Notes</TableHead>
                     <TableHead className="w-10" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((entry) => (
+                  {calSort(filtered, (row, key) => {
+                    switch (key) {
+                      case "title": return row.title ?? "";
+                      case "target_keyword": return row.target_keyword ?? "";
+                      case "target_date": return row.target_date ?? "";
+                      case "status": return row.status ?? "";
+                      default: return null;
+                    }
+                  }).map((entry) => (
                     <TableRow key={entry.id}>
                       <TableCell className="font-sans text-sm font-semibold text-ink">{entry.title ?? "Untitled"}</TableCell>
                       <TableCell className="font-mono text-xs text-ink-secondary">{entry.target_keyword ?? "---"}</TableCell>

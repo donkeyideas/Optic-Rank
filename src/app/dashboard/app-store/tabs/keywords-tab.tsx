@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/shared/toast";
 import { useActionProgress } from "@/components/shared/action-progress";
@@ -12,6 +12,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { ColumnHeader } from "@/components/editorial/column-header";
+import { SortableHeader } from "@/components/editorial/sortable-header";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { AppSelectorStrip } from "@/components/app-store/app-selector-strip";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +32,8 @@ import type { AppStoreRanking, KeywordHistoryPoint } from "@/lib/dal/app-store";
 import { useTimezone } from "@/lib/context/timezone-context";
 import { formatDate } from "@/lib/utils/format-date";
 
+type AsoKwSortKey = "keyword" | "position" | "search_volume" | "difficulty";
+
 interface KeywordsTabProps {
   listings: AppStoreListing[];
   rankings: AppStoreRanking[];
@@ -45,6 +49,7 @@ export function KeywordsTab({ listings, rankings, keywordHistory }: KeywordsTabP
   const [storeFilter, setStoreFilter] = useState<"all" | "apple" | "google">("all");
   const [selectedListing, setSelectedListing] = useState<string>("all");
   const [expandedKeyword, setExpandedKeyword] = useState<string | null>(null);
+  const { sortKey: asoSortKey, sortDir: asoSortDir, toggleSort: toggleAsoSort, sort: asoSort } = useTableSort<AsoKwSortKey>("position", "asc");
 
   // Local rankings from generate action (bypasses server prop refresh issues)
   const [localRankings, setLocalRankings] = useState<AppStoreRanking[]>([]);
@@ -76,8 +81,18 @@ export function KeywordsTab({ listings, rankings, keywordHistory }: KeywordsTabP
     keywordRows = keywordRows.filter((r) => r.listing?.store === storeFilter);
   }
 
-  // Sort by position (best first)
-  keywordRows.sort((a, b) => (a.position ?? 999) - (b.position ?? 999));
+  const sortedKeywordRows = useMemo(
+    () => asoSort(keywordRows, (r, key) => {
+      switch (key) {
+        case "keyword": return r.keyword;
+        case "position": return r.position;
+        case "search_volume": return r.search_volume;
+        case "difficulty": return r.difficulty;
+        default: return null;
+      }
+    }),
+    [keywordRows, asoSort]
+  );
 
   // Cross-platform gap detection
   const crossPlatformKeywords = new Map<string, { apple?: number | null; google?: number | null }>();
@@ -230,17 +245,17 @@ export function KeywordsTab({ listings, rankings, keywordHistory }: KeywordsTabP
         <TableHeader>
           <TableRow>
             <TableHead className="w-8"></TableHead>
-            <TableHead>Keyword</TableHead>
-            <TableHead>Position</TableHead>
-            <TableHead>Volume</TableHead>
-            <TableHead>Difficulty</TableHead>
+            <SortableHeader label="Keyword" sortKey="keyword" currentSort={asoSortKey} currentDir={asoSortDir} onSort={toggleAsoSort} />
+            <SortableHeader label="Position" sortKey="position" currentSort={asoSortKey} currentDir={asoSortDir} onSort={toggleAsoSort} />
+            <SortableHeader label="Volume" sortKey="search_volume" currentSort={asoSortKey} currentDir={asoSortDir} onSort={toggleAsoSort} />
+            <SortableHeader label="Difficulty" sortKey="difficulty" currentSort={asoSortKey} currentDir={asoSortDir} onSort={toggleAsoSort} />
             <TableHead>Store</TableHead>
             <TableHead>App</TableHead>
             <TableHead>Checked</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {keywordRows.slice(0, 100).map((r) => {
+          {sortedKeywordRows.slice(0, 100).map((r) => {
             const isExpanded = expandedKeyword === `${r.keyword}:${r.listing_id}`;
             const history = keywordHistory.filter((h) => h.ranking_id === r.id);
 

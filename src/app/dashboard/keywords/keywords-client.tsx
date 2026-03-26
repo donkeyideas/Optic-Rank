@@ -27,6 +27,8 @@ import {
 
 import { HeadlineBar } from "@/components/editorial/headline-bar";
 import { ColumnHeader } from "@/components/editorial/column-header";
+import { SortableHeader } from "@/components/editorial/sortable-header";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -56,7 +58,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { addKeywords, deleteKeyword, importKeywordsCSV, getKeywordRankHistory, generateKeywordsAI } from "@/lib/actions/keywords";
-import { importKeywordsFromGSC } from "@/lib/actions/gsc";
+import { importFromGoogleAnalytics } from "@/lib/actions/ga4-import";
 import { useActionProgress } from "@/components/shared/action-progress";
 import { RankHistoryChart } from "@/components/charts/rank-history-chart";
 import type { Keyword, ComparisonTimeRange } from "@/types";
@@ -441,11 +443,27 @@ export function KeywordsPageClient({
     },
   ];
 
+  type KwSortKey = "keyword" | "position" | "change" | "search_volume" | "cpc" | "difficulty" | "intent";
+  const { sortKey: kwSortKey, sortDir: kwSortDir, toggleSort: toggleKwSort, sort: kwSort } = useTableSort<KwSortKey>("position", "asc");
+
+  const sortedKeywords = kwSort(filteredKeywords, (kw, key) => {
+    switch (key) {
+      case "keyword": return kw.keyword;
+      case "position": return kw.current_position;
+      case "change": return kw.previous_position != null && kw.current_position != null ? kw.previous_position - kw.current_position : null;
+      case "search_volume": return kw.search_volume;
+      case "cpc": return kw.cpc != null ? Number(kw.cpc) : null;
+      case "difficulty": return kw.difficulty;
+      case "intent": return kw.intent;
+      default: return null;
+    }
+  });
+
   const PAGE_SIZE = 50;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  // Paginate filtered keywords on the client
-  const paginatedKeywords = filteredKeywords.slice(
+  // Paginate sorted + filtered keywords on the client
+  const paginatedKeywords = sortedKeywords.slice(
     (page - 1) * PAGE_SIZE,
     page * PAGE_SIZE
   );
@@ -633,7 +651,7 @@ export function KeywordsPageClient({
               Generate
             </Button>
 
-            {/* Import from GSC */}
+            {/* Import from Google Analytics */}
             <Button
               variant="outline"
               size="sm"
@@ -641,17 +659,17 @@ export function KeywordsPageClient({
               onClick={() => {
                 runAction(
                   {
-                    title: "Importing from GSC",
-                    description: "Fetching top search queries from Google Search Console...",
-                    steps: ["Connecting to GSC", "Fetching top queries", "Filtering duplicates", "Adding keywords"],
-                    estimatedDuration: 10,
+                    title: "Importing from Google Analytics",
+                    description: "Fetching top pages and traffic data from GA4...",
+                    steps: ["Connecting to Analytics", "Fetching top pages", "Updating traffic data", "Syncing pages"],
+                    estimatedDuration: 12,
                   },
-                  () => importKeywordsFromGSC(projectId, 50, addLocation, addDevice)
+                  () => importFromGoogleAnalytics(projectId)
                 );
               }}
             >
-              <Search size={14} />
-              Import GSC
+              <BarChart3 size={14} />
+              Import GA
             </Button>
 
             {/* Add Keywords Dialog */}
@@ -748,14 +766,14 @@ export function KeywordsPageClient({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="min-w-[240px]">Keyword</TableHead>
-                    <TableHead className="w-[80px]">Position</TableHead>
-                    <TableHead className="w-[80px]">Change</TableHead>
+                    <SortableHeader<KwSortKey> label="Keyword" sortKey="keyword" currentSort={kwSortKey} currentDir={kwSortDir} onSort={toggleKwSort} className="min-w-[240px]" />
+                    <SortableHeader<KwSortKey> label="Position" sortKey="position" currentSort={kwSortKey} currentDir={kwSortDir} onSort={toggleKwSort} className="w-[80px]" />
+                    <SortableHeader<KwSortKey> label="Change" sortKey="change" currentSort={kwSortKey} currentDir={kwSortDir} onSort={toggleKwSort} className="w-[80px]" />
                     <TableHead className="w-[120px]">SERP Features</TableHead>
-                    <TableHead className="w-[80px]">Volume</TableHead>
-                    <TableHead className="w-[70px]">CPC</TableHead>
-                    <TableHead className="w-[140px]">Difficulty</TableHead>
-                    <TableHead className="w-[110px]">Intent</TableHead>
+                    <SortableHeader<KwSortKey> label="Volume" sortKey="search_volume" currentSort={kwSortKey} currentDir={kwSortDir} onSort={toggleKwSort} className="w-[80px]" />
+                    <SortableHeader<KwSortKey> label="CPC" sortKey="cpc" currentSort={kwSortKey} currentDir={kwSortDir} onSort={toggleKwSort} className="w-[70px]" />
+                    <SortableHeader<KwSortKey> label="Difficulty" sortKey="difficulty" currentSort={kwSortKey} currentDir={kwSortDir} onSort={toggleKwSort} className="w-[140px]" />
+                    <SortableHeader<KwSortKey> label="Intent" sortKey="intent" currentSort={kwSortKey} currentDir={kwSortDir} onSort={toggleKwSort} className="w-[110px]" />
                     <TableHead className="w-[70px]">AI Vis.</TableHead>
                     <TableHead className="w-10" />
                   </TableRow>

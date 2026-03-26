@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect, useRef } from "react";
+import { useState, useTransition, useEffect, useRef, useMemo } from "react";
 import {
   TrendingUp,
   Sparkles,
@@ -9,6 +9,8 @@ import {
   Star,
 } from "lucide-react";
 import { ColumnHeader } from "@/components/editorial/column-header";
+import { SortableHeader } from "@/components/editorial/sortable-header";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { AppSelectorStrip } from "@/components/app-store/app-selector-strip";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +19,6 @@ import {
   TableHeader,
   TableBody,
   TableRow,
-  TableHead,
   TableCell,
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -29,6 +30,8 @@ import {
   analyzeCategoryTrends,
 } from "@/lib/actions/app-store-intel";
 import type { AppStoreListing } from "@/types";
+
+type IntelSortKey = "keyword" | "estimated_volume" | "competition" | "opportunity_score";
 
 interface StoreIntelTabProps {
   listings: AppStoreListing[];
@@ -43,6 +46,20 @@ export function StoreIntelTab({ listings }: StoreIntelTabProps) {
   const [leaderboard, setLeaderboard] = useState<Array<{ app_id: string; app_name: string; developer: string | null; icon_url: string | null; rating: number | null; downloads_estimate: number | null }>>([]);
   const [opportunities, setOpportunities] = useState<Array<{ keyword: string; estimated_volume: string; competition: string; opportunity_score: number; reason: string }>>([]);
   const [trendAnalysis, setTrendAnalysis] = useState<string | null>(null);
+  const { sortKey: intelSortKey, sortDir: intelSortDir, toggleSort: toggleIntelSort, sort: intelSort } = useTableSort<IntelSortKey>("opportunity_score", "desc");
+
+  const sortedOpportunities = useMemo(
+    () => intelSort(opportunities, (opp, key) => {
+      switch (key) {
+        case "keyword": return opp.keyword;
+        case "estimated_volume": return opp.estimated_volume;
+        case "competition": return opp.competition;
+        case "opportunity_score": return opp.opportunity_score;
+        default: return null;
+      }
+    }),
+    [opportunities, intelSort]
+  );
 
   const listing = listings.find((l) => l.id === selectedListing);
   const autoLoaded = useRef(false);
@@ -193,14 +210,14 @@ export function StoreIntelTab({ listings }: StoreIntelTabProps) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Keyword</TableHead>
-                  <TableHead>Volume</TableHead>
-                  <TableHead>Competition</TableHead>
-                  <TableHead>Score</TableHead>
+                  <SortableHeader label="Keyword" sortKey="keyword" currentSort={intelSortKey} currentDir={intelSortDir} onSort={toggleIntelSort} />
+                  <SortableHeader label="Volume" sortKey="estimated_volume" currentSort={intelSortKey} currentDir={intelSortDir} onSort={toggleIntelSort} />
+                  <SortableHeader label="Competition" sortKey="competition" currentSort={intelSortKey} currentDir={intelSortDir} onSort={toggleIntelSort} />
+                  <SortableHeader label="Score" sortKey="opportunity_score" currentSort={intelSortKey} currentDir={intelSortDir} onSort={toggleIntelSort} />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {opportunities.map((opp, i) => (
+                {sortedOpportunities.map((opp, i) => (
                   <TableRow key={i}>
                     <TableCell>
                       <div>
