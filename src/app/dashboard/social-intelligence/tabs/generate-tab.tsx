@@ -106,7 +106,7 @@ export function GenerateTab({ profile, goals }: GenerateTabProps) {
         <div>
           <h3 className="font-serif text-lg font-bold text-ink">Content Generator</h3>
           <p className="text-sm text-ink-secondary">
-            Content creation for @{profile.handle} on {profile.platform}
+            Content creation for {profile.display_name || `@${profile.handle}`} on {profile.platform}
             {goals ? ` — aligned with your goal to ${goals.primary_objective.replace(/_/g, " ")}` : ""}
           </p>
         </div>
@@ -219,7 +219,7 @@ export function GenerateTab({ profile, goals }: GenerateTabProps) {
             <div className="text-center">
               <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-editorial-red border-t-transparent" />
               <p className="text-sm text-ink-secondary">
-                Crafting {selectedConfig?.label.toLowerCase()} for @{profile.handle}...
+                Crafting {selectedConfig?.label.toLowerCase()} for {profile.display_name || `@${profile.handle}`}...
               </p>
             </div>
           </CardContent>
@@ -312,7 +312,7 @@ export function GenerateTab({ profile, goals }: GenerateTabProps) {
           <CardContent className="py-12 text-center">
             <Wand2 className="mx-auto mb-3 h-8 w-8 text-ink-muted" />
             <p className="text-sm text-ink-muted">
-              Select a content type and click Generate to create content for @{profile.handle}.
+              Select a content type and click Generate to create content for {profile.display_name || `@${profile.handle}`}.
             </p>
             {!goals && (
               <p className="mt-2 text-xs text-editorial-gold">

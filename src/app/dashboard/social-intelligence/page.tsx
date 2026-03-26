@@ -11,6 +11,7 @@ import {
   getSocialGoals,
 } from "@/lib/dal/social-intelligence";
 import { checkPlanLimit } from "@/lib/stripe/plan-gate";
+import { computeAllComparisons, type MetricDef } from "@/lib/utils/period-comparison";
 
 export default async function SocialIntelligencePage() {
   const supabase = await createClient();
@@ -62,7 +63,7 @@ export default async function SocialIntelligencePage() {
 
   // Fetch data for all profiles in parallel
   const [allMetrics, allAnalyses, allCompetitors, allGoals] = await Promise.all([
-    Promise.all(socialProfiles.map((sp) => getSocialMetrics(sp.id, 30))),
+    Promise.all(socialProfiles.map((sp) => getSocialMetrics(sp.id, 180))),
     Promise.all(socialProfiles.map((sp) => getAllLatestAnalyses(sp.id))),
     Promise.all(socialProfiles.map((sp) => getSocialCompetitors(sp.id))),
     Promise.all(socialProfiles.map((sp) => getSocialGoals(sp.id))),
@@ -84,6 +85,48 @@ export default async function SocialIntelligencePage() {
   // Fetch org limits for plan gating (uses superadmin bypass)
   const planCheck = await checkPlanLimit(profile.organization_id, "social_profiles", 0);
 
+  // ------------------------------------------------------------------
+  // Period comparisons from aggregated social metrics across all profiles
+  // ------------------------------------------------------------------
+  interface DailySocialStat {
+    date: string;
+    totalFollowers: number;
+    avgEngagementRate: number | null;
+    totalAvgLikes: number;
+    totalAvgViews: number;
+  }
+
+  const metricsByDate = new Map<string, { followers: number[]; engagement: number[]; likes: number[]; views: number[] }>();
+  for (const metrics of Object.values(metricsMap)) {
+    for (const m of metrics) {
+      const bucket = metricsByDate.get(m.date) ?? { followers: [], engagement: [], likes: [], views: [] };
+      if (m.followers != null) bucket.followers.push(m.followers);
+      if (m.engagement_rate != null) bucket.engagement.push(m.engagement_rate);
+      if (m.avg_likes != null) bucket.likes.push(m.avg_likes);
+      if (m.avg_views != null) bucket.views.push(m.avg_views);
+      metricsByDate.set(m.date, bucket);
+    }
+  }
+
+  const dailySocialStats: DailySocialStat[] = Array.from(metricsByDate.entries())
+    .map(([date, b]) => ({
+      date,
+      totalFollowers: b.followers.reduce((a, v) => a + v, 0),
+      avgEngagementRate: b.engagement.length > 0 ? b.engagement.reduce((a, v) => a + v, 0) / b.engagement.length : null,
+      totalAvgLikes: b.likes.reduce((a, v) => a + v, 0),
+      totalAvgViews: b.views.reduce((a, v) => a + v, 0),
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const socialMetrics: MetricDef<DailySocialStat>[] = [
+    { label: "Total Followers", getValue: (s) => s.totalFollowers, aggregation: "latest" },
+    { label: "Avg Engagement Rate", getValue: (s) => s.avgEngagementRate, aggregation: "latest" },
+    { label: "Total Avg Likes", getValue: (s) => s.totalAvgLikes, aggregation: "latest" },
+    { label: "Total Avg Views", getValue: (s) => s.totalAvgViews, aggregation: "latest" },
+  ];
+
+  const socialComparisons = computeAllComparisons(dailySocialStats, socialMetrics, (s) => s.date);
+
   return (
     <SocialIntelligenceClient
       profiles={socialProfiles}
@@ -94,6 +137,7 @@ export default async function SocialIntelligencePage() {
       projectId={project.id}
       maxProfiles={planCheck.limit}
       plan={planCheck.plan}
+      comparisons={socialComparisons}
     />
   );
 }

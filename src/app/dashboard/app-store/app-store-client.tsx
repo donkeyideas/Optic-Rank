@@ -49,7 +49,7 @@ import { LocalizationTab } from "./tabs/localization-tab";
 import { UpdateImpactTab } from "./tabs/update-impact-tab";
 import { VisibilityTab } from "./tabs/visibility-tab";
 
-import type { AppStoreListing } from "@/types";
+import type { AppStoreListing, ComparisonTimeRange } from "@/types";
 import type {
   AppStoreRanking,
   AppReview,
@@ -61,6 +61,8 @@ import type {
   AppStoreLocalization,
   VisibilityHistoryPoint,
 } from "@/lib/dal/app-store";
+import { PeriodComparisonBar } from "@/components/editorial/period-comparison-bar";
+import type { GenericPeriodComparison } from "@/lib/utils/period-comparison";
 
 /* ------------------------------------------------------------------
    Props
@@ -78,6 +80,7 @@ interface AppStoreClientProps {
   localizations: AppStoreLocalization[];
   visibilityHistory: VisibilityHistoryPoint[];
   projectId: string;
+  comparisons: Record<ComparisonTimeRange, GenericPeriodComparison>;
 }
 
 /* ------------------------------------------------------------------
@@ -96,6 +99,7 @@ export function AppStoreClient({
   localizations,
   visibilityHistory,
   projectId,
+  comparisons,
 }: AppStoreClientProps) {
   const [activeTab, setActiveTab] = useState("overview");
   const [showAddListing, setShowAddListing] = useState(false);
@@ -440,6 +444,9 @@ export function AppStoreClient({
   return (
     <div className="flex flex-col gap-6">
       <HeadlineBar stats={headlineStats} />
+
+      {/* Period Comparison */}
+      <PeriodComparisonBar comparisons={comparisons} />
 
       {/* Page Header */}
       <div className="flex items-end justify-between border-b border-rule pb-4">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useMemo } from "react";
+import { useState, useTransition, useMemo, useRef, useEffect } from "react";
 import {
   Search,
   ExternalLink,
@@ -24,8 +24,12 @@ import {
   ArrowRight,
   Copy,
   Check,
+  Info,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 
+import { cn } from "@/lib/utils";
 import { useTimezone } from "@/lib/context/timezone-context";
 import { formatDate } from "@/lib/utils/format-date";
 import { HeadlineBar } from "@/components/editorial/headline-bar";
@@ -60,6 +64,9 @@ import { disavowBacklink, reclaimBacklink, discoverBacklinks, addBacklinkFromUrl
 import { useActionProgress } from "@/components/shared/action-progress";
 import { RecommendationsTab, StrategyGuideTab } from "@/components/shared/page-guide";
 import type { Recommendation, StrategyContent } from "@/components/shared/page-guide";
+import { PeriodComparisonBar } from "@/components/editorial/period-comparison-bar";
+import type { ComparisonTimeRange } from "@/types";
+import type { GenericPeriodComparison } from "@/lib/utils/period-comparison";
 import type { Backlink } from "@/types";
 
 /* ------------------------------------------------------------------
@@ -78,6 +85,7 @@ interface BacklinksPageClientProps {
     newCount: number;
     lostCount: number;
   };
+  comparisons: Record<ComparisonTimeRange, GenericPeriodComparison>;
 }
 
 /* ------------------------------------------------------------------
@@ -123,6 +131,118 @@ function formatBacklinkDate(isoDate: string, timezone: string): string {
 }
 
 /* ------------------------------------------------------------------
+   Metric Tooltip
+   ------------------------------------------------------------------ */
+
+const METRIC_INFO: Record<string, { title: string; description: string; scale: string }> = {
+  da: {
+    title: "Domain Authority (DA)",
+    description: "A score developed by Moz that predicts how likely a website is to rank in search engine results. It's calculated based on linking root domains, total number of links, and other factors.",
+    scale: "0–100. Higher is better. 80+ is excellent, 60-79 is good, 40-59 is average, below 40 is low.",
+  },
+  tf: {
+    title: "Trust Flow (TF)",
+    description: "A metric by Majestic that measures the quality and trustworthiness of a site's backlink profile. Sites linked from highly trusted sources (like .gov, .edu) have higher Trust Flow.",
+    scale: "0–100. Higher means more trustworthy. A healthy backlink has TF ≥ 15.",
+  },
+  cf: {
+    title: "Citation Flow (CF)",
+    description: "A metric by Majestic that measures the quantity/influence of links pointing to a URL. Unlike Trust Flow, it focuses on volume rather than quality — a high CF with low TF can indicate spam.",
+    scale: "0–100. High CF + high TF = quality. High CF + low TF = potential spam.",
+  },
+};
+
+function MetricTooltip({ metric, open, onToggle }: { metric: string; open: boolean; onToggle: () => void }) {
+  const info = METRIC_INFO[metric];
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 8, left: Math.max(8, rect.left - 112) });
+    }
+  }, [open]);
+
+  if (!info) return null;
+
+  return (
+    <span className="relative inline-flex">
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onToggle(); }}
+        className="ml-1 inline-flex text-ink-muted/50 transition-colors hover:text-ink-muted"
+      >
+        <Info size={10} />
+      </button>
+      {open && pos && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); onToggle(); }} />
+          <div
+            className="fixed z-50 w-64 border border-rule bg-surface-card p-4 shadow-lg"
+            style={{ top: pos.top, left: pos.left }}
+          >
+            <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-ink">{info.title}</p>
+            <p className="mt-2 text-[12px] leading-relaxed text-ink-secondary">{info.description}</p>
+            <p className="mt-2 border-t border-rule pt-2 text-[11px] text-ink-muted">
+              <span className="font-semibold text-ink">Scale: </span>{info.scale}
+            </p>
+          </div>
+        </>
+      )}
+    </span>
+  );
+}
+
+/* ------------------------------------------------------------------
+   Sortable Table Head
+   ------------------------------------------------------------------ */
+
+type SortKey = "source_domain" | "target_url" | "anchor_text" | "da" | "tf" | "cf" | "link_type" | "status" | "first_seen" | "risk";
+type SortDir = "asc" | "desc";
+
+function SortableHead({
+  label,
+  sortKey,
+  currentSort,
+  currentDir,
+  onSort,
+  className,
+  children,
+}: {
+  label: string;
+  sortKey: SortKey;
+  currentSort: SortKey;
+  currentDir: SortDir;
+  onSort: (key: SortKey) => void;
+  className?: string;
+  children?: React.ReactNode;
+}) {
+  const active = currentSort === sortKey;
+  return (
+    <th
+      className={cn(
+        "h-10 px-3 text-left align-middle text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted bg-surface-card cursor-pointer select-none transition-colors hover:text-ink",
+        active && "text-ink",
+        className
+      )}
+      onClick={() => onSort(sortKey)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {children}
+        {active && (
+          currentDir === "asc"
+            ? <ArrowUp size={10} className="text-ink" />
+            : <ArrowDown size={10} className="text-ink" />
+        )}
+      </span>
+    </th>
+  );
+}
+
+/* ------------------------------------------------------------------
    Backlinks Page Client Component
    ------------------------------------------------------------------ */
 
@@ -131,15 +251,13 @@ export function BacklinksPageClient({
   backlinks,
   totalCount,
   stats,
+  comparisons,
 }: BacklinksPageClientProps) {
   const timezone = useTimezone();
   const [searchQuery, setSearchQuery] = useState("");
   const [linkTypeFilter, setLinkTypeFilter] = useState<
     "all" | Backlink["link_type"]
   >("all");
-  const [sortBy, setSortBy] = useState<"da" | "first_seen" | "trust_flow">(
-    "first_seen"
-  );
   const [isPending, startTransition] = useTransition();
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -147,6 +265,11 @@ export function BacklinksPageClient({
   const [showAddUrl, setShowAddUrl] = useState(false);
   const [addUrlValue, setAddUrlValue] = useState("");
   const [addUrlError, setAddUrlError] = useState<string | null>(null);
+  const [openTooltip, setOpenTooltip] = useState<string | null>(null);
+  const [colSort, setColSort] = useState<SortKey>("first_seen");
+  const [colDir, setColDir] = useState<SortDir>("desc");
+  const [toxicSort, setToxicSort] = useState<SortKey>("risk");
+  const [toxicDir, setToxicDir] = useState<SortDir>("desc");
 
   function handleDisavow(id: string) {
     setActionError(null);
@@ -217,25 +340,60 @@ export function BacklinksPageClient({
     URL.revokeObjectURL(url);
   }
 
+  function handleColSort(key: SortKey) {
+    if (colSort === key) {
+      setColDir(colDir === "asc" ? "desc" : "asc");
+    } else {
+      setColSort(key);
+      setColDir(key === "source_domain" || key === "anchor_text" || key === "link_type" || key === "status" ? "asc" : "desc");
+    }
+  }
+
+  function handleToxicSort(key: SortKey) {
+    if (toxicSort === key) {
+      setToxicDir(toxicDir === "asc" ? "desc" : "asc");
+    } else {
+      setToxicSort(key);
+      setToxicDir(key === "source_domain" || key === "anchor_text" ? "asc" : "desc");
+    }
+  }
+
+  function sortBacklinks(list: Backlink[], key: SortKey, dir: SortDir): Backlink[] {
+    const mult = dir === "asc" ? 1 : -1;
+    return [...list].sort((a, b) => {
+      switch (key) {
+        case "source_domain": return mult * a.source_domain.localeCompare(b.source_domain);
+        case "target_url": return mult * a.target_url.localeCompare(b.target_url);
+        case "anchor_text": return mult * a.anchor_text.localeCompare(b.anchor_text);
+        case "da": return mult * ((a.domain_authority ?? 0) - (b.domain_authority ?? 0));
+        case "tf": return mult * ((a.trust_flow ?? 0) - (b.trust_flow ?? 0));
+        case "cf": return mult * ((a.citation_flow ?? 0) - (b.citation_flow ?? 0));
+        case "link_type": return mult * a.link_type.localeCompare(b.link_type);
+        case "status": return mult * a.status.localeCompare(b.status);
+        case "first_seen": return mult * (new Date(a.first_seen).getTime() - new Date(b.first_seen).getTime());
+        case "risk": {
+          const ratioA = (a.trust_flow ?? 0) > 0 ? (a.citation_flow ?? 0) / (a.trust_flow ?? 0) : 10;
+          const ratioB = (b.trust_flow ?? 0) > 0 ? (b.citation_flow ?? 0) / (b.trust_flow ?? 0) : 10;
+          return mult * (ratioA - ratioB);
+        }
+        default: return 0;
+      }
+    });
+  }
+
   // Client-side filtering of server-fetched data
-  const filteredBacklinks = backlinks
-    .filter((bl) => {
+  const filteredBacklinks = sortBacklinks(
+    backlinks.filter((bl) => {
       const matchesSearch =
         bl.source_domain.toLowerCase().includes(searchQuery.toLowerCase()) ||
         bl.anchor_text.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesType =
         linkTypeFilter === "all" || bl.link_type === linkTypeFilter;
       return matchesSearch && matchesType;
-    })
-    .sort((a, b) => {
-      if (sortBy === "da")
-        return (b.domain_authority ?? 0) - (a.domain_authority ?? 0);
-      if (sortBy === "trust_flow")
-        return (b.trust_flow ?? 0) - (a.trust_flow ?? 0);
-      return (
-        new Date(b.first_seen).getTime() - new Date(a.first_seen).getTime()
-      );
-    });
+    }),
+    colSort,
+    colDir
+  );
 
   const newBacklinks = backlinks.filter((bl) => bl.status === "new");
   const lostBacklinks = backlinks.filter((bl) => bl.status === "lost");
@@ -531,6 +689,9 @@ export function BacklinksPageClient({
       {/* Headline Stats Bar */}
       <HeadlineBar stats={headlineStats} />
 
+      {/* Period Comparison */}
+      <PeriodComparisonBar comparisons={comparisons} />
+
       {actionError && (
         <div className="border border-editorial-red/30 bg-editorial-red/5 px-4 py-3 text-sm text-editorial-red">
           {actionError}
@@ -611,17 +772,17 @@ export function BacklinksPageClient({
               <span className="bg-surface-raised px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-ink-muted">
                 Sort
               </span>
-              {(["first_seen", "da", "trust_flow"] as const).map((s) => (
+              {([{ key: "first_seen" as SortKey, label: "Newest" }, { key: "da" as SortKey, label: "DA" }, { key: "tf" as SortKey, label: "Trust" }]).map((s) => (
                 <button
-                  key={s}
-                  onClick={() => setSortBy(s)}
+                  key={s.key}
+                  onClick={() => handleColSort(s.key)}
                   className={`border-l border-rule px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.15em] transition-colors ${
-                    sortBy === s
+                    colSort === s.key
                       ? "bg-ink text-surface-cream"
                       : "bg-surface-card text-ink-muted hover:text-ink"
                   }`}
                 >
-                  {s === "first_seen" ? "Newest" : s === "da" ? "DA" : "Trust"}
+                  {s.label}
                 </button>
               ))}
             </div>
@@ -633,19 +794,21 @@ export function BacklinksPageClient({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="min-w-[220px]">Source URL</TableHead>
-                    <TableHead className="min-w-[140px]">
-                      Target Page
-                    </TableHead>
-                    <TableHead className="min-w-[160px]">
-                      Anchor Text
-                    </TableHead>
-                    <TableHead className="w-[60px]">DA</TableHead>
-                    <TableHead className="w-[60px]">TF</TableHead>
-                    <TableHead className="w-[60px]">CF</TableHead>
-                    <TableHead className="w-[100px]">Link Type</TableHead>
-                    <TableHead className="w-[80px]">Status</TableHead>
-                    <TableHead className="w-[100px]">First Seen</TableHead>
+                    <SortableHead label="Source URL" sortKey="source_domain" currentSort={colSort} currentDir={colDir} onSort={handleColSort} className="min-w-[220px]" />
+                    <SortableHead label="Target Page" sortKey="target_url" currentSort={colSort} currentDir={colDir} onSort={handleColSort} className="min-w-[140px]" />
+                    <SortableHead label="Anchor Text" sortKey="anchor_text" currentSort={colSort} currentDir={colDir} onSort={handleColSort} className="min-w-[160px]" />
+                    <SortableHead label="DA" sortKey="da" currentSort={colSort} currentDir={colDir} onSort={handleColSort} className="w-[60px]">
+                      <MetricTooltip metric="da" open={openTooltip === "da"} onToggle={() => setOpenTooltip(openTooltip === "da" ? null : "da")} />
+                    </SortableHead>
+                    <SortableHead label="TF" sortKey="tf" currentSort={colSort} currentDir={colDir} onSort={handleColSort} className="w-[60px]">
+                      <MetricTooltip metric="tf" open={openTooltip === "tf"} onToggle={() => setOpenTooltip(openTooltip === "tf" ? null : "tf")} />
+                    </SortableHead>
+                    <SortableHead label="CF" sortKey="cf" currentSort={colSort} currentDir={colDir} onSort={handleColSort} className="w-[60px]">
+                      <MetricTooltip metric="cf" open={openTooltip === "cf"} onToggle={() => setOpenTooltip(openTooltip === "cf" ? null : "cf")} />
+                    </SortableHead>
+                    <SortableHead label="Link Type" sortKey="link_type" currentSort={colSort} currentDir={colDir} onSort={handleColSort} className="w-[100px]" />
+                    <SortableHead label="Status" sortKey="status" currentSort={colSort} currentDir={colDir} onSort={handleColSort} className="w-[80px]" />
+                    <SortableHead label="First Seen" sortKey="first_seen" currentSort={colSort} currentDir={colDir} onSort={handleColSort} className="w-[100px]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -945,21 +1108,23 @@ export function BacklinksPageClient({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="min-w-[200px]">
-                        Source Domain
-                      </TableHead>
-                      <TableHead className="min-w-[140px]">
-                        Anchor Text
-                      </TableHead>
-                      <TableHead className="w-[60px]">DA</TableHead>
-                      <TableHead className="w-[60px]">TF</TableHead>
-                      <TableHead className="w-[60px]">CF</TableHead>
-                      <TableHead className="w-[100px]">Risk Level</TableHead>
+                      <SortableHead label="Source Domain" sortKey="source_domain" currentSort={toxicSort} currentDir={toxicDir} onSort={handleToxicSort} className="min-w-[200px]" />
+                      <SortableHead label="Anchor Text" sortKey="anchor_text" currentSort={toxicSort} currentDir={toxicDir} onSort={handleToxicSort} className="min-w-[140px]" />
+                      <SortableHead label="DA" sortKey="da" currentSort={toxicSort} currentDir={toxicDir} onSort={handleToxicSort} className="w-[60px]">
+                        <MetricTooltip metric="da" open={openTooltip === "toxic-da"} onToggle={() => setOpenTooltip(openTooltip === "toxic-da" ? null : "toxic-da")} />
+                      </SortableHead>
+                      <SortableHead label="TF" sortKey="tf" currentSort={toxicSort} currentDir={toxicDir} onSort={handleToxicSort} className="w-[60px]">
+                        <MetricTooltip metric="tf" open={openTooltip === "toxic-tf"} onToggle={() => setOpenTooltip(openTooltip === "toxic-tf" ? null : "toxic-tf")} />
+                      </SortableHead>
+                      <SortableHead label="CF" sortKey="cf" currentSort={toxicSort} currentDir={toxicDir} onSort={handleToxicSort} className="w-[60px]">
+                        <MetricTooltip metric="cf" open={openTooltip === "toxic-cf"} onToggle={() => setOpenTooltip(openTooltip === "toxic-cf" ? null : "toxic-cf")} />
+                      </SortableHead>
+                      <SortableHead label="Risk Level" sortKey="risk" currentSort={toxicSort} currentDir={toxicDir} onSort={handleToxicSort} className="w-[100px]" />
                       <TableHead className="w-[100px]">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {toxicBacklinks.map((bl) => {
+                    {sortBacklinks(toxicBacklinks, toxicSort, toxicDir).map((bl) => {
                       const tf = bl.trust_flow ?? 0;
                       const cf = bl.citation_flow ?? 0;
                       const cfTfRatio = tf > 0 ? cf / tf : 10;

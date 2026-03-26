@@ -24,6 +24,7 @@ import {
   generateAppKeywords,
 } from "@/lib/actions/app-store";
 import { discoverCompetitors } from "@/lib/actions/app-store-competitors";
+import { StoreBadge } from "@/components/app-store/store-badge";
 import type { AppStoreListing } from "@/types";
 import type { AppStoreSnapshot, AppStoreCompetitor, AppStoreRanking, VisibilityHistoryPoint } from "@/lib/dal/app-store";
 
@@ -171,9 +172,12 @@ export function OverviewTab({
                 )}
                 <div>
                   <h3 className="font-serif text-[15px] font-bold text-ink">{listing.app_name}</h3>
-                  <span className="text-[11px] text-ink-muted">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
                     {listing.developer ? `${listing.developer} · ` : ""}
                     {listing.store === "apple" ? "App Store" : "Google Play"}
+                    <span className={`inline-flex h-4 w-4 items-center justify-center rounded-full ${listing.store === "apple" ? "bg-black text-white" : "bg-[#01875f] text-white"}`}>
+                      <StoreBadge store={listing.store} size="xs" />
+                    </span>
                     {listing.current_version ? ` · v${listing.current_version}` : ""}
                   </span>
                 </div>

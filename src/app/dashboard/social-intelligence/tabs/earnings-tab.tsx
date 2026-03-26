@@ -45,7 +45,7 @@ export function EarningsTab({ profile, analyses }: EarningsTabProps) {
         <div>
           <h3 className="font-serif text-lg font-bold text-ink">Earnings Forecast</h3>
           <p className="text-sm text-ink-secondary">
-            AI-powered income projection for @{profile.handle} on {profile.platform}
+            AI-powered income projection for {profile.display_name || `@${profile.handle}`} on {profile.platform}
           </p>
         </div>
         <Button onClick={handleGenerate} disabled={isPending} variant="outline" size="sm">

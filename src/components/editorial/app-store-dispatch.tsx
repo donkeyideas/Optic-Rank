@@ -1,6 +1,18 @@
 import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { AppStoreListing } from "@/types";
+import { StoreBadge } from "@/components/app-store/store-badge";
+
+/** Minimal listing shape used by the dashboard dispatch view */
+interface DispatchListing {
+  id: string;
+  app_name: string;
+  store: "apple" | "google";
+  rating: number | null;
+  reviews_count: number | null;
+  downloads_estimate?: number | null;
+  aso_score: number | null;
+  icon_url?: string | null;
+}
 
 interface ReviewSentiment {
   listingId: string;
@@ -10,7 +22,7 @@ interface ReviewSentiment {
 }
 
 interface AppStoreDispatchProps {
-  listings: AppStoreListing[];
+  listings: DispatchListing[];
   reviewSentiment: ReviewSentiment[];
 }
 
@@ -24,13 +36,13 @@ function StoreIcon({ store }: { store: "apple" | "google" }) {
   return (
     <span
       className={cn(
-        "inline-flex h-4 w-4 items-center justify-center rounded-sm text-[8px] font-bold",
+        "inline-flex h-4 w-4 items-center justify-center rounded-full",
         store === "apple"
-          ? "bg-ink/10 text-ink"
-          : "bg-editorial-green/10 text-editorial-green"
+          ? "bg-black text-white"
+          : "bg-[#01875f] text-white"
       )}
     >
-      {store === "apple" ? "iOS" : "GP"}
+      <StoreBadge store={store} size="xs" />
     </span>
   );
 }
@@ -97,7 +109,7 @@ export function AppStoreDispatch({
                   </span>
                 )}
 
-                {listing.downloads_estimate !== null &&
+                {listing.downloads_estimate != null &&
                   listing.downloads_estimate > 0 && (
                     <span className="font-mono text-[10px] text-ink-muted">
                       {formatCount(listing.downloads_estimate)} downloads

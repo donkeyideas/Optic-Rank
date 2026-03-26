@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getBacklinkSnapshots } from "@/lib/dal/backlinks";
+import { computeAllComparisons, type MetricDef } from "@/lib/utils/period-comparison";
 import { BacklinksPageClient } from "./backlinks-client";
 
 /* ------------------------------------------------------------------
@@ -122,6 +124,22 @@ export default async function BacklinksPage() {
     ? new Set(domainData.map((d) => d.source_domain)).size
     : 0;
 
+  // ------------------------------------------------------------------
+  // Period comparisons from backlink snapshots
+  // ------------------------------------------------------------------
+  const backlinkSnapshots = await getBacklinkSnapshots(project.id);
+
+  type BSnapshot = (typeof backlinkSnapshots)[number];
+  const backlinkMetrics: MetricDef<BSnapshot>[] = [
+    { label: "Total Backlinks", getValue: (s) => s.total_backlinks, aggregation: "latest" },
+    { label: "Referring Domains", getValue: (s) => s.referring_domains, aggregation: "latest" },
+    { label: "Avg Domain Authority", getValue: (s) => s.avg_domain_authority, aggregation: "latest" },
+    { label: "New Links", getValue: (s) => s.new_backlinks, aggregation: "sum" },
+    { label: "Lost Links", getValue: (s) => s.lost_backlinks, aggregation: "sum", invertDirection: true },
+  ];
+
+  const comparisons = computeAllComparisons(backlinkSnapshots, backlinkMetrics, (s) => s.snapshot_date);
+
   return (
     <BacklinksPageClient
       projectId={project.id}
@@ -135,6 +153,7 @@ export default async function BacklinksPage() {
         newCount: newCount ?? 0,
         lostCount: lostCount ?? 0,
       }}
+      comparisons={comparisons}
     />
   );
 }

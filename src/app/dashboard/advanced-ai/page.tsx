@@ -6,11 +6,13 @@ import { AdvancedAIClient } from "./advanced-ai-client";
 import {
   getVisibilityByKeyword,
   getVisibilityStats,
+  getVisibilityChecks,
 } from "@/lib/dal/ai-visibility";
 import { getPredictions, getPredictionStats } from "@/lib/dal/predictions";
 import { getEntities, getEntityStats, getEntityCoverage } from "@/lib/dal/entities";
 import { getBriefs } from "@/lib/dal/briefs";
 import { getAIInsights } from "@/lib/dal/ai-insights";
+import { computeAllComparisons, type MetricDef } from "@/lib/utils/period-comparison";
 
 export default async function AdvancedAIPage() {
   const supabase = await createClient();
@@ -96,6 +98,48 @@ export default async function AdvancedAIPage() {
     dismissedCount: insights.filter((i) => i.is_dismissed).length,
   };
 
+  // ------------------------------------------------------------------
+  // Period comparisons from visibility checks aggregated by date
+  // ------------------------------------------------------------------
+  const allChecks = await getVisibilityChecks(project.id, { limit: 2000 });
+
+  interface DailyAIStat {
+    date: string;
+    totalChecks: number;
+    brandMentionRate: number | null;
+    citationRate: number | null;
+    avgConfidence: number | null;
+  }
+
+  const checksByDate = new Map<string, { total: number; mentioned: number; cited: number }>();
+  for (const c of allChecks) {
+    const date = (c.checked_at ?? "").split("T")[0];
+    if (!date) continue;
+    const bucket = checksByDate.get(date) ?? { total: 0, mentioned: 0, cited: 0 };
+    bucket.total++;
+    if (c.brand_mentioned) bucket.mentioned++;
+    if (c.url_cited) bucket.cited++;
+    checksByDate.set(date, bucket);
+  }
+
+  const dailyAIStats: DailyAIStat[] = Array.from(checksByDate.entries())
+    .map(([date, b]) => ({
+      date,
+      totalChecks: b.total,
+      brandMentionRate: b.total > 0 ? (b.mentioned / b.total) * 100 : null,
+      citationRate: b.total > 0 ? (b.cited / b.total) * 100 : null,
+      avgConfidence: null,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const aiMetrics: MetricDef<DailyAIStat>[] = [
+    { label: "Total Checks", getValue: (s) => s.totalChecks, aggregation: "sum" },
+    { label: "Brand Mention %", getValue: (s) => s.brandMentionRate, aggregation: "latest" },
+    { label: "Citation Rate %", getValue: (s) => s.citationRate, aggregation: "latest" },
+  ];
+
+  const aiComparisons = computeAllComparisons(dailyAIStats, aiMetrics, (s) => s.date);
+
   return (
     <AdvancedAIClient
       projectId={project.id}
@@ -110,6 +154,7 @@ export default async function AdvancedAIPage() {
       briefs={briefs}
       insights={insights}
       insightStats={insightStats}
+      comparisons={aiComparisons}
     />
   );
 }

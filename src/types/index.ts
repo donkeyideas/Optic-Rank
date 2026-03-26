@@ -379,6 +379,31 @@ export interface SocialMetric {
   created_at: string;
 }
 
+/** Time range options for period comparison */
+export type SocialTimeRange = "7d" | "30d" | "90d";
+export type ComparisonTimeRange = "7d" | "30d" | "90d";
+
+/** A single metric comparison between two periods */
+export interface PeriodComparisonMetric {
+  label: string;
+  currentValue: number | null;
+  previousValue: number | null;
+  absoluteDelta: number | null;
+  percentageDelta: number | null;
+  direction: "up" | "down" | "flat";
+}
+
+/** Complete period comparison result for a profile */
+export interface PeriodComparison {
+  timeRange: SocialTimeRange;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  previousPeriodStart: string;
+  previousPeriodEnd: string;
+  metrics: PeriodComparisonMetric[];
+  hasEnoughData: boolean;
+}
+
 export type SocialAnalysisType =
   | "growth"
   | "content_strategy"
@@ -554,4 +579,73 @@ export interface ConversionGoal {
   estimated_conversion_rate: number;
   created_at: string;
   updated_at: string;
+}
+
+// --- Dashboard Volumes ---
+export interface DashboardVolume {
+  id: string;
+  project_id: string;
+  volume_number: number;
+  week_start: string;
+  week_end: string;
+  authority_score: number | null;
+  organic_traffic: number | null;
+  keywords_ranked: number | null;
+  backlinks_total: number | null;
+  health_score: number | null;
+  ai_visibility_avg: number | null;
+  snapshot: DashboardVolumeSnapshot;
+  created_at: string;
+}
+
+export interface DashboardVolumeSnapshot {
+  headlineStats: {
+    label: string;
+    value: string | number;
+    delta: string;
+    direction: "up" | "down" | "neutral";
+  }[];
+  healthScore: number;
+  healthCategories: { name: string; value: number; color: string }[];
+  topKeywords: {
+    keyword: string;
+    position: number | null;
+    previousPosition: number | null;
+    searchVolume: number | null;
+    cpc: number | null;
+    aiVisibility: string | null;
+  }[];
+  competitors: { name: string; domain: string; authorityScore: number }[];
+  aiInsights: {
+    type: string;
+    title: string;
+    description: string;
+    priority: number;
+  }[];
+  socialSummary: {
+    totalFollowers: number;
+    profileCount: number;
+    topPlatform: string | null;
+  } | null;
+  croStats: {
+    estimatedMonthlyRevenue: number;
+    avgPosition: number;
+    estimatedTraffic: number;
+    highValueGaps: number;
+  };
+  aiCommandCenter: {
+    visibilityAvg: number;
+    predictionImproving: number;
+    entityAvgRelevance: number;
+    latestBriefDate: string | null;
+  };
+  appStoreListings: {
+    appName: string;
+    store: string;
+    rating: number | null;
+    reviewsCount: number | null;
+    asoScore: number | null;
+    iconUrl: string | null;
+    downloadsEstimate: number | null;
+  }[];
 }

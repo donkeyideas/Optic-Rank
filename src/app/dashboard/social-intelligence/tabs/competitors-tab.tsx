@@ -77,7 +77,7 @@ export function CompetitorsTab({ profile, competitors, profileId }: CompetitorsT
         <div>
           <h3 className="font-serif text-lg font-bold text-ink">Competitor Benchmarking</h3>
           <p className="text-sm text-ink-secondary">
-            Compare @{profile.handle} against competitors on {profile.platform}
+            Compare {profile.display_name || `@${profile.handle}`} against competitors on {profile.platform}
           </p>
         </div>
         <div className="flex gap-2">
@@ -116,7 +116,12 @@ export function CompetitorsTab({ profile, competitors, profileId }: CompetitorsT
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Badge variant="success">You</Badge>
-              <span className="font-mono text-sm font-medium text-ink">@{profile.handle}</span>
+              <span className="font-mono text-sm font-medium text-ink">
+                {profile.display_name || `@${profile.handle}`}
+              </span>
+              {profile.display_name && (
+                <span className="text-xs text-ink-muted">@{profile.handle}</span>
+              )}
             </div>
             <div className="flex items-center gap-6 text-sm">
               <div className="text-right">
@@ -162,10 +167,10 @@ export function CompetitorsTab({ profile, competitors, profileId }: CompetitorsT
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <span className="font-mono text-sm font-medium text-ink">
-                        @{comp.handle}
+                        {comp.display_name || `@${comp.handle}`}
                       </span>
                       {comp.display_name && (
-                        <span className="text-sm text-ink-muted">{comp.display_name}</span>
+                        <span className="text-xs text-ink-muted">@{comp.handle}</span>
                       )}
                       {comp.niche && <Badge variant="muted">{comp.niche}</Badge>}
                     </div>

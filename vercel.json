@@ -23,6 +23,14 @@
     {
       "path": "/api/cron/backlink-check",
       "schedule": "0 5 * * 0"
+    },
+    {
+      "path": "/api/cron/social-sync",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/create-volumes",
+      "schedule": "0 2 * * 1"
     }
   ],
   "functions": {
@@ -59,6 +67,14 @@
       "memory": 512
     },
     "src/app/api/cron/backlink-check/route.ts": {
+      "maxDuration": 300,
+      "memory": 512
+    },
+    "src/app/api/cron/social-sync/route.ts": {
+      "maxDuration": 300,
+      "memory": 512
+    },
+    "src/app/api/cron/create-volumes/route.ts": {
       "maxDuration": 300,
       "memory": 512
     }

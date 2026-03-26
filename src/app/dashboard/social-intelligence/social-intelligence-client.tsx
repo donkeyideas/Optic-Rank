@@ -54,7 +54,9 @@ import { EarningsTab } from "./tabs/earnings-tab";
 import { GoalsTab } from "./tabs/goals-tab";
 import { GenerateTab } from "./tabs/generate-tab";
 
-import type { SocialProfile, SocialPlatform, SocialMetric, SocialAnalysis, SocialCompetitor, SocialAnalysisType, SocialGoal } from "@/types";
+import type { SocialProfile, SocialPlatform, SocialMetric, SocialAnalysis, SocialCompetitor, SocialAnalysisType, SocialGoal, ComparisonTimeRange } from "@/types";
+import type { GenericPeriodComparison } from "@/lib/utils/period-comparison";
+import { PeriodComparisonBar } from "@/components/editorial/period-comparison-bar";
 import { getPlatformConfig, getAggregateLabels } from "@/lib/social/platform-config";
 
 const ALL_ANALYSIS_TYPES: SocialAnalysisType[] = [
@@ -87,6 +89,7 @@ interface SocialIntelligenceClientProps {
   projectId: string;
   maxProfiles: number;
   plan: string;
+  comparisons: Record<ComparisonTimeRange, GenericPeriodComparison>;
 }
 
 /* ------------------------------------------------------------------
@@ -102,6 +105,7 @@ export function SocialIntelligenceClient({
   projectId,
   maxProfiles,
   plan,
+  comparisons,
 }: SocialIntelligenceClientProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("overview");
@@ -112,7 +116,7 @@ export function SocialIntelligenceClient({
   const [addError, setAddError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; handle: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; handle: string; displayName: string | null } | null>(null);
   const [isLooking, setIsLooking] = useState(false);
   const [lookupMsg, setLookupMsg] = useState<string | null>(null);
   const [addPlatform, setAddPlatform] = useState<SocialPlatform>("instagram");
@@ -211,7 +215,8 @@ export function SocialIntelligenceClient({
       if (d.country) setField("country", d.country);
       if (d.bio) setField("bio", d.bio);
 
-      setLookupMsg(`Found! Stats auto-filled from ${platform}.`);
+      const engMsg = d.engagement_estimated ? " Engagement rate estimated from benchmarks." : "";
+      setLookupMsg(`Found! Stats auto-filled from ${platform}.${engMsg}`);
     } else {
       setLookupMsg(result.error);
     }
@@ -227,7 +232,7 @@ export function SocialIntelligenceClient({
       if ("error" in result) {
         setStatusMsg(result.error);
       } else {
-        setStatusMsg(`@${deleteTarget.handle} removed.`);
+        setStatusMsg(`${deleteTarget.displayName || `@${deleteTarget.handle}`} removed.`);
         // Auto-select another profile if the deleted one was selected
         if (selectedProfileId === deletedId) {
           const remaining = profiles.filter((p) => p.id !== deletedId);
@@ -262,7 +267,7 @@ export function SocialIntelligenceClient({
       while (index < tasks.length) {
         const taskIndex = index++;
         const task = tasks[taskIndex];
-        setRunAllProgress(`@${task.profile.handle} — ${task.type.replace(/_/g, " ")}`);
+        setRunAllProgress(`${task.profile.display_name || `@${task.profile.handle}`} — ${task.type.replace(/_/g, " ")}`);
         try {
           await analyzeSocialProfile(task.profile.id, task.type);
         } catch {
@@ -577,7 +582,7 @@ export function SocialIntelligenceClient({
               }`}
             >
               <Icon className={`h-3.5 w-3.5 ${platformConf?.color ?? ""}`} />
-              @{p.handle}
+              {p.display_name || `@${p.handle}`}
             </button>
           );
         })}
@@ -607,7 +612,7 @@ export function SocialIntelligenceClient({
         {selectedProfile && (
           <button
             onClick={() =>
-              setDeleteTarget({ id: selectedProfile.id, handle: selectedProfile.handle })
+              setDeleteTarget({ id: selectedProfile.id, handle: selectedProfile.handle, displayName: selectedProfile.display_name })
             }
             className="ml-auto text-xs text-ink-muted hover:text-editorial-red"
             title="Remove profile"
@@ -616,6 +621,9 @@ export function SocialIntelligenceClient({
           </button>
         )}
       </div>
+
+      {/* Period Comparisons */}
+      <PeriodComparisonBar comparisons={comparisons} />
 
       {/* Tabs */}
       {selectedProfile && (
@@ -692,6 +700,7 @@ export function SocialIntelligenceClient({
           <TabsContent value="growth">
             <GrowthTab
               profile={selectedProfile}
+              metrics={selectedMetrics}
               analyses={selectedAnalyses}
             />
           </TabsContent>
@@ -752,7 +761,7 @@ export function SocialIntelligenceClient({
           <DialogHeader>
             <DialogTitle>Remove Social Profile</DialogTitle>
             <DialogDescription>
-              Are you sure you want to remove @{deleteTarget?.handle}? This will delete all
+              Are you sure you want to remove {deleteTarget?.displayName || `@${deleteTarget?.handle}`}? This will delete all
               associated metrics, analyses, and competitor data. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>

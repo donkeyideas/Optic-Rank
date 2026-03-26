@@ -1,14 +1,13 @@
 /**
  * LinkedIn public profile fetcher.
- * Uses LinkedIn's public profile page to extract basic data.
- * No API key required. Only works for public profiles.
  *
- * LinkedIn is the most restrictive platform — they aggressively block
- * non-browser requests. This uses the public Voyager API with guest
- * access which works for profiles with public visibility enabled.
+ * LinkedIn aggressively blocks non-browser requests. This module uses
+ * the self-hosted headless Chrome renderer (via js-renderer) as the
+ * primary method, with a basic fetch() fallback.
  */
 
 import type { SocialFetchResult } from "./types";
+import { isJsRenderingAvailable, fetchWithJsRendering } from "@/lib/crawl/js-renderer";
 
 /**
  * Decode common HTML entities in scraped text.
@@ -61,8 +60,209 @@ function extractSlug(input: string): { slug: string; type: "personal" | "company
 }
 
 /**
+ * Build the profile URL from slug and type.
+ */
+function buildProfileUrl(slug: string, type: "personal" | "company"): string {
+  return type === "company"
+    ? `https://www.linkedin.com/company/${encodeURIComponent(slug)}/`
+    : `https://www.linkedin.com/in/${encodeURIComponent(slug)}/`;
+}
+
+/**
+ * Extract profile data from HTML (works for both rendered and basic fetch results).
+ *
+ * NOTE: LinkedIn pages often contain BOTH auth-wall markup AND useful meta/OG tags
+ * in the same response. We try all extraction strategies first, and only report
+ * the auth-wall error if none of them yielded data.
+ */
+function extractProfileFromHtml(
+  html: string,
+  slug: string,
+  type: "personal" | "company"
+): SocialFetchResult {
+  const isAuthWall = html.includes("authwall") || html.includes("sign-in-form");
+
+  // --- Strategy 1: JSON-LD structured data ---
+  const jsonLdMatch = html.match(
+    /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/
+  );
+
+  if (jsonLdMatch) {
+    try {
+      const jsonLd = JSON.parse(jsonLdMatch[1]);
+
+      // Company page
+      if (jsonLd["@type"] === "Organization" || type === "company") {
+        const followersMatch = html.match(/(\d[\d,]*)\s*(?:followers|seguidores)/i);
+        const employeesMatch = html.match(/(\d[\d,]*)\s*(?:employees|empleados)/i);
+        return {
+          success: true,
+          data: {
+            platform_user_id: "",
+            display_name: decodeHtmlEntities(jsonLd.name || slug),
+            handle: slug,
+            avatar_url: jsonLd.logo?.url || jsonLd.image?.url || extractOgImage(html),
+            bio: jsonLd.description ? decodeHtmlEntities(jsonLd.description) : extractMetaDescription(html),
+            followers_count: followersMatch ? parseFormattedNumber(followersMatch[1]) : 0,
+            following_count: 0,
+            posts_count: 0,
+            engagement_rate: null,
+            verified: false,
+            country: null,
+            extra: {
+              type: "company",
+              url: jsonLd.url,
+              industry: jsonLd.industry,
+              employees: employeesMatch ? parseFormattedNumber(employeesMatch[1]) : null,
+            },
+          },
+        };
+      }
+
+      // Personal profile
+      if (jsonLd["@type"] === "Person") {
+        const connectionsMatch = html.match(/(\d[\d,]*)\s*(?:connections|conexiones)/i);
+        const followersMatch = html.match(/(\d[\d,]*)\s*(?:followers|seguidores)/i);
+
+        return {
+          success: true,
+          data: {
+            platform_user_id: "",
+            display_name: decodeHtmlEntities(jsonLd.name || slug),
+            handle: slug,
+            avatar_url: jsonLd.image?.contentUrl || extractOgImage(html),
+            bio: (jsonLd.description || jsonLd.jobTitle)
+              ? decodeHtmlEntities(jsonLd.description || jsonLd.jobTitle)
+              : null,
+            followers_count: followersMatch
+              ? parseFormattedNumber(followersMatch[1])
+              : connectionsMatch
+                ? parseFormattedNumber(connectionsMatch[1])
+                : 0,
+            following_count: 0,
+            posts_count: 0,
+            engagement_rate: null,
+            verified: false,
+            country: jsonLd.address?.addressLocality || null,
+            extra: {
+              type: "personal",
+              job_title: jsonLd.jobTitle,
+              works_for: jsonLd.worksFor?.name,
+              education: jsonLd.alumniOf?.name,
+            },
+          },
+        };
+      }
+    } catch {
+      // JSON-LD parse failed, continue to fallbacks
+    }
+  }
+
+  // --- Strategy 2: Open Graph + meta tags ---
+  const ogTitle = extractOgTag(html, "og:title");
+  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/);
+  const rawTitle = ogTitle || titleMatch?.[1] || "";
+  const name = rawTitle
+    .replace(/\s*[|–\-]\s*LinkedIn.*$/i, "")
+    .replace(/\s*LinkedIn.*$/i, "")
+    .trim();
+
+  if (name && name !== slug) {
+    const descMatch = extractMetaDescription(html);
+    const followersHtmlMatch = html.match(/(\d[\d,]*)\s*(?:followers|seguidores|connections)/i);
+
+    return {
+      success: true,
+      data: {
+        platform_user_id: "",
+        display_name: decodeHtmlEntities(name),
+        handle: slug,
+        avatar_url: extractOgImage(html),
+        bio: descMatch ? decodeHtmlEntities(descMatch) : null,
+        followers_count: followersHtmlMatch ? parseFormattedNumber(followersHtmlMatch[1]) : 0,
+        following_count: 0,
+        posts_count: 0,
+        engagement_rate: null,
+        verified: false,
+        country: null,
+        extra: { type },
+      },
+    };
+  }
+
+  // --- Strategy 3: Extract from rendered page content (headless Chrome) ---
+  // Look for company/person name in common LinkedIn HTML patterns
+  const h1Match = html.match(/<h1[^>]*class="[^"]*(?:top-card-layout__title|text-heading-xlarge)[^"]*"[^>]*>([^<]+)<\/h1>/);
+  const subtitleMatch = html.match(/<h2[^>]*class="[^"]*(?:top-card-layout__headline|text-body-medium)[^"]*"[^>]*>([^<]+)<\/h2>/);
+  const followersRendered = html.match(/(\d[\d,]*)\s*(?:followers|seguidores|connections)/i);
+
+  if (h1Match) {
+    return {
+      success: true,
+      data: {
+        platform_user_id: "",
+        display_name: decodeHtmlEntities(h1Match[1].trim()),
+        handle: slug,
+        avatar_url: extractOgImage(html),
+        bio: subtitleMatch ? decodeHtmlEntities(subtitleMatch[1].trim()) : extractMetaDescription(html),
+        followers_count: followersRendered ? parseFormattedNumber(followersRendered[1]) : 0,
+        following_count: 0,
+        posts_count: 0,
+        engagement_rate: null,
+        verified: false,
+        country: null,
+        extra: { type },
+      },
+    };
+  }
+
+  if (isAuthWall) {
+    return {
+      success: false,
+      error: "LinkedIn requires sign-in to view this profile. Please enter stats manually.",
+    };
+  }
+
+  return {
+    success: false,
+    error: "Could not extract LinkedIn profile data. The profile may not be public. Please enter stats manually.",
+  };
+}
+
+/**
+ * Extract og:image from HTML.
+ */
+function extractOgImage(html: string): string | null {
+  const match = html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/);
+  return match?.[1] || null;
+}
+
+/**
+ * Extract an Open Graph tag value.
+ */
+function extractOgTag(html: string, property: string): string | null {
+  const escaped = property.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = html.match(new RegExp(`<meta[^>]*property="${escaped}"[^>]*content="([^"]+)"`));
+  return match?.[1] || null;
+}
+
+/**
+ * Extract meta description from HTML.
+ */
+function extractMetaDescription(html: string): string | null {
+  const match = html.match(/<meta[^>]*name="description"[^>]*content="([^"]+)"/);
+  return match?.[1] || null;
+}
+
+/**
  * Fetch a LinkedIn profile by username/slug or URL.
- * Scrapes the public profile page for structured data.
+ *
+ * Strategy order:
+ * 1. Basic fetch — LinkedIn's static HTML often contains OG/meta tags and
+ *    JSON-LD even when JS execution would hit an auth wall. Fast + free.
+ * 2. Headless Chrome — Only tried when basic fetch fails to extract data.
+ *    JS rendering can sometimes get past auth walls that block basic fetch,
+ *    but can also trigger them, so it's a fallback.
  */
 export async function fetchLinkedInProfile(input: string): Promise<SocialFetchResult> {
   const { slug, type } = extractSlug(input);
@@ -70,160 +270,64 @@ export async function fetchLinkedInProfile(input: string): Promise<SocialFetchRe
     return { success: false, error: "Invalid LinkedIn username." };
   }
 
-  try {
-    // Try fetching the public profile page
-    const profileUrl =
-      type === "company"
-        ? `https://www.linkedin.com/company/${encodeURIComponent(slug)}/`
-        : `https://www.linkedin.com/in/${encodeURIComponent(slug)}/`;
+  const profileUrl = buildProfileUrl(slug, type);
 
+  // --- Primary: basic fetch (static HTML often has meta/OG/JSON-LD) ---
+  try {
     const res = await fetch(profileUrl, {
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
         "Cache-Control": "no-cache",
+        "sec-ch-ua": '"Chromium";v="131", "Not_A Brand";v="24"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-fetch-dest": "document",
+        "sec-fetch-mode": "navigate",
+        "sec-fetch-site": "none",
+        "sec-fetch-user": "?1",
+        "upgrade-insecure-requests": "1",
       },
       redirect: "follow",
       next: { revalidate: 3600 },
     });
 
-    if (!res.ok) {
-      if (res.status === 404) return { success: false, error: "LinkedIn profile not found." };
-      if (res.status === 999 || res.status === 403) {
-        return {
-          success: false,
-          error: "LinkedIn blocked the request. Please enter stats manually.",
-        };
-      }
-      return { success: false, error: `LinkedIn returned ${res.status}. Please enter stats manually.` };
+    if (res.ok) {
+      const html = await res.text();
+      const extracted = extractProfileFromHtml(html, slug, type);
+      if (extracted.success) return extracted;
+      // Extraction failed (auth wall or no data) — fall through to headless Chrome
+    } else if (res.status === 404) {
+      return { success: false, error: "LinkedIn profile not found." };
     }
-
-    const html = await res.text();
-
-    // LinkedIn embeds structured data as JSON-LD
-    const jsonLdMatch = html.match(
-      /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/
-    );
-
-    if (jsonLdMatch) {
-      try {
-        const jsonLd = JSON.parse(jsonLdMatch[1]);
-
-        // Company page
-        if (jsonLd["@type"] === "Organization" || type === "company") {
-          const followersMatch = html.match(/(\d[\d,]*)\s*(?:followers|seguidores)/i);
-          return {
-            success: true,
-            data: {
-              platform_user_id: "",
-              display_name: decodeHtmlEntities(jsonLd.name || slug),
-              handle: slug,
-              avatar_url: jsonLd.logo?.url || jsonLd.image?.url || null,
-              bio: jsonLd.description ? decodeHtmlEntities(jsonLd.description) : null,
-              followers_count: followersMatch ? parseFormattedNumber(followersMatch[1]) : 0,
-              following_count: 0,
-              posts_count: 0,
-              engagement_rate: null,
-              verified: false,
-              country: null,
-              extra: {
-                type: "company",
-                url: jsonLd.url,
-                industry: jsonLd.industry,
-              },
-            },
-          };
-        }
-
-        // Personal profile
-        if (jsonLd["@type"] === "Person") {
-          const connectionsMatch = html.match(/(\d[\d,]*)\s*(?:connections|conexiones)/i);
-          const followersMatch = html.match(/(\d[\d,]*)\s*(?:followers|seguidores)/i);
-
-          return {
-            success: true,
-            data: {
-              platform_user_id: "",
-              display_name: decodeHtmlEntities(jsonLd.name || slug),
-              handle: slug,
-              avatar_url: jsonLd.image?.contentUrl || null,
-              bio: (jsonLd.description || jsonLd.jobTitle) ? decodeHtmlEntities(jsonLd.description || jsonLd.jobTitle) : null,
-              followers_count: followersMatch
-                ? parseFormattedNumber(followersMatch[1])
-                : connectionsMatch
-                  ? parseFormattedNumber(connectionsMatch[1])
-                  : 0,
-              following_count: 0,
-              posts_count: 0,
-              engagement_rate: null,
-              verified: false,
-              country: jsonLd.address?.addressLocality || null,
-              extra: {
-                type: "personal",
-                job_title: jsonLd.jobTitle,
-                works_for: jsonLd.worksFor?.name,
-                education: jsonLd.alumniOf?.name,
-              },
-            },
-          };
-        }
-      } catch {
-        // JSON-LD parse failed, continue
-      }
-    }
-
-    // Fallback: try to extract basic data from meta tags
-    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/);
-    const descMatch = html.match(/<meta[^>]*name="description"[^>]*content="([^"]+)"/);
-    const imgMatch = html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/);
-    const followersHtmlMatch = html.match(/(\d[\d,]*)\s*(?:followers|seguidores|connections)/i);
-
-    if (titleMatch) {
-      const name = titleMatch[1]
-        .replace(/\s*[|–-]\s*LinkedIn.*$/i, "")
-        .replace(/\s*LinkedIn.*$/i, "")
-        .trim();
-
-      return {
-        success: true,
-        data: {
-          platform_user_id: "",
-          display_name: decodeHtmlEntities(name || slug),
-          handle: slug,
-          avatar_url: imgMatch?.[1] || null,
-          bio: descMatch?.[1] ? decodeHtmlEntities(descMatch[1]) : null,
-          followers_count: followersHtmlMatch ? parseFormattedNumber(followersHtmlMatch[1]) : 0,
-          following_count: 0,
-          posts_count: 0,
-          engagement_rate: null,
-          verified: false,
-          country: null,
-          extra: { type },
-        },
-      };
-    }
-
-    // Check if login wall
-    if (html.includes("authwall") || html.includes("login") || html.includes("sign-in")) {
-      return {
-        success: false,
-        error: "LinkedIn requires sign-in to view this profile. Please enter stats manually.",
-      };
-    }
-
-    return {
-      success: false,
-      error: "Could not extract LinkedIn profile data. The profile may not be public. Please enter stats manually.",
-    };
-  } catch (err) {
-    return {
-      success: false,
-      error: `LinkedIn lookup failed: ${err instanceof Error ? err.message : "Unknown error"}. Please enter stats manually.`,
-    };
+    // For 999, 403, etc. — fall through to headless Chrome
+  } catch {
+    // Network error — fall through to headless Chrome
   }
+
+  // --- Fallback: Headless Chrome via js-renderer ---
+  if (isJsRenderingAvailable()) {
+    try {
+      const result = await fetchWithJsRendering(profileUrl, {
+        waitMs: 3000,
+        timeoutMs: 20000,
+      });
+
+      if (result && result.html) {
+        const extracted = extractProfileFromHtml(result.html, slug, type);
+        if (extracted.success) return extracted;
+      }
+    } catch {
+      // Renderer failed
+    }
+  }
+
+  return {
+    success: false,
+    error: "LinkedIn blocked the request. Please enter stats manually.",
+  };
 }
 
 /**

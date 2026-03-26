@@ -35,7 +35,7 @@ export function ContentStrategyTab({ profile, analyses }: ContentStrategyTabProp
         <div>
           <h3 className="font-serif text-lg font-bold text-ink">Content Strategy</h3>
           <p className="text-sm text-ink-secondary">
-            Posting schedule and content mix for @{profile.handle}
+            Posting schedule and content mix for {profile.display_name || `@${profile.handle}`}
           </p>
         </div>
         <Button onClick={handleAnalyze} disabled={isPending} variant="outline" size="sm">

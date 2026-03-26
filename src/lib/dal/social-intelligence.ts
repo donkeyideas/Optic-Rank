@@ -140,6 +140,19 @@ export async function getSocialGoals(
 }
 
 /* ------------------------------------------------------------------
+   All Social Profiles (admin, for cron jobs)
+   ------------------------------------------------------------------ */
+
+export async function getAllSocialProfiles(): Promise<SocialProfile[]> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("social_profiles")
+    .select("*")
+    .order("created_at", { ascending: true });
+  return (data ?? []) as SocialProfile[];
+}
+
+/* ------------------------------------------------------------------
    Aggregate helpers
    ------------------------------------------------------------------ */
 

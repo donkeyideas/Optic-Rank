@@ -1,16 +1,18 @@
 "use client";
 
+import { useState, useTransition, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FollowerGrowthChart } from "@/components/charts/follower-growth-chart";
 import { EngagementChart } from "@/components/charts/engagement-chart";
 import { HealthScore } from "@/components/editorial/health-score";
-import { AlertTriangle, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { AlertTriangle, TrendingUp, TrendingDown, Minus, RefreshCw } from "lucide-react";
 import type {
   SocialProfile,
   SocialMetric,
   SocialAnalysis,
   SocialAnalysisType,
+  SocialTimeRange,
   EarningsForecast,
   SocialGrowthTip,
   ContentStrategy,
@@ -18,6 +20,8 @@ import type {
 import { getPlatformConfig } from "@/lib/social/platform-config";
 import { useTimezone } from "@/lib/context/timezone-context";
 import { formatDate } from "@/lib/utils/format-date";
+import { computePeriodComparison } from "@/lib/social/period-comparison";
+import { syncSocialProfile } from "@/lib/actions/social-intelligence";
 
 interface OverviewTabProps {
   profile: SocialProfile;
@@ -49,14 +53,32 @@ const PRIORITY_COLORS = {
   low: "info" as const,
 };
 
+const RANGE_DAYS: Record<SocialTimeRange, number> = { "7d": 7, "30d": 30, "90d": 90 };
+
 export function OverviewTab({ profile, metrics, analyses }: OverviewTabProps) {
   const timezone = useTimezone();
   const pConfig = getPlatformConfig(profile.platform);
+  const [timeRange, setTimeRange] = useState<SocialTimeRange>("30d");
+  const [isSyncing, startSyncTransition] = useTransition();
+
+  // --- Filter metrics by selected time range ---
+  const filteredMetrics = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - RANGE_DAYS[timeRange]);
+    const cutoffStr = cutoff.toISOString().split("T")[0];
+    return metrics.filter((m) => m.date >= cutoffStr);
+  }, [metrics, timeRange]);
+
+  // --- Period comparison ---
+  const comparison = useMemo(
+    () => computePeriodComparison(metrics, timeRange),
+    [metrics, timeRange]
+  );
 
   // --- Compute derived data ---
 
-  const latestMetric = metrics[metrics.length - 1];
-  const earliestMetric = metrics[0];
+  const latestMetric = filteredMetrics[filteredMetrics.length - 1];
+  const earliestMetric = filteredMetrics[0];
 
   // Follower growth delta
   const followerGrowth =
@@ -64,11 +86,23 @@ export function OverviewTab({ profile, metrics, analyses }: OverviewTabProps) {
       ? latestMetric.followers - earliestMetric.followers
       : null;
 
+  // Follower growth percentage
+  const followerGrowthPct =
+    earliestMetric?.followers && earliestMetric.followers > 0 && followerGrowth != null
+      ? (followerGrowth / earliestMetric.followers) * 100
+      : null;
+
   // Engagement trend
   const engagementDelta =
     earliestMetric?.engagement_rate != null && latestMetric?.engagement_rate != null
       ? latestMetric.engagement_rate - earliestMetric.engagement_rate
       : null;
+
+  function handleSync() {
+    startSyncTransition(async () => {
+      await syncSocialProfile(profile.id);
+    });
+  }
 
   // Earnings forecast
   const earningsAnalysis = analyses.find((a) => a.analysis_type === "earnings_forecast");
@@ -99,14 +133,16 @@ export function OverviewTab({ profile, metrics, analyses }: OverviewTabProps) {
       <Card>
         <CardContent className="p-5">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <h2 className="font-serif text-xl font-bold text-ink">@{profile.handle}</h2>
+            <h2 className="font-serif text-xl font-bold text-ink">
+              {profile.display_name || `@${profile.handle}`}
+            </h2>
+            {profile.display_name && (
+              <span className="font-mono text-sm text-ink-muted">@{profile.handle}</span>
+            )}
             <Badge variant={profile.verified ? "success" : "muted"}>
               {PLATFORM_LABELS[profile.platform]}
             </Badge>
             {profile.verified && <Badge variant="info">Verified</Badge>}
-            {profile.display_name && (
-              <span className="text-sm text-ink-secondary">{profile.display_name}</span>
-            )}
             {profile.niche && (
               <Badge variant="muted">{profile.niche}</Badge>
             )}
@@ -129,6 +165,36 @@ export function OverviewTab({ profile, metrics, analyses }: OverviewTabProps) {
       </Card>
 
       {/* ----------------------------------------------------------------
+          1b. Time Range Selector + Sync Button
+          ---------------------------------------------------------------- */}
+      <div className="flex items-center gap-2">
+        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink-muted">
+          Period
+        </span>
+        {(["7d", "30d", "90d"] as const).map((range) => (
+          <button
+            key={range}
+            onClick={() => setTimeRange(range)}
+            className={`border px-3 py-1.5 font-mono text-[11px] font-medium transition-colors ${
+              timeRange === range
+                ? "border-ink bg-ink text-surface-cream"
+                : "border-rule text-ink-secondary hover:bg-surface-card"
+            }`}
+          >
+            {range === "7d" ? "7 Days" : range === "30d" ? "30 Days" : "90 Days"}
+          </button>
+        ))}
+        <button
+          onClick={handleSync}
+          disabled={isSyncing}
+          className="ml-auto flex items-center gap-1.5 border border-rule px-3 py-1.5 font-mono text-[11px] font-medium text-ink-secondary transition-colors hover:bg-surface-card disabled:opacity-50"
+        >
+          <RefreshCw className={`h-3 w-3 ${isSyncing ? "animate-spin" : ""}`} />
+          {isSyncing ? "Syncing..." : "Sync Now"}
+        </button>
+      </div>
+
+      {/* ----------------------------------------------------------------
           2. Key Metrics Grid — platform-aware hero stats
           ---------------------------------------------------------------- */}
       <div className="grid grid-cols-2 gap-px border border-rule bg-rule sm:grid-cols-4">
@@ -141,9 +207,12 @@ export function OverviewTab({ profile, metrics, analyses }: OverviewTabProps) {
           let suffix: string | undefined;
           let subtext = stat.getSubtext?.(profile, extra);
 
-          // Override audience stat (slot 0) with growth delta
+          // Override audience stat (slot 0) with growth delta + percentage
           if (i === 0) {
             delta = followerGrowth;
+            if (followerGrowthPct != null) {
+              subtext = `${followerGrowthPct > 0 ? "+" : ""}${followerGrowthPct.toFixed(1)}%`;
+            }
           }
           // Override engagement stat with delta
           if (stat.label === "Engagement Rate") {
@@ -164,6 +233,75 @@ export function OverviewTab({ profile, metrics, analyses }: OverviewTabProps) {
           );
         })}
       </div>
+
+      {/* ----------------------------------------------------------------
+          2b. Period-over-Period Comparison
+          ---------------------------------------------------------------- */}
+      {comparison.hasEnoughData ? (
+        <div>
+          <Overline>
+            Period Comparison — {comparison.currentPeriodStart} to {comparison.currentPeriodEnd} vs {comparison.previousPeriodStart} to {comparison.previousPeriodEnd}
+          </Overline>
+          <div className="mt-2 border border-rule">
+            <div className="grid grid-cols-5 gap-px border-b border-rule bg-surface-inset px-4 py-2">
+              <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-ink-muted">Metric</span>
+              <span className="text-right font-mono text-[10px] font-bold uppercase tracking-widest text-ink-muted">Current</span>
+              <span className="text-right font-mono text-[10px] font-bold uppercase tracking-widest text-ink-muted">Previous</span>
+              <span className="text-right font-mono text-[10px] font-bold uppercase tracking-widest text-ink-muted">Change</span>
+              <span className="text-right font-mono text-[10px] font-bold uppercase tracking-widest text-ink-muted">% Change</span>
+            </div>
+            {comparison.metrics.map((m) => (
+              <div
+                key={m.label}
+                className="grid grid-cols-5 gap-px border-b border-rule bg-surface-card px-4 py-2.5 last:border-b-0"
+              >
+                <span className="text-sm font-medium text-ink">{m.label}</span>
+                <span className="text-right font-mono text-sm text-ink">
+                  {m.currentValue != null ? m.currentValue.toLocaleString() : "—"}
+                </span>
+                <span className="text-right font-mono text-sm text-ink-muted">
+                  {m.previousValue != null ? m.previousValue.toLocaleString() : "—"}
+                </span>
+                <span
+                  className={`text-right font-mono text-sm font-semibold ${
+                    m.direction === "up"
+                      ? "text-editorial-green"
+                      : m.direction === "down"
+                        ? "text-editorial-red"
+                        : "text-ink-muted"
+                  }`}
+                >
+                  {m.absoluteDelta != null
+                    ? `${m.absoluteDelta > 0 ? "+" : ""}${m.absoluteDelta.toLocaleString()}`
+                    : "—"}
+                </span>
+                <span
+                  className={`flex items-center justify-end gap-1 font-mono text-sm font-semibold ${
+                    m.direction === "up"
+                      ? "text-editorial-green"
+                      : m.direction === "down"
+                        ? "text-editorial-red"
+                        : "text-ink-muted"
+                  }`}
+                >
+                  {m.direction === "up" && <TrendingUp className="h-3 w-3" />}
+                  {m.direction === "down" && <TrendingDown className="h-3 w-3" />}
+                  {m.direction === "flat" && <Minus className="h-3 w-3" />}
+                  {m.percentageDelta != null
+                    ? `${m.percentageDelta > 0 ? "+" : ""}${m.percentageDelta.toFixed(1)}%`
+                    : "—"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : metrics.length > 0 ? (
+        <div className="border border-rule bg-surface-card px-4 py-3">
+          <p className="text-xs text-ink-muted">
+            Not enough historical data for period comparison yet. Data will accumulate automatically via daily sync.
+          </p>
+        </div>
+      ) : null}
 
       {/* ----------------------------------------------------------------
           3. Earnings Snapshot — 3 scenario mini-cards
@@ -193,16 +331,16 @@ export function OverviewTab({ profile, metrics, analyses }: OverviewTabProps) {
       )}
 
       {/* ----------------------------------------------------------------
-          4. Trend Charts
+          4. Trend Charts (filtered by time range)
           ---------------------------------------------------------------- */}
-      {metrics.length >= 2 && (
+      {filteredMetrics.length >= 2 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Card>
             <CardHeader>
               <CardTitle>{pConfig.chartTitles.followerGrowth}</CardTitle>
             </CardHeader>
             <CardContent>
-              <FollowerGrowthChart metrics={metrics} label={pConfig.fields.followers.label} />
+              <FollowerGrowthChart metrics={filteredMetrics} label={pConfig.fields.followers.label} />
             </CardContent>
           </Card>
           <Card>
@@ -210,7 +348,7 @@ export function OverviewTab({ profile, metrics, analyses }: OverviewTabProps) {
               <CardTitle>{pConfig.chartTitles.engagementRate}</CardTitle>
             </CardHeader>
             <CardContent>
-              <EngagementChart metrics={metrics} />
+              <EngagementChart metrics={filteredMetrics} />
             </CardContent>
           </Card>
         </div>
@@ -470,7 +608,7 @@ function HeroStat({
           {delta.toLocaleString()}{suffix ?? ""}
         </span>
       )}
-      {subtext && !delta && (
+      {subtext && (
         <span className="mt-0.5 block font-mono text-[10px] text-ink-muted">{subtext}</span>
       )}
     </div>

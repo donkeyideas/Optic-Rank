@@ -4,6 +4,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Shield } from "lucide-react";
 import { SiteAuditClient } from "./site-audit-client";
 import { getScheduledAudit } from "@/lib/actions/site-audit";
+import { computeAllComparisons, type MetricDef } from "@/lib/utils/period-comparison";
 
 // Site audits crawl up to 25 pages + call PageSpeed API — needs extended timeout
 export const maxDuration = 60;
@@ -108,6 +109,37 @@ export default async function SiteAuditPage() {
 
   const history = historyRes.data;
 
+  // ------------------------------------------------------------------
+  // Period comparisons from audit history
+  // ------------------------------------------------------------------
+  const auditHistory = [...(history ?? [])].reverse(); // oldest first for comparison
+  interface AuditPoint {
+    date: string;
+    health_score: number | null;
+    seo_score: number | null;
+    performance_score: number | null;
+    accessibility_score: number | null;
+    issues_found: number | null;
+  }
+  const auditPoints: AuditPoint[] = auditHistory.map((a) => ({
+    date: (a.completed_at ?? a.started_at ?? "").split("T")[0],
+    health_score: a.health_score ?? null,
+    seo_score: a.seo_score ?? null,
+    performance_score: a.performance_score ?? null,
+    accessibility_score: a.accessibility_score ?? null,
+    issues_found: a.issues_found ?? null,
+  }));
+
+  const auditMetrics: MetricDef<AuditPoint>[] = [
+    { label: "Health Score", getValue: (a) => a.health_score, aggregation: "latest" },
+    { label: "SEO Score", getValue: (a) => a.seo_score, aggregation: "latest" },
+    { label: "Performance", getValue: (a) => a.performance_score, aggregation: "latest" },
+    { label: "Accessibility", getValue: (a) => a.accessibility_score, aggregation: "latest" },
+    { label: "Issues Found", getValue: (a) => a.issues_found, aggregation: "latest", invertDirection: true },
+  ];
+
+  const auditComparisons = computeAllComparisons(auditPoints, auditMetrics, (a) => a.date);
+
   return (
     <SiteAuditClient
       latestAudit={latestAudit}
@@ -116,6 +148,7 @@ export default async function SiteAuditPage() {
       history={history ?? []}
       projectId={project.id}
       scheduledAudit={scheduledAudit}
+      comparisons={auditComparisons}
     />
   );
 }

@@ -24,6 +24,9 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { useActionProgress } from "@/components/shared/action-progress";
 import { runVisibilityCheck } from "@/lib/actions/ai-visibility";
 import type { KeywordVisibility, VisibilityStats } from "@/lib/dal/ai-visibility";
+import type { ComparisonTimeRange } from "@/types";
+import type { GenericPeriodComparison } from "@/lib/utils/period-comparison";
+import { PeriodComparisonBar } from "@/components/editorial/period-comparison-bar";
 
 /* ------------------------------------------------------------------
    Props
@@ -34,6 +37,7 @@ interface AIVisibilityClientProps {
   stats: VisibilityStats;
   projectId: string;
   projectDomain: string;
+  comparisons: Record<ComparisonTimeRange, GenericPeriodComparison>;
 }
 
 /* ------------------------------------------------------------------
@@ -91,6 +95,7 @@ export function AIVisibilityClient({
   stats,
   projectId,
   projectDomain,
+  comparisons,
 }: AIVisibilityClientProps) {
   const timezone = useTimezone();
   const [providerFilter, setProviderFilter] = useState("all");
@@ -257,6 +262,9 @@ export function AIVisibilityClient({
           />
         </div>
       </div>
+
+      {/* Period Comparisons */}
+      <PeriodComparisonBar comparisons={comparisons} />
 
       {/* Main Content Grid */}
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">

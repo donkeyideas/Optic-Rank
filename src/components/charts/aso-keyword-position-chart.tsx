@@ -28,8 +28,8 @@ export function AsoKeywordPositionChart({ data, keyword, height = 180 }: AsoKeyw
 
   if (data.length === 0) {
     return (
-      <div className="flex items-center justify-center border border-dashed border-rule" style={{ height }}>
-        <span className="text-[9px] font-bold uppercase tracking-widest text-ink-muted">
+      <div className="flex items-center justify-center border border-dashed border-rule bg-surface-card" style={{ height }}>
+        <span className="text-[9px] font-bold uppercase tracking-widest text-ink-secondary">
           No position history for &ldquo;{keyword}&rdquo;
         </span>
       </div>

@@ -10,6 +10,10 @@ import {
   Type,
   AlignLeft,
   Key,
+  Search,
+  Users,
+  MessageSquare,
+  Globe,
 } from "lucide-react";
 import { ColumnHeader } from "@/components/editorial/column-header";
 import { AppSelectorStrip } from "@/components/app-store/app-selector-strip";
@@ -22,12 +26,22 @@ import {
   generateSubtitleVariant,
   generateDescriptionVariant,
   generateKeywordField,
+  generateFullListingRecommendation,
 } from "@/lib/actions/app-store-optimizer";
 import type { AppStoreListing } from "@/types";
 
 interface OptimizerTabProps {
   listings: AppStoreListing[];
 }
+
+type FullRecommendation = {
+  title: string;
+  subtitle: string;
+  description: string;
+  keywordsField: string;
+  analysis: string;
+  dataSources: { keywords: number; competitors: number; reviewTopics: number; locales: number };
+};
 
 export function OptimizerTab({ listings }: OptimizerTabProps) {
   const [selectedListing, setSelectedListing] = useState<string>(listings[0]?.id ?? "");
@@ -36,7 +50,7 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
 
   const listing = useMemo(() => listings.find((l) => l.id === selectedListing), [listings, selectedListing]);
 
-  // Editable metadata state — ensure all values are plain strings
+  // Editable metadata state
   const [title, setTitle] = useState(String(listing?.app_name ?? ""));
   const [subtitle, setSubtitle] = useState(String(listing?.subtitle ?? ""));
   const [description, setDescription] = useState(
@@ -44,7 +58,7 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
   );
   const [keywordsField, setKeywordsField] = useState(String(listing?.keywords_field ?? ""));
 
-  // Live scoring — compute initial score immediately via useMemo
+  // Live scoring
   const initialScore = useMemo(() => {
     if (!listing) return null;
     const store = listing.store as "apple" | "google";
@@ -89,70 +103,14 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
   const [generatedDesc, setGeneratedDesc] = useState<string | null>(null);
   const [generatedKeywords, setGeneratedKeywords] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const autoGenRef = useRef(false);
 
-  // Auto-generate ALL optimizer fields on mount (title variants, subtitle, description, keywords)
-  useEffect(() => {
-    if (autoGenRef.current || !selectedListing || !listing) return;
-    autoGenRef.current = true;
+  // Full AI recommendation
+  const [recommendation, setRecommendation] = useState<FullRecommendation | null>(null);
+  const [recLoading, setRecLoading] = useState(false);
 
-    startTransition(async () => {
-      try {
-        const promises: Promise<void>[] = [];
-
-        // 1. Title variants — always generate
-        promises.push(
-          generateTitleVariants(selectedListing, []).then((r) => {
-            if ("variants" in r) setTitleVariants(r.variants);
-          })
-        );
-
-        // 2. Subtitle — generate if empty, show as suggestion if already filled
-        promises.push(
-          generateSubtitleVariant(selectedListing).then((r) => {
-            if ("subtitle" in r) {
-              if (!(listing.subtitle ?? "").trim()) {
-                setSubtitle(r.subtitle);
-              } else {
-                setGeneratedSubtitle(r.subtitle);
-              }
-            }
-          })
-        );
-
-        // 3. Description — always generate AI rewrite as suggestion
-        promises.push(
-          generateDescriptionVariant(selectedListing).then((r) => {
-            if ("description" in r) setGeneratedDesc(r.description);
-          })
-        );
-
-        // 4. Keywords field (iOS) — generate if empty, show as suggestion if filled
-        if (listing.store === "apple") {
-          promises.push(
-            generateKeywordField(selectedListing).then((r) => {
-              if ("keywords" in r) {
-                if (!(listing.keywords_field ?? "").trim()) {
-                  setKeywordsField(r.keywords);
-                } else {
-                  setGeneratedKeywords(r.keywords);
-                }
-              }
-            })
-          );
-        }
-
-        await Promise.all(promises);
-      } catch {
-        // Non-critical — user can still manually click buttons
-      }
-    });
-  }, [selectedListing, listing]);
-
-  // Reset fields when listing selection changes — via onChange handler
+  // Reset fields when listing selection changes
   const handleListingChange = useCallback((newId: string) => {
     setSelectedListing(newId);
-    autoGenRef.current = false; // Allow auto-gen for the new listing
     const l = listings.find((x) => x.id === newId);
     if (l) {
       setTitle(String(l.app_name ?? ""));
@@ -164,10 +122,11 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
       setGeneratedSubtitle(null);
       setGeneratedDesc(null);
       setGeneratedKeywords(null);
+      setRecommendation(null);
     }
   }, [listings]);
 
-  // Debounced server-side scoring for precision (initial score already set via useMemo)
+  // Debounced server-side scoring
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
@@ -178,14 +137,33 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
         try {
           const result = await scoreMetadata(store, title, subtitle, descStr, keywordsField);
           setLiveScore(result);
-        } catch {
-          // Keep initial/previous score on error
-        }
+        } catch { /* keep previous */ }
       });
     }, 600);
-
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [title, subtitle, description, keywordsField, listing]);
+
+  // Full AI recommendation
+  function handleGenerateFullRecommendation() {
+    if (!selectedListing) return;
+    setRecLoading(true);
+    startTransition(async () => {
+      const result = await generateFullListingRecommendation(selectedListing);
+      if ("recommendation" in result) setRecommendation(result.recommendation);
+      setRecLoading(false);
+    });
+  }
+
+  // Apply full recommendation to all fields
+  function applyRecommendation() {
+    if (!recommendation) return;
+    setTitle(recommendation.title);
+    setSubtitle(recommendation.subtitle);
+    setDescription(recommendation.description);
+    if (listing?.store === "apple" && recommendation.keywordsField) {
+      setKeywordsField(recommendation.keywordsField);
+    }
+  }
 
   function handleGenerateTitles() {
     if (!selectedListing) return;
@@ -238,17 +216,139 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
     return <EmptyState icon={Target} title="No Apps to Optimize" description="Add an app listing first to use the ASO optimizer." />;
   }
 
-  const maxTitleLen = 30; // Both Apple and Google Play limit titles to 30 characters
+  const maxTitleLen = 30;
 
   return (
     <div className="flex flex-col gap-4">
-      {/* App Selector */}
       <AppSelectorStrip listings={listings} selected={selectedListing} onSelect={handleListingChange} />
+
+      {/* AI Full Listing Recommendation */}
+      <div className="border border-rule bg-surface-card">
+        <div className="flex items-center justify-between border-b border-rule px-4 py-3">
+          <div>
+            <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">AI Store Listing Optimizer</span>
+            <p className="mt-0.5 text-[11px] text-ink-secondary">
+              AI analyzes your keywords, competitors, reviews, and locale data to write the ideal store listing.
+            </p>
+          </div>
+          <Button variant="primary" size="md" onClick={handleGenerateFullRecommendation} disabled={recLoading}>
+            {recLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+            {recLoading ? "Analyzing..." : "Generate Optimized Listing"}
+          </Button>
+        </div>
+
+        {recommendation && (
+          <div className="flex flex-col gap-0">
+            {/* Data Sources Strip */}
+            <div className="flex items-center gap-4 border-b border-rule px-4 py-2">
+              <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Data Analyzed:</span>
+              <div className="flex items-center gap-1">
+                <Search size={10} className="text-editorial-green" />
+                <span className="font-mono text-[10px] font-bold text-ink">{recommendation.dataSources.keywords}</span>
+                <span className="text-[10px] text-ink-muted">keywords</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Users size={10} className="text-editorial-green" />
+                <span className="font-mono text-[10px] font-bold text-ink">{recommendation.dataSources.competitors}</span>
+                <span className="text-[10px] text-ink-muted">competitors</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <MessageSquare size={10} className="text-editorial-green" />
+                <span className="font-mono text-[10px] font-bold text-ink">{recommendation.dataSources.reviewTopics}</span>
+                <span className="text-[10px] text-ink-muted">review topics</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Globe size={10} className="text-editorial-green" />
+                <span className="font-mono text-[10px] font-bold text-ink">{recommendation.dataSources.locales}</span>
+                <span className="text-[10px] text-ink-muted">locales</span>
+              </div>
+            </div>
+
+            {/* AI Analysis */}
+            <div className="border-b border-rule px-4 py-3">
+              <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-editorial-red">AI Strategy</span>
+              <p className="mt-1 font-sans text-[12px] leading-relaxed text-ink-secondary">{recommendation.analysis}</p>
+            </div>
+
+            {/* Recommended Fields */}
+            <div className="grid gap-0 divide-y divide-rule">
+              {/* Title */}
+              <div className="flex items-start justify-between px-4 py-3">
+                <div className="flex-1">
+                  <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Recommended Title</span>
+                  <p className="mt-1 font-serif text-[15px] font-bold text-ink">{recommendation.title}</p>
+                  <span className="font-mono text-[10px] text-ink-muted">{recommendation.title.length}/30 chars</span>
+                </div>
+                <button onClick={() => { setTitle(recommendation.title); }} className="mt-1 text-[10px] font-bold text-editorial-red hover:underline">
+                  Use
+                </button>
+              </div>
+
+              {/* Subtitle */}
+              <div className="flex items-start justify-between px-4 py-3">
+                <div className="flex-1">
+                  <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+                    Recommended {listing?.store === "apple" ? "Subtitle" : "Short Description"}
+                  </span>
+                  <p className="mt-1 font-sans text-sm text-ink">{recommendation.subtitle}</p>
+                  <span className="font-mono text-[10px] text-ink-muted">
+                    {recommendation.subtitle.length}/{listing?.store === "apple" ? 30 : 80} chars
+                  </span>
+                </div>
+                <button onClick={() => { setSubtitle(recommendation.subtitle); }} className="mt-1 text-[10px] font-bold text-editorial-red hover:underline">
+                  Use
+                </button>
+              </div>
+
+              {/* Description */}
+              <div className="px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Recommended Description</span>
+                  <div className="flex gap-2">
+                    <button onClick={() => copyToClipboard(recommendation.description, "rec-desc")} className="flex items-center gap-1 text-[10px] text-ink-muted hover:text-ink">
+                      {copiedField === "rec-desc" ? <Check size={10} /> : <Copy size={10} />}
+                      {copiedField === "rec-desc" ? "Copied" : "Copy"}
+                    </button>
+                    <button onClick={() => { setDescription(recommendation.description); }} className="text-[10px] font-bold text-editorial-red hover:underline">
+                      Use
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-2 max-h-64 overflow-y-auto whitespace-pre-wrap font-sans text-[11px] leading-relaxed text-ink-secondary">
+                  {recommendation.description}
+                </div>
+                <span className="mt-1 block font-mono text-[10px] text-ink-muted">{recommendation.description.length}/4000 chars</span>
+              </div>
+
+              {/* Keywords Field (iOS) */}
+              {listing?.store === "apple" && recommendation.keywordsField && (
+                <div className="flex items-start justify-between px-4 py-3">
+                  <div className="flex-1">
+                    <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Recommended Keywords Field</span>
+                    <p className="mt-1 font-mono text-[11px] text-ink-secondary">{recommendation.keywordsField}</p>
+                    <span className="font-mono text-[10px] text-ink-muted">{recommendation.keywordsField.length}/100 chars</span>
+                  </div>
+                  <button onClick={() => { setKeywordsField(recommendation.keywordsField); }} className="mt-1 text-[10px] font-bold text-editorial-red hover:underline">
+                    Use
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Apply All Button */}
+            <div className="border-t border-rule px-4 py-3">
+              <Button variant="primary" size="sm" onClick={applyRecommendation}>
+                Apply All Recommendations
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Left: Editor */}
         <div className="flex flex-col gap-4 lg:col-span-2">
-          <ColumnHeader title="ASO Metadata Editor" subtitle="Edit and optimize your store listing in real-time" />
+          <ColumnHeader title="ASO Metadata Editor" subtitle="Fine-tune your store listing or use AI to generate individual fields" />
 
           {/* Title */}
           <div className="border border-rule bg-surface-card p-4">
@@ -428,7 +528,6 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
               <span className="block mt-1 font-mono text-sm text-ink-muted">/100</span>
             </div>
 
-            {/* Score Breakdown Bar */}
             <div className="mt-4 h-2 w-full overflow-hidden bg-rule">
               <div
                 className={`h-full transition-all duration-500 ${
@@ -440,7 +539,6 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
               />
             </div>
 
-            {/* Recommendations */}
             {liveScore && liveScore.recommendations.length > 0 && (
               <div className="mt-4 border-t border-rule pt-3">
                 <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Recommendations</span>
@@ -454,7 +552,6 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
               </div>
             )}
 
-            {/* Keyword Density */}
             {keywordsField && (
               <div className="mt-4 border-t border-rule pt-3">
                 <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Keyword Presence</span>

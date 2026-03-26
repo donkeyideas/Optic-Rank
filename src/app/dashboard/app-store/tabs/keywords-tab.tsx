@@ -277,7 +277,7 @@ export function KeywordsTab({ listings, rankings, keywordHistory }: KeywordsTabP
                   </TableCell>
                   <TableCell>
                     <Badge variant={r.listing?.store === "apple" ? "muted" : "success"}>
-                      {r.listing?.store === "apple" ? "iOS" : "Android"}
+                      {r.listing?.store === "apple" ? "iOS" : "Google Play"}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-ink-secondary">{r.listing?.app_name ?? "—"}</TableCell>
@@ -286,8 +286,8 @@ export function KeywordsTab({ listings, rankings, keywordHistory }: KeywordsTabP
                   </TableCell>
                 </TableRow>
                 {isExpanded && (
-                  <TableRow>
-                    <TableCell colSpan={8} className="bg-surface-raised px-6 py-4">
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={8} className="border-l-2 border-l-editorial-red bg-surface-card px-6 py-4">
                       <AsoKeywordPositionChart
                         data={history.map((h) => ({ date: h.checked_at, position: h.position }))}
                         keyword={r.keyword}

@@ -47,7 +47,7 @@ export function HashtagsTab({ profile, analyses }: HashtagsTabProps) {
         <div>
           <h3 className="font-serif text-lg font-bold text-ink">Hashtag Recommendations</h3>
           <p className="text-sm text-ink-secondary">
-            Platform-specific hashtags for @{profile.handle} on {profile.platform}
+            Platform-specific hashtags for {profile.display_name || `@${profile.handle}`} on {profile.platform}
           </p>
         </div>
         <Button onClick={handleAnalyze} disabled={isPending} variant="outline" size="sm">

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { computeAllComparisons, type MetricDef } from "@/lib/utils/period-comparison";
 import { KeywordsPageClient } from "./keywords-client";
 
 /* ------------------------------------------------------------------
@@ -119,7 +120,7 @@ export default async function KeywordsPage() {
   // Fetch all keywords for aggregate stats (only the columns we need)
   const { data: allKeywords } = await supabase
     .from("keywords")
-    .select("current_position, previous_position, best_position")
+    .select("id, current_position, previous_position, best_position")
     .eq("project_id", project.id);
 
   // Compute stats from real data
@@ -153,6 +154,58 @@ export default async function KeywordsPage() {
       k.current_position > k.previous_position
   ).length;
 
+  // ------------------------------------------------------------------
+  // Period comparisons from keyword rank history
+  // ------------------------------------------------------------------
+  interface DailyKeywordStat {
+    date: string;
+    avgPosition: number | null;
+    rankedCount: number;
+    top3Count: number;
+    top10Count: number;
+  }
+
+  const allKwIds = kwData.map((k) => k.id);
+  let dailyKeywordStats: DailyKeywordStat[] = [];
+
+  if (allKwIds.length > 0) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 180);
+    const { data: rankRows } = await supabase
+      .from("keyword_ranks")
+      .select("position, checked_at")
+      .in("keyword_id", allKwIds)
+      .gte("checked_at", cutoff.toISOString())
+      .order("checked_at", { ascending: true });
+
+    const ranksByDate = new Map<string, number[]>();
+    for (const row of rankRows ?? []) {
+      const date = (row.checked_at as string).split("T")[0];
+      const arr = ranksByDate.get(date) ?? [];
+      if (row.position != null) arr.push(row.position);
+      ranksByDate.set(date, arr);
+    }
+
+    dailyKeywordStats = Array.from(ranksByDate.entries())
+      .map(([date, pos]) => ({
+        date,
+        avgPosition: pos.length > 0 ? pos.reduce((a, b) => a + b, 0) / pos.length : null,
+        rankedCount: pos.length,
+        top3Count: pos.filter((p) => p <= 3).length,
+        top10Count: pos.filter((p) => p <= 10).length,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  const kwMetrics: MetricDef<DailyKeywordStat>[] = [
+    { label: "Avg Position", getValue: (s) => s.avgPosition, aggregation: "latest", invertDirection: true },
+    { label: "Keywords Ranked", getValue: (s) => s.rankedCount, aggregation: "latest" },
+    { label: "Top 3", getValue: (s) => s.top3Count, aggregation: "latest" },
+    { label: "Top 10", getValue: (s) => s.top10Count, aggregation: "latest" },
+  ];
+
+  const kwComparisons = computeAllComparisons(dailyKeywordStats, kwMetrics, (s) => s.date);
+
   return (
     <KeywordsPageClient
       projectId={project.id}
@@ -165,6 +218,7 @@ export default async function KeywordsPage() {
         keywordsUp,
         keywordsDown,
       }}
+      comparisons={kwComparisons}
     />
   );
 }

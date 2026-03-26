@@ -42,7 +42,7 @@ export function AIInsightsTab({ profile, analyses }: AIInsightsTabProps) {
         <div>
           <h3 className="font-serif text-lg font-bold text-ink">AI Strategic Insights</h3>
           <p className="text-sm text-ink-secondary">
-            In-depth analysis and actionable strategy for @{profile.handle}
+            In-depth analysis and actionable strategy for {profile.display_name || `@${profile.handle}`}
           </p>
         </div>
         <Button onClick={handleGenerateInsights} disabled={isPending} variant="outline" size="sm">

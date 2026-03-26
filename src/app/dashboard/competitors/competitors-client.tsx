@@ -46,7 +46,9 @@ import type { Recommendation, StrategyContent } from "@/components/shared/page-g
 import { EmptyState } from "@/components/shared/empty-state";
 import { addCompetitor, removeCompetitor, generateCompetitorsAI } from "@/lib/actions/competitors";
 import { useActionProgress } from "@/components/shared/action-progress";
-import type { Competitor } from "@/types";
+import type { Competitor, ComparisonTimeRange } from "@/types";
+import { PeriodComparisonBar } from "@/components/editorial/period-comparison-bar";
+import type { GenericPeriodComparison } from "@/lib/utils/period-comparison";
 
 /* ------------------------------------------------------------------
    Props
@@ -56,6 +58,7 @@ interface CompetitorsClientProps {
   competitors: Competitor[];
   snapshots: Array<Record<string, unknown>>;
   projectId: string;
+  comparisons: Record<ComparisonTimeRange, GenericPeriodComparison>;
 }
 
 /* ------------------------------------------------------------------
@@ -80,6 +83,7 @@ export function CompetitorsClient({
   competitors,
   snapshots,
   projectId,
+  comparisons,
 }: CompetitorsClientProps) {
   const [showAddCompetitor, setShowAddCompetitor] = useState(false);
   const [competitorError, setCompetitorError] = useState<string | null>(null);
@@ -207,40 +211,17 @@ export function CompetitorsClient({
     </Button>
   );
 
-  if (competitors.length === 0) {
-    return (
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="font-serif text-2xl font-bold text-ink">Competitive Intelligence</h1>
-            <p className="mt-1 text-sm text-ink-secondary">
-              Monitor, analyze, and outmaneuver your competition
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {generateButton}
-            {addCompetitorDialog}
-          </div>
-        </div>
-        <EmptyState
-          icon={Users}
-          title="No Competitors Tracked Yet"
-          description="Add competitors to monitor their SEO performance, keyword rankings, and content strategy."
-          actionLabel="Add Competitor"
-          onAction={() => setShowAddCompetitor(true)}
-        />
-      </div>
-    );
-  }
-
-  // Build a map of latest snapshot per competitor
-  const latestSnapshotMap = new Map<string, Record<string, unknown>>();
-  for (const snap of snapshots) {
-    const cid = snap.competitor_id as string;
-    if (!latestSnapshotMap.has(cid)) {
-      latestSnapshotMap.set(cid, snap);
+  // Build a map of latest snapshot per competitor (must be before any early returns)
+  const latestSnapshotMap = useMemo(() => {
+    const map = new Map<string, Record<string, unknown>>();
+    for (const snap of snapshots) {
+      const cid = snap.competitor_id as string;
+      if (!map.has(cid)) {
+        map.set(cid, snap);
+      }
     }
-  }
+    return map;
+  }, [snapshots]);
 
   const recommendations = useMemo(() => {
     const recs: Recommendation[] = [];
@@ -412,6 +393,32 @@ export function CompetitorsClient({
     ],
   }), []);
 
+  if (competitors.length === 0) {
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="font-serif text-2xl font-bold text-ink">Competitive Intelligence</h1>
+            <p className="mt-1 text-sm text-ink-secondary">
+              Monitor, analyze, and outmaneuver your competition
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {generateButton}
+            {addCompetitorDialog}
+          </div>
+        </div>
+        <EmptyState
+          icon={Users}
+          title="No Competitors Tracked Yet"
+          description="Add competitors to monitor their SEO performance, keyword rankings, and content strategy."
+          actionLabel="Add Competitor"
+          onAction={() => setShowAddCompetitor(true)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* Page Header */}
@@ -427,6 +434,9 @@ export function CompetitorsClient({
           {addCompetitorDialog}
         </div>
       </div>
+
+      {/* Period Comparison */}
+      <PeriodComparisonBar comparisons={comparisons} />
 
       <Tabs defaultValue="dashboard">
         <TabsList>

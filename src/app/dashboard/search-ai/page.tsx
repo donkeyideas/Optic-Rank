@@ -20,6 +20,7 @@ import {
   computeAnswerReadiness,
   identifyVoiceSearchKeywords,
 } from "@/lib/ai/aeo-analysis";
+import { computeAllComparisons, type MetricDef } from "@/lib/utils/period-comparison";
 
 export default async function SearchAIDashboardPage() {
   const supabase = await createClient();
@@ -169,6 +170,40 @@ export default async function SearchAIDashboardPage() {
     word_count: p.word_count,
   }));
 
+  // ------------------------------------------------------------------
+  // Period comparisons from audit history
+  // ------------------------------------------------------------------
+  interface AuditPoint {
+    date: string;
+    health_score: number | null;
+    seo_score: number | null;
+    performance_score: number | null;
+    accessibility_score: number | null;
+    issues_found: number | null;
+  }
+
+  const auditPoints: AuditPoint[] = [...(auditHistory ?? [])]
+    .reverse()
+    .map((a) => ({
+      date: (a.completed_at ?? a.started_at ?? "").split("T")[0],
+      health_score: a.health_score,
+      seo_score: a.seo_score,
+      performance_score: a.performance_score,
+      accessibility_score: a.accessibility_score,
+      issues_found: a.issues_found,
+    }))
+    .filter((a) => a.date !== "");
+
+  const seoMetrics: MetricDef<AuditPoint>[] = [
+    { label: "Health Score", getValue: (a) => a.health_score, aggregation: "latest" },
+    { label: "SEO Score", getValue: (a) => a.seo_score, aggregation: "latest" },
+    { label: "Performance", getValue: (a) => a.performance_score, aggregation: "latest" },
+    { label: "Accessibility", getValue: (a) => a.accessibility_score, aggregation: "latest" },
+    { label: "Issues Found", getValue: (a) => a.issues_found, aggregation: "latest", invertDirection: true },
+  ];
+
+  const seoComparisons = computeAllComparisons(auditPoints, seoMetrics, (a) => a.date);
+
   return (
     <SearchAIClient
       projectId={project.id}
@@ -192,6 +227,7 @@ export default async function SearchAIDashboardPage() {
       croStats={croStats}
       aeoSignals={aeoSignals}
       geoSignals={geoSignals}
+      comparisons={seoComparisons}
     />
   );
 }

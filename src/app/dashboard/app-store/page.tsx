@@ -14,7 +14,9 @@ import {
   getReviewTopics,
   getLocalizations,
   getVisibilityHistory,
+  type AppStoreSnapshot,
 } from "@/lib/dal/app-store";
+import { computeAllComparisons, type MetricDef } from "@/lib/utils/period-comparison";
 
 export default async function AppStorePage() {
   const supabase = await createClient();
@@ -81,6 +83,51 @@ export default async function AppStorePage() {
   const rankingIds = rankings.map((r) => r.id);
   const keywordHistory = await getKeywordHistory(rankingIds, 30);
 
+  // ------------------------------------------------------------------
+  // Period comparisons from app store snapshots (aggregated across listings)
+  // ------------------------------------------------------------------
+  interface DailyAppSnapshot {
+    date: string;
+    avgRating: number | null;
+    totalReviews: number;
+    totalDownloads: number;
+    avgAsoScore: number | null;
+    avgVisibility: number | null;
+  }
+
+  const snapshotsByDate = new Map<string, AppStoreSnapshot[]>();
+  for (const s of snapshots) {
+    const arr = snapshotsByDate.get(s.snapshot_date) ?? [];
+    arr.push(s);
+    snapshotsByDate.set(s.snapshot_date, arr);
+  }
+
+  const dailyAppSnapshots: DailyAppSnapshot[] = Array.from(snapshotsByDate.entries())
+    .map(([date, group]) => {
+      const ratings = group.map((s) => s.rating).filter((r): r is number => r != null);
+      const asoScores = group.map((s) => s.aso_score).filter((r): r is number => r != null);
+      const visScores = group.map((s) => s.visibility_score).filter((r): r is number => r != null);
+      return {
+        date,
+        avgRating: ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null,
+        totalReviews: group.reduce((acc, s) => acc + (s.reviews_count ?? 0), 0),
+        totalDownloads: group.reduce((acc, s) => acc + (s.downloads_estimate ?? 0), 0),
+        avgAsoScore: asoScores.length > 0 ? asoScores.reduce((a, b) => a + b, 0) / asoScores.length : null,
+        avgVisibility: visScores.length > 0 ? visScores.reduce((a, b) => a + b, 0) / visScores.length : null,
+      };
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const appMetrics: MetricDef<DailyAppSnapshot>[] = [
+    { label: "Rating", getValue: (s) => s.avgRating, aggregation: "latest" },
+    { label: "Reviews", getValue: (s) => s.totalReviews, aggregation: "latest" },
+    { label: "Downloads", getValue: (s) => s.totalDownloads, aggregation: "latest" },
+    { label: "ASO Score", getValue: (s) => s.avgAsoScore, aggregation: "latest" },
+    { label: "Visibility Score", getValue: (s) => s.avgVisibility, aggregation: "latest" },
+  ];
+
+  const appComparisons = computeAllComparisons(dailyAppSnapshots, appMetrics, (s) => s.date);
+
   return (
     <AppStoreClient
       listings={listings}
@@ -94,6 +141,7 @@ export default async function AppStorePage() {
       localizations={localizations}
       visibilityHistory={visibilityHistory}
       projectId={project.id}
+      comparisons={appComparisons}
     />
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { Smartphone } from "lucide-react";
+import { StoreBadge } from "@/components/app-store/store-badge";
 import type { AppStoreListing } from "@/types";
 
 interface AppSelectorStripProps {
@@ -71,8 +72,11 @@ export function AppSelectorStrip({
               <span className="text-[12px] font-bold leading-tight text-ink">
                 {listing.app_name}
               </span>
-              <span className="text-[10px] text-ink-muted">
-                {listing.store === "apple" ? "iOS" : "Android"}
+              <span className="flex items-center gap-1 text-[10px] text-ink-muted">
+                {listing.store === "apple" ? "iOS" : "Google Play"}
+                <span className={`inline-flex h-3.5 w-3.5 items-center justify-center rounded-full ${listing.store === "apple" ? "bg-black text-white" : "bg-[#01875f] text-white"}`}>
+                  <StoreBadge store={listing.store} size="xs" />
+                </span>
               </span>
             </div>
           </button>

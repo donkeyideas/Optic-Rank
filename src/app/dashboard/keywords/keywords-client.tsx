@@ -59,7 +59,9 @@ import { addKeywords, deleteKeyword, importKeywordsCSV, getKeywordRankHistory, g
 import { importKeywordsFromGSC } from "@/lib/actions/gsc";
 import { useActionProgress } from "@/components/shared/action-progress";
 import { RankHistoryChart } from "@/components/charts/rank-history-chart";
-import type { Keyword } from "@/types";
+import type { Keyword, ComparisonTimeRange } from "@/types";
+import { PeriodComparisonBar } from "@/components/editorial/period-comparison-bar";
+import type { GenericPeriodComparison } from "@/lib/utils/period-comparison";
 
 /* ------------------------------------------------------------------
    Props
@@ -76,6 +78,7 @@ interface KeywordsPageClientProps {
     keywordsUp: number;
     keywordsDown: number;
   };
+  comparisons: Record<ComparisonTimeRange, GenericPeriodComparison>;
 }
 
 /* ------------------------------------------------------------------
@@ -351,6 +354,7 @@ export function KeywordsPageClient({
   keywords,
   totalCount,
   stats,
+  comparisons,
 }: KeywordsPageClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [deviceFilter, setDeviceFilter] = useState<"all" | "desktop" | "mobile">("all");
@@ -491,6 +495,9 @@ export function KeywordsPageClient({
     <div className="flex flex-col gap-6">
       {/* Headline Stats Bar */}
       <HeadlineBar stats={headlineStats} />
+
+      {/* Period Comparison */}
+      <PeriodComparisonBar comparisons={comparisons} />
 
       {/* Page Title */}
       <div className="border-b border-rule pb-3">

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Users } from "lucide-react";
 import { CompetitorsClient } from "./competitors-client";
+import { computeAllComparisons, type MetricDef } from "@/lib/utils/period-comparison";
 
 export default async function CompetitorsPage() {
   const supabase = await createClient();
@@ -67,11 +68,55 @@ export default async function CompetitorsPage() {
     snapshots = (snapshotData as Array<Record<string, unknown>>) ?? [];
   }
 
+  // ------------------------------------------------------------------
+  // Period comparisons from competitor snapshots (aggregated by date)
+  // ------------------------------------------------------------------
+  interface DailyCompSnapshot {
+    date: string;
+    avgAuthority: number | null;
+    avgTraffic: number | null;
+    totalKeywords: number;
+    totalBacklinks: number;
+  }
+
+  const compSnapshotsByDate = new Map<string, Array<Record<string, unknown>>>();
+  for (const s of snapshots) {
+    const date = s.snapshot_date as string;
+    if (!date) continue;
+    const arr = compSnapshotsByDate.get(date) ?? [];
+    arr.push(s);
+    compSnapshotsByDate.set(date, arr);
+  }
+
+  const dailyCompSnapshots: DailyCompSnapshot[] = Array.from(compSnapshotsByDate.entries())
+    .map(([date, group]) => {
+      const auths = group.map((s) => s.authority_score as number | null).filter((v): v is number => v != null);
+      const traffics = group.map((s) => s.organic_traffic as number | null).filter((v): v is number => v != null);
+      return {
+        date,
+        avgAuthority: auths.length > 0 ? auths.reduce((a, b) => a + b, 0) / auths.length : null,
+        avgTraffic: traffics.length > 0 ? traffics.reduce((a, b) => a + b, 0) / traffics.length : null,
+        totalKeywords: group.reduce((acc, s) => acc + ((s.keywords_count as number) ?? 0), 0),
+        totalBacklinks: group.reduce((acc, s) => acc + ((s.backlinks_count as number) ?? 0), 0),
+      };
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const compMetrics: MetricDef<DailyCompSnapshot>[] = [
+    { label: "Avg Authority", getValue: (s) => s.avgAuthority, aggregation: "latest" },
+    { label: "Avg Traffic", getValue: (s) => s.avgTraffic, aggregation: "latest" },
+    { label: "Total Keywords", getValue: (s) => s.totalKeywords, aggregation: "latest" },
+    { label: "Total Backlinks", getValue: (s) => s.totalBacklinks, aggregation: "latest" },
+  ];
+
+  const compComparisons = computeAllComparisons(dailyCompSnapshots, compMetrics, (s) => s.date);
+
   return (
     <CompetitorsClient
       competitors={competitors ?? []}
       snapshots={snapshots}
       projectId={project.id}
+      comparisons={compComparisons}
     />
   );
 }

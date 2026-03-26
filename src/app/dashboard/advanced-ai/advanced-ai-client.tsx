@@ -28,7 +28,9 @@ import { generateBrief } from "@/lib/actions/briefs";
 import type { VisibilityStats, KeywordVisibility } from "@/lib/dal/ai-visibility";
 import type { PredictionStats, PredictionWithKeyword } from "@/lib/dal/predictions";
 import type { EntityStats } from "@/lib/dal/entities";
-import type { Entity, AIBrief, AIInsight } from "@/types";
+import type { Entity, AIBrief, AIInsight, ComparisonTimeRange } from "@/types";
+import type { GenericPeriodComparison } from "@/lib/utils/period-comparison";
+import { PeriodComparisonBar } from "@/components/editorial/period-comparison-bar";
 
 /* ------------------------------------------------------------------
    Tabs
@@ -77,6 +79,8 @@ interface AdvancedAIClientProps {
     thisWeekCount: number;
     dismissedCount: number;
   };
+  // Period comparisons
+  comparisons: Record<ComparisonTimeRange, GenericPeriodComparison>;
 }
 
 /* ------------------------------------------------------------------
@@ -96,6 +100,7 @@ export function AdvancedAIClient({
   briefs,
   insights,
   insightStats,
+  comparisons,
 }: AdvancedAIClientProps) {
   const [activeTab, setActiveTab] = useState<TabId>("insights");
   const { runAction, isRunning: isActionRunning } = useActionProgress();
@@ -228,6 +233,9 @@ export function AdvancedAIClient({
         })}
       </div>
 
+      {/* Period Comparisons */}
+      <PeriodComparisonBar comparisons={comparisons} />
+
       {/* Tab Content */}
       <div>
         {activeTab === "insights" && (
@@ -243,6 +251,7 @@ export function AdvancedAIClient({
             stats={visibilityStats}
             projectId={projectId}
             projectDomain={projectDomain}
+            comparisons={comparisons}
           />
         )}
         {activeTab === "predictions" && (

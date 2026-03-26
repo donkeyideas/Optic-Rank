@@ -53,7 +53,9 @@ import {
   type AuditFrequency,
   type ScheduledAudit,
 } from "@/lib/actions/site-audit";
-import type { SiteAudit, AuditIssue, IssueSeverity, IssueCategory } from "@/types";
+import type { SiteAudit, AuditIssue, IssueSeverity, IssueCategory, ComparisonTimeRange } from "@/types";
+import { PeriodComparisonBar } from "@/components/editorial/period-comparison-bar";
+import type { GenericPeriodComparison } from "@/lib/utils/period-comparison";
 import { CalendarClock, X } from "lucide-react";
 
 /* ------------------------------------------------------------------
@@ -83,6 +85,7 @@ interface SiteAuditClientProps {
   history: SiteAudit[];
   projectId: string;
   scheduledAudit?: ScheduledAudit | null;
+  comparisons: Record<ComparisonTimeRange, GenericPeriodComparison>;
 }
 
 /* ------------------------------------------------------------------
@@ -303,6 +306,7 @@ export function SiteAuditClient({
   history,
   projectId,
   scheduledAudit: initialSchedule,
+  comparisons,
 }: SiteAuditClientProps) {
   const timezone = useTimezone();
   const [categoryFilter, setCategoryFilter] = useState<IssueCategory | "all">("all");
@@ -734,6 +738,9 @@ export function SiteAuditClient({
           </Button>
         </div>
       </div>
+
+      {/* Period Comparison */}
+      <PeriodComparisonBar comparisons={comparisons} />
 
       {auditError && (
         <div className="border border-editorial-red/30 bg-editorial-red/5 px-4 py-3 text-sm text-editorial-red">

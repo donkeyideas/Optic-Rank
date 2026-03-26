@@ -9,43 +9,31 @@ import { HealthScore } from "@/components/editorial/health-score";
 import { CompetitorRow } from "@/components/editorial/competitor-row";
 import { ColumnHeader } from "@/components/editorial/column-header";
 import { SidebarSection } from "@/components/editorial/sidebar-section";
-import type { AIInsight } from "@/types";
-import { getVisibilityStats } from "@/lib/dal/ai-visibility";
-import { getPredictionStats } from "@/lib/dal/predictions";
-import { getEntityStats } from "@/lib/dal/entities";
+import { VolumeNavigator } from "@/components/editorial/volume-navigator";
+
 import { KeywordChartCarousel } from "@/components/charts/keyword-chart-carousel";
 import { KeywordStrengthMapChart } from "@/components/charts/keyword-strength-map-chart";
 import { TrafficOpportunityTreemapChart } from "@/components/charts/traffic-opportunity-treemap-chart";
 import { RankVolumeScatterChart } from "@/components/charts/rank-volume-scatter-chart";
 import { TopTrafficKeywordsChart } from "@/components/charts/top-traffic-keywords-chart";
-import {
-  getConversionGoals,
-  getKeywordsWithRevenue,
-  getCroStats,
-} from "@/lib/dal/optimization";
-import {
-  getAppStoreListings,
-  getAppReviews,
-} from "@/lib/dal/app-store";
 import { AppStoreDispatch } from "@/components/editorial/app-store-dispatch";
-import { getSocialProfiles } from "@/lib/dal/social-intelligence";
 import { OnboardingChecklist } from "@/components/shared/onboarding-checklist";
+import { buildDashboardData, formatEstTraffic } from "@/lib/dashboard/build-snapshot";
+import { getVolume, getVolumeNav } from "@/lib/dal/volumes";
 
-/* ------------------------------------------------------------------
-   Helpers
-   ------------------------------------------------------------------ */
-
-function formatEstTraffic(num: number): string {
-  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
-  if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
-  return num.toLocaleString();
-}
 
 /* ------------------------------------------------------------------
    Dashboard Page (Server Component)
    ------------------------------------------------------------------ */
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ vol?: string }>;
+}) {
+  const params = await searchParams;
+  const requestedVolume = params.vol ? parseInt(params.vol, 10) : null;
+
   const supabase = await createClient();
 
   // Get the authenticated user
@@ -136,277 +124,449 @@ export default async function DashboardPage() {
     redirect("/dashboard/settings?tab=projects");
   }
 
+  // Get volume navigation info
+  const volumeNav = await getVolumeNav(project.id);
+
   // ------------------------------------------------------------------
-  // Fetch REAL data for the active project
+  // Volume View: render from stored snapshot
   // ------------------------------------------------------------------
+  if (requestedVolume && !isNaN(requestedVolume)) {
+    const volume = await getVolume(project.id, requestedVolume);
+    if (volume) {
+      const snap = volume.snapshot;
 
-  // Keywords: count + position stats
-  const { data: allKeywords, count: keywordsCount } = await supabase
-    .from("keywords")
-    .select("current_position, previous_position", { count: "exact" })
-    .eq("project_id", project.id);
+      // Map snapshot app listings to the shape AppStoreDispatch expects
+      const archiveAppListings = snap.appStoreListings.map((l, i) => ({
+        id: `archive-${i}`,
+        app_name: l.appName,
+        store: l.store as "apple" | "google",
+        rating: l.rating,
+        reviews_count: l.reviewsCount,
+        downloads_estimate: l.downloadsEstimate ?? null,
+        aso_score: l.asoScore,
+        icon_url: l.iconUrl ?? null,
+      }));
 
-  // Backlinks count
-  const { count: backlinksCount } = await supabase
-    .from("backlinks")
-    .select("id", { count: "exact" })
-    .eq("project_id", project.id);
+      return (
+        <div className="flex flex-col gap-6">
+          <VolumeNavigator
+            currentVolume={volume.volume_number}
+            minVolume={volumeNav.min}
+            maxVolume={volumeNav.max}
+            weekStart={volume.week_start}
+            weekEnd={volume.week_end}
+          />
 
-  // AI Insights (non-dismissed, top priority)
-  const { data: aiInsights } = await supabase
-    .from("ai_insights")
-    .select("*")
-    .eq("project_id", project.id)
-    .eq("is_dismissed", false)
-    .order("priority", { ascending: false })
-    .limit(4);
+          <div className="border border-rule bg-surface-inset px-4 py-2 text-center">
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+              Archived Edition — Vol. {volume.volume_number}
+            </span>
+          </div>
 
-  // Competitors
-  const { data: competitors } = await supabase
-    .from("competitors")
-    .select("*")
-    .eq("project_id", project.id)
-    .limit(4);
+          <HeadlineBar stats={snap.headlineStats} />
 
-  // Latest site audit
-  const { data: latestAudit } = await supabase
-    .from("site_audits")
-    .select("*")
-    .eq("project_id", project.id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+          <NewspaperGrid
+            left={
+              <div>
+                <ColumnHeader title="AI Intelligence Brief" subtitle="Weekly Findings" />
+                {snap.aiInsights.length > 0 ? (
+                  snap.aiInsights.map((insight, i) => (
+                    <div key={i} className={`py-3 ${i < snap.aiInsights.length - 1 ? "border-b border-rule" : ""}`}>
+                      <span className="font-sans text-[9px] font-bold uppercase tracking-[0.15em] text-editorial-red">
+                        {insight.type}
+                      </span>
+                      <h4 className="mt-1 font-serif text-[15px] font-bold leading-snug text-ink">
+                        {insight.title}
+                      </h4>
+                      <p className="mt-1 font-sans text-[13px] leading-relaxed text-ink-secondary">
+                        {insight.description}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex h-40 items-center justify-center border border-dashed border-rule bg-surface-raised">
+                    <span className="text-xs font-medium uppercase tracking-widest text-ink-muted">
+                      No AI insights this week
+                    </span>
+                  </div>
+                )}
 
-  // Top keyword rankings for center column (show ranked first, then unranked)
-  const { data: rankedKeywords } = await supabase
-    .from("keywords")
-    .select("*")
-    .eq("project_id", project.id)
-    .not("current_position", "is", null)
-    .order("current_position", { ascending: true })
-    .limit(5);
+                {/* Social Intelligence — editorial story */}
+                {snap.socialSummary && snap.socialSummary.totalFollowers > 0 && (
+                  <article className="flex flex-col gap-2 border-t border-rule py-4">
+                    <span className="font-sans text-[9px] font-bold uppercase tracking-[0.15em] text-editorial-red">
+                      Social Intelligence
+                    </span>
+                    <h3 className="font-serif text-[16px] font-bold leading-snug text-ink">
+                      {formatEstTraffic(snap.socialSummary.totalFollowers)} Combined Reach Across {snap.socialSummary.profileCount} Profile{snap.socialSummary.profileCount !== 1 ? "s" : ""}
+                    </h3>
+                  </article>
+                )}
+              </div>
+            }
+            center={
+              <div className="flex flex-col gap-6">
+                {/* Keyword Analytics — archived notice */}
+                <div>
+                  <ColumnHeader
+                    title="Keyword Analytics"
+                    subtitle={`Archived — Vol. ${volume.volume_number}`}
+                  />
+                  <div className="flex h-[220px] items-center justify-center border border-dashed border-rule bg-surface-raised">
+                    <div className="flex flex-col items-center gap-2 px-4 text-center">
+                      <span className="text-xs font-medium uppercase tracking-widest text-ink-muted">
+                        Charts not available for archived editions
+                      </span>
+                      <span className="text-[11px] text-ink-muted">
+                        View the current edition for live analytics
+                      </span>
+                    </div>
+                  </div>
+                </div>
 
-  // If no ranked keywords, show the first 5 tracked keywords
-  let topKeywords = rankedKeywords;
-  if (!rankedKeywords || rankedKeywords.length === 0) {
-    const { data: unrankedKeywords } = await supabase
-      .from("keywords")
-      .select("*")
-      .eq("project_id", project.id)
-      .order("created_at", { ascending: false })
-      .limit(5);
-    topKeywords = unrankedKeywords;
+                {/* Top Keyword Rankings */}
+                <div>
+                  <ColumnHeader title="Top Keyword Rankings" subtitle="Tracked Keywords by Position" />
+                  {snap.topKeywords.length > 0 ? (
+                    <div className="overflow-x-auto"><table className="w-full border-collapse">
+                      <thead>
+                        <tr>
+                          <th className="border-b-2 border-rule-dark px-2.5 py-2 text-left text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+                            Keyword
+                          </th>
+                          <th className="border-b-2 border-rule-dark px-2.5 py-2 text-left text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+                            Pos.
+                          </th>
+                          <th className="border-b-2 border-rule-dark px-2.5 py-2 text-left text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+                            Volume
+                          </th>
+                          <th className="border-b-2 border-rule-dark px-2.5 py-2 text-left text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+                            CPC
+                          </th>
+                          <th className="border-b-2 border-rule-dark px-2.5 py-2 text-left text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+                            Change
+                          </th>
+                          <th className="border-b-2 border-rule-dark px-2.5 py-2 text-left text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+                            AI
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {snap.topKeywords.map((kw, i) => {
+                          const change = kw.previousPosition != null && kw.position != null
+                            ? kw.previousPosition - kw.position : 0;
+                          return (
+                            <tr key={i} className="hover:bg-surface-raised">
+                              <td className="border-b border-rule-light px-2.5 py-2.5 text-[13px] font-semibold text-ink">{kw.keyword}</td>
+                              <td className="border-b border-rule-light px-2.5 py-2.5">
+                                <span
+                                  className={`font-mono text-sm font-semibold ${
+                                    kw.position == null
+                                      ? "text-ink-muted"
+                                      : kw.position === 1
+                                        ? "text-editorial-red"
+                                        : "text-ink"
+                                  }`}
+                                >
+                                  {kw.position ?? "—"}
+                                </span>
+                              </td>
+                              <td className="border-b border-rule-light px-2.5 py-2.5 font-mono text-xs text-ink-secondary">{kw.searchVolume?.toLocaleString() ?? "--"}</td>
+                              <td className="border-b border-rule-light px-2.5 py-2.5 font-mono text-xs text-ink-secondary">{kw.cpc != null ? `$${kw.cpc.toFixed(2)}` : "--"}</td>
+                              <td
+                                className={`border-b border-rule-light px-2.5 py-2.5 text-[13px] font-semibold ${
+                                  change > 0
+                                    ? "text-editorial-green"
+                                    : change < 0
+                                      ? "text-editorial-red"
+                                      : "text-ink-muted"
+                                }`}
+                              >
+                                {change > 0 ? `+${change}` : change < 0 ? String(change) : "--"}
+                              </td>
+                              <td className="border-b border-rule-light px-2.5 py-2.5 font-mono text-xs text-ink-secondary">{kw.aiVisibility ?? "--"}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table></div>
+                  ) : (
+                    <div className="flex h-40 items-center justify-center border border-dashed border-rule bg-surface-raised">
+                      <span className="text-xs font-medium uppercase tracking-widest text-ink-muted">
+                        No keywords tracked this week
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* App Store Dispatch */}
+                <div>
+                  <ColumnHeader
+                    title="App Store Dispatch"
+                    subtitle="ASO Intelligence & Rankings"
+                  />
+                  {archiveAppListings.length > 0 ? (
+                    <AppStoreDispatch
+                      listings={archiveAppListings}
+                      reviewSentiment={[]}
+                    />
+                  ) : (
+                    <div className="flex h-40 items-center justify-center border border-dashed border-rule bg-surface-raised">
+                      <span className="text-xs font-medium uppercase tracking-widest text-ink-muted">
+                        No apps tracked this week
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            }
+            right={
+              <div className="flex flex-col gap-6">
+                {/* Health Score */}
+                <SidebarSection title="Marketing Health" subtitle="Overall Assessment">
+                  {snap.healthScore > 0 ? (
+                    <HealthScore score={snap.healthScore} categories={snap.healthCategories} />
+                  ) : (
+                    <div className="flex h-32 items-center justify-center border border-dashed border-rule bg-surface-raised">
+                      <span className="text-xs font-medium uppercase tracking-widest text-ink-muted">
+                        No audit data this week
+                      </span>
+                    </div>
+                  )}
+                </SidebarSection>
+
+                {/* Competitor Watch */}
+                <SidebarSection title="Competitor Watch" subtitle="Domain Authority Rankings">
+                  {snap.competitors.length > 0 ? (
+                    snap.competitors.map((c, i) => (
+                      <CompetitorRow key={i} rank={i + 1} name={c.name} domain={c.domain} domainAuthority={c.authorityScore} />
+                    ))
+                  ) : (
+                    <div className="flex h-24 items-center justify-center border border-dashed border-rule bg-surface-raised">
+                      <span className="text-xs font-medium uppercase tracking-widest text-ink-muted">
+                        No competitors tracked.
+                      </span>
+                    </div>
+                  )}
+                </SidebarSection>
+
+                {/* AI Command Center */}
+                <SidebarSection title="AI Command Center" subtitle="Advanced Intelligence">
+                  <div className="flex flex-col gap-2">
+                    {/* LLM Visibility */}
+                    <div className="flex items-center justify-between border border-rule bg-surface-card px-3 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-editorial-red/10">
+                          <span className="text-[10px] font-bold text-editorial-red">AI</span>
+                        </div>
+                        <div>
+                          <span className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-ink">
+                            LLM Visibility
+                          </span>
+                        </div>
+                      </div>
+                      {snap.aiCommandCenter.visibilityAvg > 0 ? (
+                        <span className="font-mono text-sm font-bold text-editorial-green">
+                          {snap.aiCommandCenter.visibilityAvg}%
+                        </span>
+                      ) : (
+                        <span className="font-mono text-xs text-ink-muted">—</span>
+                      )}
+                    </div>
+
+                    {/* Predictions */}
+                    <div className="flex items-center justify-between border border-rule bg-surface-card px-3 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-editorial-gold/15">
+                          <span className="text-[10px] font-bold text-editorial-gold">ML</span>
+                        </div>
+                        <div>
+                          <span className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-ink">
+                            Rank Predictions
+                          </span>
+                        </div>
+                      </div>
+                      {snap.aiCommandCenter.predictionImproving > 0 ? (
+                        <span className="font-mono text-xs font-bold text-editorial-green">
+                          +{snap.aiCommandCenter.predictionImproving}
+                        </span>
+                      ) : (
+                        <span className="font-mono text-xs text-ink-muted">—</span>
+                      )}
+                    </div>
+
+                    {/* Entity SEO */}
+                    <div className="flex items-center justify-between border border-rule bg-surface-card px-3 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-ink/10">
+                          <span className="text-[10px] font-bold text-ink">KG</span>
+                        </div>
+                        <div>
+                          <span className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-ink">
+                            Entity SEO
+                          </span>
+                        </div>
+                      </div>
+                      {snap.aiCommandCenter.entityAvgRelevance > 0 ? (
+                        <span className="font-mono text-xs font-bold text-ink">
+                          {snap.aiCommandCenter.entityAvgRelevance}%
+                        </span>
+                      ) : (
+                        <span className="font-mono text-xs text-ink-muted">—</span>
+                      )}
+                    </div>
+
+                    {/* AI Briefs */}
+                    <div className="flex items-center justify-between border border-rule bg-surface-card px-3 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-editorial-green/10">
+                          <span className="text-[10px] font-bold text-editorial-green">BR</span>
+                        </div>
+                        <div>
+                          <span className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-ink">
+                            AI Briefs
+                          </span>
+                          {snap.aiCommandCenter.latestBriefDate && (
+                            <span className="block text-[9px] text-ink-muted">
+                              Latest: {snap.aiCommandCenter.latestBriefDate}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className="font-mono text-xs text-ink-muted">
+                        {snap.aiCommandCenter.latestBriefDate ? "Archived" : "—"}
+                      </span>
+                    </div>
+                  </div>
+                </SidebarSection>
+              </div>
+            }
+          />
+
+          {/* Optimization Hub — CRO (full-width, same as live) */}
+          <div className="border-t-2 border-rule-dark pt-4">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="font-serif text-lg font-bold text-ink">
+                  Optimization Hub
+                </h2>
+                <p className="text-[10px] font-sans text-ink-muted uppercase tracking-[0.1em]">
+                  Conversion Rate Optimization &middot; Revenue Attribution
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {/* Est. Revenue */}
+              <div className="border border-rule bg-surface-card px-4 py-3">
+                <span className="block text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+                  Est. Revenue
+                </span>
+                <span className="mt-1 block font-mono text-2xl font-bold text-editorial-green">
+                  {snap.croStats.estimatedMonthlyRevenue > 0
+                    ? `$${Math.round(snap.croStats.estimatedMonthlyRevenue).toLocaleString()}`
+                    : "—"}
+                </span>
+                <span className="mt-0.5 block text-[10px] text-ink-muted">
+                  {snap.croStats.estimatedMonthlyRevenue > 0 ? "Monthly estimate" : "No revenue data"}
+                </span>
+              </div>
+
+              {/* Avg. Position */}
+              <div className="border border-rule bg-surface-card px-4 py-3">
+                <span className="block text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+                  Avg. Position
+                </span>
+                <span className="mt-1 block font-mono text-2xl font-bold text-ink">
+                  {snap.croStats.avgPosition > 0 ? snap.croStats.avgPosition : "—"}
+                </span>
+                <span className="mt-0.5 block text-[10px] text-ink-muted">
+                  {snap.croStats.avgPosition > 0
+                    ? snap.croStats.avgPosition <= 10
+                      ? "Page 1 average"
+                      : "Across tracked keywords"
+                    : "No ranked keywords"}
+                </span>
+              </div>
+
+              {/* Est. Traffic */}
+              <div className="border border-rule bg-surface-card px-4 py-3">
+                <span className="block text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+                  Est. Traffic
+                </span>
+                <span className="mt-1 block font-mono text-2xl font-bold text-editorial-green">
+                  {snap.croStats.estimatedTraffic > 0
+                    ? snap.croStats.estimatedTraffic.toLocaleString()
+                    : "—"}
+                </span>
+                <span className="mt-0.5 block text-[10px] text-ink-muted">
+                  {snap.croStats.estimatedTraffic > 0
+                    ? "Monthly organic visits"
+                    : "No traffic data"}
+                </span>
+              </div>
+
+              {/* Revenue Gaps */}
+              <div className="border border-rule bg-surface-card px-4 py-3">
+                <span className="block text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+                  Revenue Gaps
+                </span>
+                <span className="mt-1 block font-mono text-2xl font-bold text-editorial-amber">
+                  {snap.croStats.highValueGaps > 0 ? snap.croStats.highValueGaps : "—"}
+                </span>
+                <span className="mt-0.5 block text-[10px] text-ink-muted">
+                  {snap.croStats.highValueGaps > 0
+                    ? "High-value opportunities"
+                    : "No gaps detected"}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    // Volume not found, fall through to live render
   }
 
-  // Keywords with search volume for traffic estimation
-  const { data: trafficKeywords } = await supabase
-    .from("keywords")
-    .select("keyword, current_position, search_volume")
-    .eq("project_id", project.id)
-    .eq("is_active", true)
-    .not("current_position", "is", null)
-    .not("search_volume", "is", null);
-
-  // Advanced AI module stats + Optimization + App Store listings + Social (fetched in parallel)
-  const [visibilityStats, predictionStats, entityStats, conversionGoals, appListings, socialProfiles] = await Promise.all([
-    getVisibilityStats(project.id),
-    getPredictionStats(project.id),
-    getEntityStats(project.id),
-    getConversionGoals(project.id),
-    getAppStoreListings(project.id),
-    getSocialProfiles(project.id),
-  ]);
-
-  // Phase 2: CRO revenue + App Store reviews (depend on phase 1 results)
-  const appListingIds = appListings.map((l) => l.id);
-  const [kwWithRevenue, appReviews] = await Promise.all([
-    getKeywordsWithRevenue(project.id, conversionGoals),
-    getAppReviews(appListingIds),
-  ]);
-  const croStats = await getCroStats(project.id, conversionGoals, kwWithRevenue);
-
-  // Latest AI brief
-  const { data: latestBrief } = await supabase
-    .from("ai_briefs")
-    .select("id, title, summary, brief_type, created_at")
-    .eq("project_id", project.id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
   // ------------------------------------------------------------------
-  // Compute headline stats from real data
+  // Live View: fetch real-time data
   // ------------------------------------------------------------------
 
-  const totalKeywords = keywordsCount ?? 0;
-  const totalBacklinks = backlinksCount ?? 0;
-  const keywords = allKeywords ?? [];
-
-  const rankedPositions = keywords
-    .filter((k) => k.current_position !== null)
-    .map((k) => k.current_position!);
-
-  const avgPosition =
-    rankedPositions.length > 0
-      ? (
-          rankedPositions.reduce((a, b) => a + b, 0) / rankedPositions.length
-        ).toFixed(1)
-      : "--";
-
-  const keywordsUp = keywords.filter(
-    (k) =>
-      k.previous_position !== null &&
-      k.current_position !== null &&
-      k.current_position < k.previous_position
-  ).length;
-
-  const keywordsDown = keywords.filter(
-    (k) =>
-      k.previous_position !== null &&
-      k.current_position !== null &&
-      k.current_position > k.previous_position
-  ).length;
-
-  // ------------------------------------------------------------------
-  // Organic Traffic Estimation (CTR curve × search volume)
-  // ------------------------------------------------------------------
-
-  const CTR_CURVE: Record<number, number> = {
-    1: 0.315, 2: 0.158, 3: 0.1, 4: 0.07, 5: 0.053,
-    6: 0.038, 7: 0.028, 8: 0.021, 9: 0.017, 10: 0.014,
-  };
-
-  const currentEstTraffic = (trafficKeywords ?? []).reduce((sum, kw) => {
-    const pos = kw.current_position as number;
-    const vol = kw.search_volume as number;
-    const ctr = pos <= 10 ? (CTR_CURVE[pos] ?? 0.01) : 0.005;
-    return sum + Math.round(vol * ctr);
-  }, 0);
-
-  // Chart data for keyword visualizations
-  const chartKeywords = (trafficKeywords ?? []).map((kw) => {
-    const pos = kw.current_position as number;
-    const vol = kw.search_volume as number;
-    const ctr = pos <= 10 ? (CTR_CURVE[pos] ?? 0.01) : 0.005;
-    return {
-      keyword: kw.keyword as string,
-      position: pos,
-      volume: vol,
-      estTraffic: Math.round(vol * ctr),
-    };
+  const data = await buildDashboardData(project.id, supabase, {
+    domain: project.domain,
+    name: project.name,
+    authority_score: project.authority_score,
   });
 
-  const projectDomain = (project.domain ?? project.name ?? "").replace(/^https?:\/\//, "");
-
-  // ------------------------------------------------------------------
-  // Authority Score — use DB value or compute fallback from available data
-  // ------------------------------------------------------------------
-
-  const auditHealthForAuth = latestAudit?.health_score ?? 0;
-  let authorityScore: number | null = project.authority_score
-    ? Number(project.authority_score)
-    : null;
-
-  if (authorityScore === null) {
-    const auditComponent = (auditHealthForAuth / 100) * 40; // 40% weight
-    const top10Count = rankedPositions.filter((p) => p <= 10).length;
-    const kwComponent = totalKeywords > 0
-      ? Math.min((top10Count / Math.max(totalKeywords, 1)) * 100, 100) * 0.3 // 30% weight
-      : 0;
-    const blComponent = totalBacklinks > 0
-      ? Math.min(Math.log10(totalBacklinks + 1) * 20, 100) * 0.3 // 30% weight
-      : 0;
-    const computed = Math.round(auditComponent + kwComponent + blComponent);
-    if (computed > 0) authorityScore = Math.min(computed, 100);
-  }
-
-  const headlineStats = [
-    {
-      label: "Authority Score",
-      value: authorityScore ?? "--",
-      delta: authorityScore ? "Composite estimate" : "No data yet",
-      direction: authorityScore ? ("up" as const) : ("neutral" as const),
-    },
-    {
-      label: "Organic Traffic",
-      value: currentEstTraffic > 0 ? formatEstTraffic(currentEstTraffic) : "--",
-      delta: currentEstTraffic > 0
-        ? `Est. from ${(trafficKeywords ?? []).length} ranked keywords`
-        : "No data yet",
-      direction: currentEstTraffic > 0 ? ("up" as const) : ("neutral" as const),
-    },
-    {
-      label: "Keywords Ranked",
-      value: rankedPositions.length.toLocaleString(),
-      delta: (() => {
-        const top10 = rankedPositions.filter((p) => p <= 10).length;
-        if (keywordsUp > 0) return `+${keywordsUp} improved`;
-        if (top10 > 0) return `${top10} in top 10`;
-        if (rankedPositions.length > 0) return `Avg. pos ${avgPosition}`;
-        return "No rankings yet";
-      })(),
-      direction: keywordsUp > 0 ? ("up" as const) : (rankedPositions.length > 0 ? ("neutral" as const) : ("neutral" as const)),
-    },
-    {
-      label: "AI Visibility",
-      value: visibilityStats.avgScore > 0 ? `${Math.round(visibilityStats.avgScore)}%` : "--",
-      delta: visibilityStats.totalChecks > 0
-        ? `${visibilityStats.totalChecks} checks · ${visibilityStats.keywordsChecked} keywords`
-        : "Not tracked",
-      direction: visibilityStats.avgScore > 0 ? ("up" as const) : ("neutral" as const),
-    },
-    {
-      label: "Backlinks",
-      value: totalBacklinks > 0 ? formatEstTraffic(totalBacklinks) : "--",
-      delta: totalBacklinks > 0 ? `${totalBacklinks} total discovered` : "None yet",
-      direction: totalBacklinks > 0 ? ("up" as const) : ("neutral" as const),
-    },
-  ];
-
-  // ------------------------------------------------------------------
-  // Health categories from latest audit
-  // ------------------------------------------------------------------
-
-  const healthScore = latestAudit?.health_score ?? 0;
-  const healthCategories = [
-    {
-      name: "SEO",
-      value: latestAudit?.seo_score ?? 0,
-      color: "var(--color-editorial-red)",
-    },
-    {
-      name: "Performance",
-      value: latestAudit?.performance_score ?? 0,
-      color: "var(--color-ink)",
-    },
-    {
-      name: "Accessibility",
-      value: latestAudit?.accessibility_score ?? 0,
-      color: "var(--color-editorial-gold)",
-    },
-  ];
-
-  // ------------------------------------------------------------------
-  // App Store summary stats
-  // ------------------------------------------------------------------
-
-  const appReviewSentiment = appListings.map((listing) => {
-    const listingReviews = appReviews.filter((r) => r.listing_id === listing.id);
-    const positive = listingReviews.filter((r) => r.sentiment === "positive").length;
-    const negative = listingReviews.filter((r) => r.sentiment === "negative").length;
-    return { listingId: listing.id, positive, negative, total: listingReviews.length };
-  });
-
-  // ------------------------------------------------------------------
-  // Render
-  // ------------------------------------------------------------------
-
-  const insights: AIInsight[] = aiInsights ?? [];
-  const competitorsList = competitors ?? [];
-  const topKeywordsList = topKeywords ?? [];
+  const {
+    headlineStats,
+    healthScore,
+    healthCategories,
+    topKeywordsList,
+    chartKeywords,
+    insights,
+    competitorsList,
+    socialProfiles,
+    appListings,
+    appReviewSentiment,
+    latestBrief,
+    croStats,
+    visibilityStats,
+    predictionStats,
+    entityStats,
+    rankedPositions,
+    projectDomain,
+  } = data;
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Volume Navigator */}
+      <VolumeNavigator
+        currentVolume={null}
+        minVolume={volumeNav.min}
+        maxVolume={volumeNav.max}
+      />
+
       {/* Headline Stats Bar */}
       <HeadlineBar stats={headlineStats} />
 
@@ -569,7 +729,7 @@ export default async function DashboardPage() {
                       const hasRank = kw.current_position !== null;
                       const change =
                         kw.previous_position !== null && hasRank
-                          ? kw.previous_position - kw.current_position
+                          ? kw.previous_position - kw.current_position!
                           : 0;
 
                       return (
@@ -674,7 +834,7 @@ export default async function DashboardPage() {
           <div className="flex flex-col gap-6">
             {/* Health Score */}
             <SidebarSection title="Marketing Health" subtitle="Overall Assessment">
-              {latestAudit ? (
+              {healthScore > 0 ? (
                 <HealthScore
                   score={healthScore}
                   categories={healthCategories}

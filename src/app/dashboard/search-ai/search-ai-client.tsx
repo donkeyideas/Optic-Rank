@@ -47,7 +47,9 @@ import { RecommendationsTab, StrategyGuideTab } from "@/components/shared/page-g
 import type { Recommendation, StrategyContent } from "@/components/shared/page-guide";
 import type { SnippetOpportunity, AnswerReadiness, VoiceSearchKeyword } from "@/lib/ai/aeo-analysis";
 import type { VisibilityStats } from "@/lib/dal/ai-visibility";
-import type { SiteAudit, AIVisibilityCheck } from "@/types";
+import type { SiteAudit, AIVisibilityCheck, ComparisonTimeRange } from "@/types";
+import type { GenericPeriodComparison } from "@/lib/utils/period-comparison";
+import { PeriodComparisonBar } from "@/components/editorial/period-comparison-bar";
 
 /* ── Tabs ──────────────────────────────────────────────────────── */
 
@@ -128,6 +130,8 @@ interface SearchAIClientProps {
   // Crawl signals
   aeoSignals?: PageSignal[];
   geoSignals?: PageSignal[];
+  // Period comparisons
+  comparisons: Record<ComparisonTimeRange, GenericPeriodComparison>;
 }
 
 /* ── Circular Score Gauge ──────────────────────────────────────── */
@@ -591,6 +595,9 @@ export function SearchAIClient(props: SearchAIClientProps) {
           );
         })}
       </div>
+
+      {/* Period Comparisons */}
+      <PeriodComparisonBar comparisons={props.comparisons} />
 
       {/* ── Tab Content ── */}
       {activeTab === "summary" && (

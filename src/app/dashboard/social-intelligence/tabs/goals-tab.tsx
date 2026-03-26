@@ -106,7 +106,7 @@ export function GoalsTab({ profile, metrics, goals }: GoalsTabProps) {
       <div>
         <h3 className="font-serif text-lg font-bold text-ink">Goals & Strategy</h3>
         <p className="text-sm text-ink-secondary">
-          Define your objectives for @{profile.handle} on {profile.platform}. AI will tailor all recommendations to help you reach these goals.
+          Define your objectives for {profile.display_name || `@${profile.handle}`} on {profile.platform}. AI will tailor all recommendations to help you reach these goals.
         </p>
       </div>
 
