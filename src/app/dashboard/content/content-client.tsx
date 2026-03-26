@@ -80,6 +80,7 @@ interface ContentPage {
   title?: string | null;
   content_score?: number | null;
   organic_traffic?: number | null;
+  traffic_source?: "ga4" | "estimated" | null;
   word_count?: number | null;
   last_modified?: string | null;
   updated_at?: string | null;
@@ -650,7 +651,7 @@ export function ContentClient({
                             </div>
                           ) : <span className="text-ink-muted">---</span>}
                         </TableCell>
-                        <TableCell>{page.organic_traffic != null ? page.organic_traffic.toLocaleString() : <span className="text-ink-muted text-[11px]" title={!hasKeywords ? "Track keywords to see traffic estimates" : "No rank data yet"}>{!hasKeywords ? "No keywords" : "—"}</span>}</TableCell>
+                        <TableCell>{page.organic_traffic != null ? <span className="flex items-center gap-1">{page.organic_traffic.toLocaleString()}{page.traffic_source === "ga4" && <span className="text-[8px] font-bold uppercase tracking-wider text-editorial-green">GA4</span>}</span> : <span className="text-ink-muted text-[11px]" title={!hasKeywords ? "Track keywords to see traffic estimates" : "No rank data yet"}>{!hasKeywords ? "No keywords" : "—"}</span>}</TableCell>
                         <TableCell>{page.word_count != null ? page.word_count.toLocaleString() : "---"}</TableCell>
                         <TableCell className="font-mono text-xs text-ink-muted">{page.last_modified ? formatDate(page.last_modified, timezone) : page.updated_at ? formatDate(page.updated_at, timezone) : "---"}</TableCell>
                         <TableCell>
@@ -725,7 +726,7 @@ export function ContentClient({
                         </div>
                       </TableCell>
                       <TableCell><Badge variant={db.variant}>{db.label}</Badge></TableCell>
-                      <TableCell>{page.organic_traffic != null ? page.organic_traffic.toLocaleString() : <span className="text-ink-muted text-[11px]" title={!hasKeywords ? "Track keywords to see traffic estimates" : "No rank data yet"}>{!hasKeywords ? "No keywords" : "—"}</span>}</TableCell>
+                      <TableCell>{page.organic_traffic != null ? <span className="flex items-center gap-1">{page.organic_traffic.toLocaleString()}{page.traffic_source === "ga4" && <span className="text-[8px] font-bold uppercase tracking-wider text-editorial-green">GA4</span>}</span> : <span className="text-ink-muted text-[11px]" title={!hasKeywords ? "Track keywords to see traffic estimates" : "No rank data yet"}>{!hasKeywords ? "No keywords" : "—"}</span>}</TableCell>
                       <TableCell className="font-mono text-xs text-ink-muted">{page.last_modified ? formatDate(page.last_modified, timezone) : page.updated_at ? formatDate(page.updated_at, timezone) : "---"}</TableCell>
                     </TableRow>
                   );

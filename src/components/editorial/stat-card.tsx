@@ -10,6 +10,8 @@ export interface StatCardProps {
   direction?: DeltaDirection;
   /** Highlight the value in editorial red */
   highlight?: boolean;
+  /** Show a "REAL" or "EST." badge next to the label */
+  badge?: "real" | "est" | null;
   className?: string;
 }
 
@@ -19,12 +21,21 @@ export function StatCard({
   delta,
   direction = "neutral",
   highlight = false,
+  badge,
   className,
 }: StatCardProps) {
   return (
     <div className={cn("flex flex-col gap-1 px-3 py-3 sm:px-4 lg:px-5 lg:py-4", className)}>
-      {/* Overline label */}
-      <span className="editorial-overline">{label}</span>
+      {/* Overline label + badge */}
+      <span className="flex items-center gap-1.5">
+        <span className="editorial-overline">{label}</span>
+        {badge === "real" && (
+          <span className="text-[8px] font-bold uppercase tracking-wider text-editorial-green">REAL</span>
+        )}
+        {badge === "est" && (
+          <span className="text-[8px] font-bold uppercase tracking-wider text-editorial-gold">EST.</span>
+        )}
+      </span>
 
       {/* Value */}
       <span

@@ -186,11 +186,39 @@ export default async function ContentPage() {
     }
   }
 
-  // Enrich content pages with estimated traffic
+  // Overlay real GA4 per-page traffic when available
+  let ga4PageMap = new Map<string, number>();
+  try {
+    const { fetchGA4DashboardData } = await import("@/lib/actions/ga4-import");
+    const ga4Data = await fetchGA4DashboardData(project.id);
+    if (ga4Data.connected && ga4Data.topPages.length > 0) {
+      for (const ga4Page of ga4Data.topPages) {
+        const normalized = (ga4Page.path ?? "").replace(/\/$/, "") || "/";
+        ga4PageMap.set(normalized, ga4Page.pageviews);
+      }
+    }
+  } catch {
+    // GA4 not available — continue with estimates
+  }
+
+  // Enrich content pages with estimated traffic, then overlay GA4 real data
   const contentPages = (contentPagesRes.data ?? []).map((page) => {
-    if (page.organic_traffic != null && page.organic_traffic > 0) return page;
+    // Check for GA4 real traffic first — extract path from full URL to match GA4 paths
+    let pagePath = "/";
+    try {
+      pagePath = new URL(page.url ?? "").pathname.replace(/\/$/, "") || "/";
+    } catch {
+      pagePath = (page.url ?? "").replace(/\/$/, "") || "/";
+    }
+    const ga4Traffic = ga4PageMap.get(pagePath);
+    if (ga4Traffic != null && ga4Traffic > 0) {
+      return { ...page, organic_traffic: ga4Traffic, traffic_source: "ga4" as const };
+    }
+
+    // Fallback to existing value or estimated
+    if (page.organic_traffic != null && page.organic_traffic > 0) return { ...page, traffic_source: "estimated" as const };
     const estTraffic = urlTrafficMap.get(page.url) ?? null;
-    return estTraffic ? { ...page, organic_traffic: estTraffic } : page;
+    return estTraffic ? { ...page, organic_traffic: estTraffic, traffic_source: "estimated" as const } : { ...page, traffic_source: null };
   });
 
   return (

@@ -64,6 +64,10 @@ import { RankHistoryChart } from "@/components/charts/rank-history-chart";
 import type { Keyword, ComparisonTimeRange } from "@/types";
 import { PeriodComparisonBar } from "@/components/editorial/period-comparison-bar";
 import type { GenericPeriodComparison } from "@/lib/utils/period-comparison";
+import type { GA4DashboardData } from "@/lib/actions/ga4-import";
+import { GA4TrafficTrendChart } from "@/components/charts/ga4-traffic-trend-chart";
+import { GA4TrafficSourcesChart } from "@/components/charts/ga4-traffic-sources-chart";
+import { GA4TopPagesTable } from "@/components/charts/ga4-top-pages-table";
 
 /* ------------------------------------------------------------------
    Props
@@ -81,6 +85,7 @@ interface KeywordsPageClientProps {
     keywordsDown: number;
   };
   comparisons: Record<ComparisonTimeRange, GenericPeriodComparison>;
+  ga4Data?: GA4DashboardData | null;
 }
 
 /* ------------------------------------------------------------------
@@ -357,6 +362,7 @@ export function KeywordsPageClient({
   totalCount,
   stats,
   comparisons,
+  ga4Data,
 }: KeywordsPageClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [deviceFilter, setDeviceFilter] = useState<"all" | "desktop" | "mobile">("all");
@@ -531,6 +537,7 @@ export function KeywordsPageClient({
       <Tabs defaultValue="all">
         <TabsList>
           <TabsTrigger value="all">All Keywords</TabsTrigger>
+          <TabsTrigger value="traffic">Traffic Intelligence</TabsTrigger>
           <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
           <TabsTrigger value="strategy">Strategy Guide</TabsTrigger>
         </TabsList>
@@ -1160,6 +1167,13 @@ export function KeywordsPageClient({
         </TabsContent>
 
         {/* ============================================================
+            TAB: Traffic Intelligence
+            ============================================================ */}
+        <TabsContent value="traffic">
+          <TrafficIntelligenceSection ga4Data={ga4Data ?? null} />
+        </TabsContent>
+
+        {/* ============================================================
             TAB: Recommendations
             ============================================================ */}
         <TabsContent value="recommendations">
@@ -1501,6 +1515,104 @@ export function KeywordsPageClient({
           </div>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------
+   Traffic Intelligence Section
+   ------------------------------------------------------------------ */
+
+function TrafficIntelligenceSection({ ga4Data }: { ga4Data: GA4DashboardData | null }) {
+  if (!ga4Data?.connected || !ga4Data.overview) {
+    return (
+      <div className="flex h-48 items-center justify-center border border-dashed border-rule bg-surface-raised">
+        <div className="text-center">
+          <Globe className="mx-auto mb-2 h-8 w-8 text-ink-muted" />
+          <p className="text-sm font-bold uppercase tracking-widest text-ink-muted">
+            GA4 Not Connected
+          </p>
+          <p className="mt-1 text-xs text-ink-muted">
+            Connect Google Analytics 4 in Settings &rarr; Integrations to see real traffic data.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const { overview, dailyData, trafficSources, topPages } = ga4Data;
+
+  const fmt = (n: number) => {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+    return n.toLocaleString();
+  };
+
+  const fmtDur = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = Math.round(s % 60);
+    return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+  };
+
+  const cards = [
+    { label: "Sessions", value: fmt(overview.totalSessions) },
+    { label: "Users", value: fmt(overview.totalUsers) },
+    { label: "Pageviews", value: fmt(overview.totalPageviews) },
+    { label: "Bounce Rate", value: `${(overview.bounceRate * 100).toFixed(1)}%` },
+    { label: "Avg Duration", value: fmtDur(overview.avgSessionDuration) },
+    { label: "New Users", value: fmt(overview.newUsers) },
+  ];
+
+  return (
+    <div className="flex flex-col gap-8">
+      {/* Stat Cards */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        {cards.map((c) => (
+          <div key={c.label} className="border border-rule bg-surface-raised p-4">
+            <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+              {c.label}
+            </p>
+            <p className="mt-1 font-serif text-2xl font-bold text-ink">{c.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Daily Traffic Chart */}
+      {dailyData.length >= 2 && (
+        <div>
+          <h3 className="mb-3 text-[11px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+            Daily Sessions & Users — 30 Days
+          </h3>
+          <GA4TrafficTrendChart data={dailyData} />
+        </div>
+      )}
+
+      {/* Traffic Sources */}
+      {trafficSources.length > 0 && (
+        <div>
+          <h3 className="mb-3 text-[11px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+            Traffic Sources
+          </h3>
+          <GA4TrafficSourcesChart sources={trafficSources} />
+        </div>
+      )}
+
+      {/* Top Pages */}
+      {topPages.length > 0 && (
+        <div>
+          <h3 className="mb-3 text-[11px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+            Top Pages by Pageviews
+          </h3>
+          <GA4TopPagesTable pages={topPages} />
+        </div>
+      )}
+
+      {/* Last synced */}
+      {ga4Data.lastSynced && (
+        <p className="text-right text-[10px] text-ink-muted">
+          Last synced: {new Date(ga4Data.lastSynced).toLocaleString()}
+        </p>
+      )}
     </div>
   );
 }

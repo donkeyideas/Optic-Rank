@@ -32,7 +32,15 @@ export interface DashboardData {
     value: string | number;
     delta: string;
     direction: "up" | "down" | "neutral";
+    badge?: "real" | "est" | null;
   }[];
+  ga4: {
+    connected: boolean;
+    overview: import("@/lib/google/analytics").GA4Overview | null;
+    dailyData: import("@/lib/google/analytics").GA4DailyData[];
+    trafficSources: import("@/lib/google/analytics").GA4TrafficSource[];
+    topPages: import("@/lib/google/analytics").GA4PageData[];
+  } | null;
   healthScore: number;
   healthCategories: { name: string; value: number; color: string }[];
   topKeywordsList: {
@@ -120,7 +128,8 @@ export async function buildDashboardData(
   projectId: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any, any, any>,
-  projectMeta?: { domain?: string | null; name?: string | null; authority_score?: number | null }
+  projectMeta?: { domain?: string | null; name?: string | null; authority_score?: number | null },
+  ga4Data?: import("@/lib/actions/ga4-import").GA4DashboardData | null
 ): Promise<DashboardData> {
   // ------------------------------------------------------------------
   // Phase 1: Parallel queries
@@ -391,14 +400,21 @@ export async function buildDashboardData(
       delta: authorityScore ? "Composite estimate" : "No data yet",
       direction: authorityScore ? "up" : "neutral",
     },
-    {
-      label: "Organic Traffic",
-      value: currentEstTraffic > 0 ? formatEstTraffic(currentEstTraffic) : "--",
-      delta: currentEstTraffic > 0
-        ? `Est. from ${trafficKws.length} ranked keywords`
-        : "No data yet",
-      direction: currentEstTraffic > 0 ? "up" : "neutral",
-    },
+    (() => {
+      const hasGA4 = ga4Data?.connected && ga4Data.overview && ga4Data.overview.totalSessions > 0;
+      const trafficValue = hasGA4 ? ga4Data!.overview!.totalSessions : currentEstTraffic;
+      return {
+        label: "Organic Traffic",
+        value: trafficValue > 0 ? formatEstTraffic(trafficValue) : "--",
+        delta: trafficValue > 0
+          ? hasGA4
+            ? `Real · ${ga4Data!.overview!.totalUsers.toLocaleString()} users (30d)`
+            : `Est. from ${trafficKws.length} ranked keywords`
+          : "No data yet",
+        direction: trafficValue > 0 ? ("up" as const) : ("neutral" as const),
+        badge: trafficValue > 0 ? (hasGA4 ? ("real" as const) : ("est" as const)) : null,
+      };
+    })(),
     {
       label: "Keywords Ranked",
       value: rankedPositions.length.toLocaleString(),
@@ -499,6 +515,15 @@ export async function buildDashboardData(
     projectDomain,
     authorityScore,
     currentEstTraffic,
+    ga4: ga4Data?.connected
+      ? {
+          connected: true,
+          overview: ga4Data.overview,
+          dailyData: ga4Data.dailyData,
+          trafficSources: ga4Data.trafficSources,
+          topPages: ga4Data.topPages,
+        }
+      : null,
   };
 }
 

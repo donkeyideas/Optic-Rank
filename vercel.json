@@ -31,6 +31,10 @@
     {
       "path": "/api/cron/create-volumes",
       "schedule": "0 2 * * 1"
+    },
+    {
+      "path": "/api/cron/ga4-sync",
+      "schedule": "0 3 * * *"
     }
   ],
   "functions": {
@@ -75,6 +79,10 @@
       "memory": 512
     },
     "src/app/api/cron/create-volumes/route.ts": {
+      "maxDuration": 300,
+      "memory": 512
+    },
+    "src/app/api/cron/ga4-sync/route.ts": {
       "maxDuration": 300,
       "memory": 512
     }

@@ -206,6 +206,15 @@ export default async function KeywordsPage() {
 
   const kwComparisons = computeAllComparisons(dailyKeywordStats, kwMetrics, (s) => s.date);
 
+  // Fetch GA4 real traffic data for Traffic Intelligence tab
+  let ga4Data: import("@/lib/actions/ga4-import").GA4DashboardData | null = null;
+  try {
+    const { fetchGA4DashboardData } = await import("@/lib/actions/ga4-import");
+    ga4Data = await fetchGA4DashboardData(project.id);
+  } catch {
+    // GA4 not connected or fetch failed
+  }
+
   return (
     <KeywordsPageClient
       projectId={project.id}
@@ -219,6 +228,7 @@ export default async function KeywordsPage() {
         keywordsDown,
       }}
       comparisons={kwComparisons}
+      ga4Data={ga4Data}
     />
   );
 }

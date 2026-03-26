@@ -18,6 +18,7 @@ import { RankVolumeScatterChart } from "@/components/charts/rank-volume-scatter-
 import { TopTrafficKeywordsChart } from "@/components/charts/top-traffic-keywords-chart";
 import { AppStoreDispatch } from "@/components/editorial/app-store-dispatch";
 import { OnboardingChecklist } from "@/components/shared/onboarding-checklist";
+import { OrganicTrafficTrendChart } from "@/components/charts/organic-traffic-trend-chart";
 import { buildDashboardData, formatEstTraffic } from "@/lib/dashboard/build-snapshot";
 import { getVolume, getVolumeNav } from "@/lib/dal/volumes";
 
@@ -532,11 +533,32 @@ export default async function DashboardPage({
   // Live View: fetch real-time data
   // ------------------------------------------------------------------
 
-  const data = await buildDashboardData(project.id, supabase, {
-    domain: project.domain,
-    name: project.name,
-    authority_score: project.authority_score,
-  });
+  // Fetch GA4 real traffic data (silently fails if not connected)
+  let ga4Data: import("@/lib/actions/ga4-import").GA4DashboardData | null = null;
+  try {
+    const { fetchGA4DashboardData } = await import("@/lib/actions/ga4-import");
+    ga4Data = await fetchGA4DashboardData(project.id);
+  } catch {
+    // GA4 not connected or fetch failed — continue with estimates
+  }
+
+  // Fetch volume history for Organic Traffic Trend chart
+  const { data: volumeHistory } = await supabase
+    .from("dashboard_volumes")
+    .select("week_start, organic_traffic")
+    .eq("project_id", project.id)
+    .order("week_start", { ascending: true });
+
+  const data = await buildDashboardData(
+    project.id,
+    supabase,
+    {
+      domain: project.domain,
+      name: project.name,
+      authority_score: project.authority_score,
+    },
+    ga4Data
+  );
 
   const {
     headlineStats,
@@ -556,6 +578,7 @@ export default async function DashboardPage({
     entityStats,
     rankedPositions,
     projectDomain,
+    ga4,
   } = data;
 
   return (
@@ -669,6 +692,19 @@ export default async function DashboardPage({
                     { label: "Traffic Opportunity", chart: <TrafficOpportunityTreemapChart data={chartKeywords} /> },
                     { label: "Rank vs Volume", chart: <RankVolumeScatterChart data={chartKeywords} /> },
                     { label: "Top Traffic", chart: <TopTrafficKeywordsChart data={chartKeywords} /> },
+                    { label: "Traffic Trend", chart: (
+                      <OrganicTrafficTrendChart
+                        volumes={(volumeHistory ?? []).map((v) => ({
+                          date: v.week_start,
+                          traffic: v.organic_traffic ?? 0,
+                        }))}
+                        ga4Daily={(ga4?.dailyData ?? []).map((d) => ({
+                          date: d.date,
+                          sessions: d.sessions,
+                        }))}
+                        currentEstTraffic={data.currentEstTraffic}
+                      />
+                    )},
                   ]}
                 />
               </div>

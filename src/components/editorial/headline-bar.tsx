@@ -9,6 +9,7 @@ export interface HeadlineStat {
   value: string | number;
   delta: string | number;
   direction: DeltaDirection;
+  badge?: "real" | "est" | null;
 }
 
 export interface HeadlineBarProps {
@@ -35,6 +36,7 @@ export function HeadlineBar({ stats, className }: HeadlineBarProps) {
           value={stat.value}
           delta={stat.delta}
           direction={stat.direction}
+          badge={stat.badge}
           highlight={index === 0}
           className={cn(
             "border-rule",
