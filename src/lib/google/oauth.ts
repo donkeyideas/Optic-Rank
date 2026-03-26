@@ -1,17 +1,24 @@
 /**
- * Google OAuth2 flow for user-facing Google Search Console integration.
- * Separate from the service-account auth used for admin access.
+ * Google OAuth2 flows for user-facing integrations:
+ * - Google Search Console (GSC)
+ * - Google Analytics 4 (GA4)
+ *
+ * Both use the same GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET.
  */
 
 const GSC_SCOPES = [
   "https://www.googleapis.com/auth/webmasters.readonly",
 ];
 
-function getOAuthConfig() {
+const GA4_SCOPES = [
+  "https://www.googleapis.com/auth/analytics.readonly",
+];
+
+function getOAuthConfig(redirectPath = "/api/auth/gsc/callback") {
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.SITE_URL || "http://localhost:3000";
-  const redirectUri = `${baseUrl}/api/auth/gsc/callback`;
+  const redirectUri = `${baseUrl}${redirectPath}`;
 
   return { clientId, clientSecret, redirectUri, baseUrl };
 }
@@ -20,6 +27,10 @@ function getOAuthConfig() {
  * Check if Google OAuth credentials are configured.
  */
 export function hasGSCOAuthCredentials(): boolean {
+  return !!(process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET);
+}
+
+export function hasGA4OAuthCredentials(): boolean {
   return !!(process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET);
 }
 
@@ -44,14 +55,37 @@ export function getGSCAuthUrl(state: string): string {
 }
 
 /**
+ * Generate the Google OAuth2 authorization URL for GA4.
+ */
+export function getGA4AuthUrl(state: string): string {
+  const { clientId, redirectUri } = getOAuthConfig("/api/auth/ga4/callback");
+  if (!clientId) throw new Error("GOOGLE_OAUTH_CLIENT_ID not configured");
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: GA4_SCOPES.join(" "),
+    access_type: "offline",
+    prompt: "consent",
+    state,
+  });
+
+  return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+}
+
+/**
  * Exchange an authorization code for tokens.
  */
-export async function exchangeCodeForTokens(code: string): Promise<{
+export async function exchangeCodeForTokens(
+  code: string,
+  redirectPath = "/api/auth/gsc/callback"
+): Promise<{
   access_token: string;
   refresh_token: string;
   expires_in: number;
 }> {
-  const { clientId, clientSecret, redirectUri } = getOAuthConfig();
+  const { clientId, clientSecret, redirectUri } = getOAuthConfig(redirectPath);
   if (!clientId || !clientSecret) {
     throw new Error("Google OAuth credentials not configured");
   }
@@ -174,4 +208,66 @@ export async function fetchGSCTopQueries(
     ctr: row.ctr,
     position: Math.round(row.position * 10) / 10,
   }));
+}
+
+// ================================================================
+// GA4 — Property listing and user info
+// ================================================================
+
+export interface GA4PropertySummary {
+  propertyId: string;
+  displayName: string;
+  accountName: string;
+}
+
+/**
+ * Fetch the user's GA4 properties via the Analytics Admin API.
+ */
+export async function fetchGA4Properties(accessToken: string): Promise<GA4PropertySummary[]> {
+  const res = await fetch(
+    "https://analyticsadmin.googleapis.com/v1beta/accountSummaries?pageSize=100",
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch GA4 properties: ${res.status}`);
+  }
+
+  const data = await res.json();
+  const results: GA4PropertySummary[] = [];
+
+  for (const account of data.accountSummaries ?? []) {
+    const accountName = account.displayName ?? account.account ?? "Unknown Account";
+    for (const prop of account.propertySummaries ?? []) {
+      // prop.property is like "properties/528445226"
+      const propertyId = (prop.property as string)?.replace("properties/", "") ?? "";
+      results.push({
+        propertyId,
+        displayName: prop.displayName ?? propertyId,
+        accountName,
+      });
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Fetch the authenticated user's Google email address.
+ */
+export async function fetchGoogleUserEmail(accessToken: string): Promise<string | null> {
+  try {
+    const res = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    return data.email ?? null;
+  } catch {
+    return null;
+  }
 }

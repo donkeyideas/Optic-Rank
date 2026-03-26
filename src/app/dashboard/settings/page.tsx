@@ -7,8 +7,8 @@ import { getUserApiKeys, type UserApiKey } from "@/lib/actions/user-api-keys";
 import { getUsageSummary } from "@/lib/stripe/plan-gate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { IntegrationSettings } from "@/lib/actions/integrations";
+import { getGA4ConnectionStatus } from "@/lib/actions/ga4-import";
 import { getMFAStatus } from "@/lib/actions/two-fa";
-import { getGSCConnectionStatus } from "@/lib/actions/gsc";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -145,22 +145,23 @@ export default async function SettingsPage() {
     // MFA status fetch failed — non-critical
   }
 
-  // Find the first active project for GSC integration
+  // Find the first active project for integrations
   const activeProject = projects.find((p) => p.is_active !== false);
   const activeProjectId = activeProject?.id as string | undefined;
 
-  // Fetch GSC connection status
-  let gscConnected = false;
-  let gscConfigured = false;
-  let gscPropertyUrl: string | null = null;
-  if (activeProjectId) {
+  // GA4 OAuth: check connection status for active project
+  const ga4PropertyId = (activeProject?.ga4_property_id as string | null) ?? null;
+  let ga4Connected = false;
+  let ga4GoogleEmail: string | null = null;
+  const ga4OAuthConfigured = !!(process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET);
+
+  if (activeProjectId && ga4OAuthConfigured) {
     try {
-      const gscStatus = await getGSCConnectionStatus(activeProjectId);
-      gscConnected = gscStatus.connected;
-      gscConfigured = gscStatus.configured;
-      gscPropertyUrl = gscStatus.propertyUrl;
+      const ga4Status = await getGA4ConnectionStatus(activeProjectId);
+      ga4Connected = ga4Status.connected;
+      ga4GoogleEmail = ga4Status.googleEmail;
     } catch {
-      // GSC status fetch failed — non-critical
+      // GA4 status fetch failed — non-critical
     }
   }
 
@@ -205,9 +206,10 @@ export default async function SettingsPage() {
       integrationSettings={integrationSettings}
       mfaEnabled={mfaEnabled}
       mfaFactors={mfaFactors}
-      gscConnected={gscConnected}
-      gscConfigured={gscConfigured}
-      gscPropertyUrl={gscPropertyUrl}
+      ga4PropertyId={ga4PropertyId}
+      ga4Connected={ga4Connected}
+      ga4GoogleEmail={ga4GoogleEmail}
+      ga4OAuthConfigured={ga4OAuthConfigured}
       activeProjectId={activeProjectId}
     />
   );

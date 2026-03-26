@@ -1,8 +1,9 @@
 /**
  * Google Analytics 4 Data API Integration
  *
- * Uses the GA4 Data API to fetch real traffic data.
- * Requires service account with Viewer access on the GA4 property.
+ * Supports two auth modes:
+ * 1. Service account (env vars) — for admin/cron jobs
+ * 2. OAuth access token — for user-initiated requests
  */
 
 import { BetaAnalyticsDataClient } from "@google-analytics/data";
@@ -29,6 +30,34 @@ function getClient(): BetaAnalyticsDataClient {
   });
 
   return _client;
+}
+
+/**
+ * Run a GA4 report via REST API using an OAuth access token.
+ */
+async function runReportWithToken(
+  propertyId: string,
+  accessToken: string,
+  body: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  const res = await fetch(
+    `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    }
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`GA4 API error (${res.status}): ${text}`);
+  }
+
+  return res.json();
 }
 
 // ================================================================
@@ -78,11 +107,8 @@ export interface GA4DailyData {
  * Falls back to GA4_PROPERTY_ID env var.
  */
 export async function discoverPropertyId(): Promise<string | null> {
-  // Check env first
   const envPropId = process.env.GA4_PROPERTY_ID?.trim();
   if (envPropId) return envPropId;
-
-  // Cannot discover without the admin API — user needs to set GA4_PROPERTY_ID
   return null;
 }
 
@@ -90,16 +116,17 @@ export async function discoverPropertyId(): Promise<string | null> {
 // Data Fetching Functions
 // ================================================================
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RowData = { dimensionValues?: Array<{ value?: string }>; metricValues?: Array<{ value?: string }> };
+
 export async function getGA4Overview(
   propertyId: string,
-  days: number = 30
+  days: number = 30,
+  accessToken?: string
 ): Promise<GA4Overview | null> {
   try {
-    const client = getClient();
     const startDate = `${days}daysAgo`;
-
-    const [response] = await client.runReport({
-      property: `properties/${propertyId}`,
+    const reportBody = {
       dateRanges: [{ startDate, endDate: "today" }],
       metrics: [
         { name: "sessions" },
@@ -109,9 +136,23 @@ export async function getGA4Overview(
         { name: "bounceRate" },
         { name: "newUsers" },
       ],
-    });
+    };
 
-    const row = response.rows?.[0];
+    let row: RowData | undefined;
+
+    if (accessToken) {
+      const response = await runReportWithToken(propertyId, accessToken, reportBody);
+      const rows = response.rows as RowData[] | undefined;
+      row = rows?.[0];
+    } else {
+      const client = getClient();
+      const [response] = await client.runReport({
+        property: `properties/${propertyId}`,
+        ...reportBody,
+      });
+      row = response.rows?.[0] as RowData | undefined;
+    }
+
     if (!row?.metricValues) return null;
 
     const vals = row.metricValues;
@@ -132,13 +173,11 @@ export async function getGA4Overview(
 export async function getGA4TopPages(
   propertyId: string,
   days: number = 30,
-  limit: number = 20
+  limit: number = 20,
+  accessToken?: string
 ): Promise<GA4PageData[]> {
   try {
-    const client = getClient();
-
-    const [response] = await client.runReport({
-      property: `properties/${propertyId}`,
+    const reportBody = {
       dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }],
       dimensions: [
         { name: "pagePath" },
@@ -154,9 +193,23 @@ export async function getGA4TopPages(
         { metric: { metricName: "screenPageViews" }, desc: true },
       ],
       limit,
-    });
+    };
 
-    return (response.rows ?? []).map((row) => ({
+    let rows: RowData[];
+
+    if (accessToken) {
+      const response = await runReportWithToken(propertyId, accessToken, reportBody);
+      rows = (response.rows as RowData[]) ?? [];
+    } else {
+      const client = getClient();
+      const [response] = await client.runReport({
+        property: `properties/${propertyId}`,
+        ...reportBody,
+      });
+      rows = (response.rows ?? []) as RowData[];
+    }
+
+    return rows.map((row) => ({
       path: row.dimensionValues?.[0]?.value ?? "",
       title: row.dimensionValues?.[1]?.value ?? "",
       pageviews: parseInt(row.metricValues?.[0]?.value ?? "0"),
@@ -173,13 +226,11 @@ export async function getGA4TopPages(
 
 export async function getGA4TrafficSources(
   propertyId: string,
-  days: number = 30
+  days: number = 30,
+  accessToken?: string
 ): Promise<GA4TrafficSource[]> {
   try {
-    const client = getClient();
-
-    const [response] = await client.runReport({
-      property: `properties/${propertyId}`,
+    const reportBody = {
       dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }],
       dimensions: [
         { name: "sessionSource" },
@@ -194,9 +245,23 @@ export async function getGA4TrafficSources(
         { metric: { metricName: "sessions" }, desc: true },
       ],
       limit: 15,
-    });
+    };
 
-    return (response.rows ?? []).map((row) => ({
+    let rows: RowData[];
+
+    if (accessToken) {
+      const response = await runReportWithToken(propertyId, accessToken, reportBody);
+      rows = (response.rows as RowData[]) ?? [];
+    } else {
+      const client = getClient();
+      const [response] = await client.runReport({
+        property: `properties/${propertyId}`,
+        ...reportBody,
+      });
+      rows = (response.rows ?? []) as RowData[];
+    }
+
+    return rows.map((row) => ({
       source: row.dimensionValues?.[0]?.value ?? "(direct)",
       medium: row.dimensionValues?.[1]?.value ?? "(none)",
       sessions: parseInt(row.metricValues?.[0]?.value ?? "0"),
@@ -211,13 +276,11 @@ export async function getGA4TrafficSources(
 
 export async function getGA4DailyData(
   propertyId: string,
-  days: number = 30
+  days: number = 30,
+  accessToken?: string
 ): Promise<GA4DailyData[]> {
   try {
-    const client = getClient();
-
-    const [response] = await client.runReport({
-      property: `properties/${propertyId}`,
+    const reportBody = {
       dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }],
       dimensions: [{ name: "date" }],
       metrics: [
@@ -228,9 +291,23 @@ export async function getGA4DailyData(
       orderBys: [
         { dimension: { dimensionName: "date" }, desc: false },
       ],
-    });
+    };
 
-    return (response.rows ?? []).map((row) => {
+    let rows: RowData[];
+
+    if (accessToken) {
+      const response = await runReportWithToken(propertyId, accessToken, reportBody);
+      rows = (response.rows as RowData[]) ?? [];
+    } else {
+      const client = getClient();
+      const [response] = await client.runReport({
+        property: `properties/${propertyId}`,
+        ...reportBody,
+      });
+      rows = (response.rows ?? []) as RowData[];
+    }
+
+    return rows.map((row) => {
       const d = row.dimensionValues?.[0]?.value ?? "";
       const formatted = d.length === 8
         ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`
