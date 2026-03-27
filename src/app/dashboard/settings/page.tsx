@@ -8,6 +8,7 @@ import { getUsageSummary } from "@/lib/stripe/plan-gate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { IntegrationSettings } from "@/lib/actions/integrations";
 import { getGA4ConnectionStatus } from "@/lib/actions/ga4-import";
+import { getGSCConnectionStatus } from "@/lib/actions/gsc";
 import { getMFAStatus } from "@/lib/actions/two-fa";
 
 export default async function SettingsPage() {
@@ -165,6 +166,21 @@ export default async function SettingsPage() {
     }
   }
 
+  // GSC OAuth: check connection status for active project
+  const gscOAuthConfigured = !!(process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET);
+  let gscConnected = false;
+  let gscPropertyUrl: string | null = null;
+
+  if (activeProjectId && gscOAuthConfigured) {
+    try {
+      const gscStatus = await getGSCConnectionStatus(activeProjectId);
+      gscConnected = gscStatus.connected;
+      gscPropertyUrl = gscStatus.propertyUrl;
+    } catch {
+      // GSC status fetch failed — non-critical
+    }
+  }
+
   // Fetch billing data
   let usage = undefined;
   let billingEvents: Array<{
@@ -210,6 +226,9 @@ export default async function SettingsPage() {
       ga4Connected={ga4Connected}
       ga4GoogleEmail={ga4GoogleEmail}
       ga4OAuthConfigured={ga4OAuthConfigured}
+      gscConnected={gscConnected}
+      gscPropertyUrl={gscPropertyUrl}
+      gscOAuthConfigured={gscOAuthConfigured}
       activeProjectId={activeProjectId}
     />
   );

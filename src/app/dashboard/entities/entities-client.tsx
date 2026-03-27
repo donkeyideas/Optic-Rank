@@ -26,7 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { EntityCoverageChart } from "@/components/charts/entity-coverage-chart";
-import { extractProjectEntities, deleteEntity, runEntityGapAnalysis } from "@/lib/actions/entities";
+import { extractProjectEntities, deleteEntity, runEntityGapAnalysis, enrichEntityWithKG } from "@/lib/actions/entities";
 import type { Entity, EntityType } from "@/types";
 import type { EntityStats } from "@/lib/dal/entities";
 
@@ -212,6 +212,9 @@ export function EntitiesClient({ entities, stats, coverage, projectId }: Entitie
                   </div>
                   <div className="flex items-center gap-1">
                     <Badge variant={TYPE_BADGE_VARIANT[entity.entity_type]}>{entity.entity_type}</Badge>
+                    {entity.source === "knowledge_graph" && (
+                      <Badge variant="info">KG</Badge>
+                    )}
                     <button type="button" className="ml-1 text-ink-muted opacity-0 transition-opacity hover:text-editorial-red group-hover:opacity-100" onClick={() => handleDelete(entity.id)} disabled={isPending && deletingId === entity.id}>
                       <Trash2 size={12} />
                     </button>
@@ -234,7 +237,28 @@ export function EntitiesClient({ entities, stats, coverage, projectId }: Entitie
                       <ExternalLink size={10} /> Wikipedia
                     </a>
                   )}
+                  {entity.source !== "knowledge_graph" && !entity.knowledge_panel_data && (
+                    <button
+                      type="button"
+                      className="flex items-center gap-1 text-[10px] text-ink-muted opacity-0 transition-opacity hover:text-editorial-gold group-hover:opacity-100"
+                      onClick={() => {
+                        startTransition(async () => {
+                          await enrichEntityWithKG(entity.id);
+                        });
+                      }}
+                      disabled={isPending}
+                    >
+                      <Sparkles size={10} /> Enrich
+                    </button>
+                  )}
                 </div>
+                {entity.knowledge_panel_data && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {(entity.knowledge_panel_data.types as string[] | undefined)?.slice(0, 3).map((t) => (
+                      <span key={t} className="bg-surface-raised px-1.5 py-0.5 text-[9px] font-medium text-ink-muted">{t}</span>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>

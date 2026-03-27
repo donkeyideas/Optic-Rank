@@ -8,6 +8,7 @@ import {
   extractEntitiesFromContent,
   analyzeEntityGaps,
 } from "@/lib/ai/entity-extractor";
+import { searchKnowledgeGraph } from "@/lib/google/knowledge-graph";
 
 /**
  * Extract entities from a project's keywords and content pages.
@@ -97,6 +98,37 @@ export async function extractProjectEntities(
         { onConflict: "project_id,name,entity_type" }
       );
       if (!error) insertedCount++;
+    }
+
+    // Enrich top entities via Knowledge Graph API
+    const topEntities = merged.slice(0, 20);
+    for (const entity of topEntities) {
+      try {
+        const kgResults = await searchKnowledgeGraph(entity.name, undefined, 1);
+        if (kgResults.length > 0) {
+          const kg = kgResults[0];
+          await supabase
+            .from("entities")
+            .update({
+              source: "knowledge_graph",
+              knowledge_panel_data: {
+                kgId: kg.kgId,
+                types: kg.types,
+                description: kg.description,
+                detailedDescription: kg.detailedDescription,
+                image: kg.image,
+                url: kg.url,
+                resultScore: kg.resultScore,
+              },
+              wikipedia_url: kg.wikipediaUrl ?? entity.wikipediaUrl ?? null,
+            })
+            .eq("project_id", projectId)
+            .eq("name", entity.name)
+            .eq("entity_type", entity.type);
+        }
+      } catch {
+        // KG enrichment failed for this entity — non-critical
+      }
     }
 
     // Update entity coverage on content pages
@@ -207,4 +239,56 @@ export async function deleteEntity(
 
   revalidatePath("/dashboard/entities");
   return { success: true };
+}
+
+/**
+ * Enrich a single entity with Knowledge Graph data.
+ */
+export async function enrichEntityWithKG(
+  entityId: string
+): Promise<{ error: string } | { success: true; matched: boolean }> {
+  const userClient = await createClient();
+  const {
+    data: { user },
+  } = await userClient.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
+  const supabase = createAdminClient();
+  const { data: entity } = await supabase
+    .from("entities")
+    .select("id, name, entity_type")
+    .eq("id", entityId)
+    .single();
+
+  if (!entity) return { error: "Entity not found." };
+
+  try {
+    const kgResults = await searchKnowledgeGraph(entity.name, undefined, 1);
+    if (kgResults.length === 0) {
+      return { success: true, matched: false };
+    }
+
+    const kg = kgResults[0];
+    await supabase
+      .from("entities")
+      .update({
+        source: "knowledge_graph",
+        knowledge_panel_data: {
+          kgId: kg.kgId,
+          types: kg.types,
+          description: kg.description,
+          detailedDescription: kg.detailedDescription,
+          image: kg.image,
+          url: kg.url,
+          resultScore: kg.resultScore,
+        },
+        wikipedia_url: kg.wikipediaUrl ?? null,
+      })
+      .eq("id", entityId);
+
+    revalidatePath("/dashboard/entities");
+    return { success: true, matched: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "KG enrichment failed." };
+  }
 }

@@ -59,6 +59,7 @@ import {
 
 import { addKeywords, deleteKeyword, importKeywordsCSV, getKeywordRankHistory, generateKeywordsAI } from "@/lib/actions/keywords";
 import { importFromGoogleAnalytics } from "@/lib/actions/ga4-import";
+import { importKeywordsFromGSC } from "@/lib/actions/gsc";
 import { useActionProgress } from "@/components/shared/action-progress";
 import { RankHistoryChart } from "@/components/charts/rank-history-chart";
 import type { Keyword, ComparisonTimeRange } from "@/types";
@@ -677,6 +678,26 @@ export function KeywordsPageClient({
             >
               <BarChart3 size={14} />
               Import GA
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isActionRunning || isPending}
+              onClick={() => {
+                runAction(
+                  {
+                    title: "Importing from Search Console",
+                    description: "Fetching top queries from Google Search Console...",
+                    steps: ["Connecting to GSC", "Fetching top queries", "Importing keywords"],
+                    estimatedDuration: 10,
+                  },
+                  () => importKeywordsFromGSC(projectId)
+                );
+              }}
+            >
+              <Globe size={14} />
+              Import GSC
             </Button>
 
             {/* Add Keywords Dialog */}

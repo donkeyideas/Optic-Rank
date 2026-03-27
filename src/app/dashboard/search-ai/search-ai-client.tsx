@@ -52,6 +52,7 @@ import type { VisibilityStats } from "@/lib/dal/ai-visibility";
 import type { SiteAudit, AIVisibilityCheck, ComparisonTimeRange } from "@/types";
 import type { GenericPeriodComparison } from "@/lib/utils/period-comparison";
 import { PeriodComparisonBar } from "@/components/editorial/period-comparison-bar";
+import type { GSCDashboardData } from "@/lib/actions/gsc-dashboard";
 
 /* ── Tabs ──────────────────────────────────────────────────────── */
 
@@ -61,11 +62,12 @@ const TABS = [
   { id: "aeo", label: "AEO", icon: MessageSquare, color: "bg-editorial-gold" },
   { id: "geo", label: "GEO", icon: Brain, color: "bg-editorial-green" },
   { id: "cro", label: "CRO", icon: Target, color: "bg-[#8b5cf6]" },
+  { id: "gsc", label: "Search Console", icon: Globe, color: "bg-[#4285F4]" },
   { id: "recommendations", label: "Recommendations", icon: Lightbulb, color: "bg-editorial-gold" },
   { id: "strategy", label: "Strategy Guide", icon: FileText, color: "bg-editorial-green" },
 ];
 
-type TabId = "summary" | "seo" | "aeo" | "geo" | "cro" | "recommendations" | "strategy";
+type TabId = "summary" | "seo" | "aeo" | "geo" | "cro" | "gsc" | "recommendations" | "strategy";
 
 /* ── Interfaces ────────────────────────────────────────────────── */
 
@@ -132,6 +134,8 @@ interface SearchAIClientProps {
   // Crawl signals
   aeoSignals?: PageSignal[];
   geoSignals?: PageSignal[];
+  // GSC
+  gscData?: GSCDashboardData | null;
   // Period comparisons
   comparisons: Record<ComparisonTimeRange, GenericPeriodComparison>;
 }
@@ -664,6 +668,9 @@ export function SearchAIClient(props: SearchAIClientProps) {
           keywords={props.keywords}
           contentPages={props.contentPages}
         />
+      )}
+      {activeTab === "gsc" && (
+        <GSCTab gscData={props.gscData ?? null} />
       )}
       {activeTab === "recommendations" && (
         <RecommendationsTab
@@ -2048,6 +2055,270 @@ function FunnelRow({
         </div>
       </div>
       <span className="w-12 text-right font-mono text-sm text-ink-muted">{pct}%</span>
+    </div>
+  );
+}
+
+/* ================================================================
+   GSC TAB — Google Search Console Dashboard
+   ================================================================ */
+
+function GSCTab({ gscData }: { gscData: GSCDashboardData | null }) {
+  if (!gscData || !gscData.connected) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 py-20">
+        <div className="flex h-14 w-14 items-center justify-center border border-rule bg-surface-raised">
+          <Globe size={24} className="text-ink-muted" />
+        </div>
+        <p className="text-sm font-semibold text-ink">Google Search Console Not Connected</p>
+        <p className="max-w-md text-center text-xs text-ink-muted">
+          Connect your Google Search Console in Settings → Integrations to see clicks, impressions, top queries, and more.
+        </p>
+      </div>
+    );
+  }
+
+  const { overview, topQueries, topPages, dailyData, devices, countries } = gscData;
+
+  const formatNumber = (n: number) => {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+    return n.toLocaleString();
+  };
+
+  const formatDate = (d: string) => {
+    const dt = new Date(d + "T00:00:00");
+    return dt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Overview stat cards */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {[
+          { label: "Total Clicks", value: formatNumber(overview?.totalClicks ?? 0), color: "text-[#4285F4]" },
+          { label: "Total Impressions", value: formatNumber(overview?.totalImpressions ?? 0), color: "text-editorial-gold" },
+          { label: "Avg CTR", value: `${((overview?.avgCTR ?? 0) * 100).toFixed(1)}%`, color: "text-editorial-green" },
+          { label: "Avg Position", value: (overview?.avgPosition ?? 0).toFixed(1), color: "text-editorial-red" },
+        ].map((stat) => (
+          <div key={stat.label} className="border border-rule bg-surface-card p-4">
+            <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">{stat.label}</p>
+            <p className={cn("mt-1 font-serif text-2xl font-bold", stat.color)}>{stat.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Daily trend chart */}
+      {dailyData.length > 0 && (
+        <div className="border border-rule bg-surface-card p-5">
+          <h3 className="mb-4 text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+            Daily Performance (Last 28 Days)
+          </h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <AreaChart data={dailyData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-rule, #ddd)" />
+              <XAxis
+                dataKey="date"
+                tickFormatter={formatDate}
+                tick={{ fontSize: 10, fontFamily: "IBM Plex Mono, monospace" }}
+                stroke="var(--color-ink-muted, #999)"
+              />
+              <YAxis
+                yAxisId="clicks"
+                tickFormatter={formatNumber}
+                tick={{ fontSize: 10, fontFamily: "IBM Plex Mono, monospace" }}
+                stroke="var(--color-ink-muted, #999)"
+              />
+              <YAxis
+                yAxisId="impressions"
+                orientation="right"
+                tickFormatter={formatNumber}
+                tick={{ fontSize: 10, fontFamily: "IBM Plex Mono, monospace" }}
+                stroke="var(--color-ink-muted, #999)"
+              />
+              <Tooltip
+                contentStyle={{
+                  borderRadius: 0,
+                  border: "1px solid var(--color-rule, #ddd)",
+                  fontFamily: "IBM Plex Mono, monospace",
+                  fontSize: 11,
+                }}
+                labelFormatter={(label) => formatDate(String(label))}
+              />
+              <Area
+                type="monotone"
+                dataKey="clicks"
+                yAxisId="clicks"
+                stroke="#4285F4"
+                fill="#4285F4"
+                fillOpacity={0.1}
+                strokeWidth={2}
+                name="Clicks"
+              />
+              <Area
+                type="monotone"
+                dataKey="impressions"
+                yAxisId="impressions"
+                stroke="var(--color-editorial-gold, #b8860b)"
+                fill="var(--color-editorial-gold, #b8860b)"
+                fillOpacity={0.05}
+                strokeWidth={2}
+                strokeDasharray="5 5"
+                name="Impressions"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+          <div className="mt-2 flex items-center justify-center gap-6">
+            <div className="flex items-center gap-2">
+              <div className="h-0.5 w-5 bg-[#4285F4]" />
+              <span className="text-[10px] text-ink-muted">Clicks</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-0.5 w-5 border-t-2 border-dashed border-editorial-gold" />
+              <span className="text-[10px] text-ink-muted">Impressions</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Top Queries and Top Pages side by side */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Top Queries */}
+        <div className="border border-rule bg-surface-card p-5">
+          <h3 className="mb-3 text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+            Top Queries
+          </h3>
+          {topQueries.length === 0 ? (
+            <p className="py-4 text-center text-xs text-ink-muted">No query data available</p>
+          ) : (
+            <div className="max-h-[400px] overflow-y-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b-2 border-rule-dark">
+                    <th className="pb-2 text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Query</th>
+                    <th className="pb-2 text-right text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Clicks</th>
+                    <th className="pb-2 text-right text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Impr.</th>
+                    <th className="pb-2 text-right text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">CTR</th>
+                    <th className="pb-2 text-right text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Pos.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topQueries.slice(0, 25).map((q, i) => (
+                    <tr key={i} className="border-b border-rule">
+                      <td className="max-w-[200px] truncate py-2 text-[12px] font-medium text-ink">{q.query}</td>
+                      <td className="py-2 text-right font-mono text-[12px] font-bold text-ink">{q.clicks.toLocaleString()}</td>
+                      <td className="py-2 text-right font-mono text-[12px] text-ink-secondary">{formatNumber(q.impressions)}</td>
+                      <td className="py-2 text-right font-mono text-[12px] text-ink-secondary">{(q.ctr * 100).toFixed(1)}%</td>
+                      <td className="py-2 text-right font-mono text-[12px] text-ink-secondary">{q.position.toFixed(1)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Top Pages */}
+        <div className="border border-rule bg-surface-card p-5">
+          <h3 className="mb-3 text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+            Top Pages
+          </h3>
+          {topPages.length === 0 ? (
+            <p className="py-4 text-center text-xs text-ink-muted">No page data available</p>
+          ) : (
+            <div className="max-h-[400px] overflow-y-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b-2 border-rule-dark">
+                    <th className="pb-2 text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Page</th>
+                    <th className="pb-2 text-right text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Clicks</th>
+                    <th className="pb-2 text-right text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Impr.</th>
+                    <th className="pb-2 text-right text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">CTR</th>
+                    <th className="pb-2 text-right text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Pos.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topPages.slice(0, 25).map((p, i) => (
+                    <tr key={i} className="border-b border-rule">
+                      <td className="max-w-[200px] truncate py-2 text-[12px] font-medium text-ink" title={p.page}>{p.page}</td>
+                      <td className="py-2 text-right font-mono text-[12px] font-bold text-ink">{p.clicks.toLocaleString()}</td>
+                      <td className="py-2 text-right font-mono text-[12px] text-ink-secondary">{formatNumber(p.impressions)}</td>
+                      <td className="py-2 text-right font-mono text-[12px] text-ink-secondary">{(p.ctr * 100).toFixed(1)}%</td>
+                      <td className="py-2 text-right font-mono text-[12px] text-ink-secondary">{p.position.toFixed(1)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Device breakdown and Country breakdown */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Devices */}
+        {devices.length > 0 && (
+          <div className="border border-rule bg-surface-card p-5">
+            <h3 className="mb-3 text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+              Device Breakdown
+            </h3>
+            <div className="flex flex-col gap-3">
+              {devices.map((d) => {
+                const totalClicks = overview?.totalClicks || 1;
+                const pct = ((d.clicks / totalClicks) * 100).toFixed(1);
+                return (
+                  <div key={d.device} className="flex items-center gap-3">
+                    <span className="w-20 text-xs font-semibold capitalize text-ink">{d.device}</span>
+                    <div className="flex-1 bg-surface-raised">
+                      <div
+                        className="h-5 bg-[#4285F4] transition-all"
+                        style={{ width: `${Math.max(Number(pct), 3)}%` }}
+                      />
+                    </div>
+                    <span className="w-16 text-right font-mono text-[11px] text-ink">{formatNumber(d.clicks)}</span>
+                    <span className="w-12 text-right font-mono text-[11px] text-ink-muted">{pct}%</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Countries */}
+        {countries.length > 0 && (
+          <div className="border border-rule bg-surface-card p-5">
+            <h3 className="mb-3 text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+              Top Countries
+            </h3>
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b-2 border-rule-dark">
+                  <th className="pb-2 text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Country</th>
+                  <th className="pb-2 text-right text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Clicks</th>
+                  <th className="pb-2 text-right text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Impr.</th>
+                  <th className="pb-2 text-right text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">CTR</th>
+                </tr>
+              </thead>
+              <tbody>
+                {countries.slice(0, 10).map((c, i) => (
+                  <tr key={i} className="border-b border-rule">
+                    <td className="py-2 text-[12px] font-semibold uppercase text-ink">{c.country}</td>
+                    <td className="py-2 text-right font-mono text-[12px] font-bold text-ink">{formatNumber(c.clicks)}</td>
+                    <td className="py-2 text-right font-mono text-[12px] text-ink-secondary">{formatNumber(c.impressions)}</td>
+                    <td className="py-2 text-right font-mono text-[12px] text-ink-secondary">{(c.ctr * 100).toFixed(1)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {gscData.lastSynced && (
+        <p className="text-center text-[10px] text-ink-muted">
+          Last synced: {new Date(gscData.lastSynced).toLocaleString()}
+        </p>
+      )}
     </div>
   );
 }

@@ -12,6 +12,15 @@ const BASE_URL = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed";
 /** Timeout for PageSpeed API calls (55 seconds — Google Lighthouse audits can take 30-45s). */
 const PAGESPEED_TIMEOUT_MS = 55_000;
 
+export interface CrUXFieldData {
+  lcp_ms: number | null;
+  cls: number | null;
+  inp_ms: number | null;
+  fcp_ms: number | null;
+  ttfb_ms: number | null;
+  overall_category: "FAST" | "AVERAGE" | "SLOW" | null;
+}
+
 export interface CoreWebVitals {
   url: string;
   performance_score: number;
@@ -24,6 +33,10 @@ export interface CoreWebVitals {
   speed_index: number;
   total_blocking_time: number;
   page_title: string | null;
+  /** CrUX real-user data for this specific page (p75 values) */
+  field_page: CrUXFieldData | null;
+  /** CrUX real-user data for the entire origin (p75 values) */
+  field_origin: CrUXFieldData | null;
 }
 
 export async function getPageSpeedData(
@@ -129,6 +142,10 @@ export async function getPageSpeedData(
       ? Math.round(rawAccessibility * 100)
       : Math.min(100, Math.round((lighthouse?.categories?.performance?.score || 0) * 100 * 0.3 + 70));
 
+    // Extract CrUX field data (real-user metrics at p75)
+    const fieldPage = extractCrUXData(data.loadingExperience);
+    const fieldOrigin = extractCrUXData(data.originLoadingExperience);
+
     return {
       url,
       performance_score: Math.round((lighthouse?.categories?.performance?.score || 0) * 100),
@@ -141,6 +158,35 @@ export async function getPageSpeedData(
       speed_index: audits["speed-index"]?.numericValue || 0,
       total_blocking_time: audits["total-blocking-time"]?.numericValue || 0,
       page_title: pageTitle,
+      field_page: fieldPage,
+      field_origin: fieldOrigin,
     };
   });
+}
+
+/**
+ * Extract CrUX real-user field data from PageSpeed API loading experience.
+ * Returns p75 percentile values for each metric.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractCrUXData(loadingExperience: any): CrUXFieldData | null {
+  if (!loadingExperience?.metrics) return null;
+
+  const metrics = loadingExperience.metrics;
+  const getP75 = (metricKey: string): number | null => {
+    const m = metrics[metricKey];
+    if (!m) return null;
+    return m.percentile ?? null;
+  };
+
+  return {
+    lcp_ms: getP75("LARGEST_CONTENTFUL_PAINT_MS"),
+    cls: getP75("CUMULATIVE_LAYOUT_SHIFT_SCORE") != null
+      ? (getP75("CUMULATIVE_LAYOUT_SHIFT_SCORE")! / 100)
+      : null,
+    inp_ms: getP75("INTERACTION_TO_NEXT_PAINT"),
+    fcp_ms: getP75("FIRST_CONTENTFUL_PAINT_MS"),
+    ttfb_ms: getP75("EXPERIMENTAL_TIME_TO_FIRST_BYTE"),
+    overall_category: loadingExperience.overall_category ?? null,
+  };
 }

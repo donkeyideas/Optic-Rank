@@ -5,6 +5,15 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+interface CrUXFieldData {
+  lcp_ms: number | null;
+  cls: number | null;
+  inp_ms: number | null;
+  fcp_ms: number | null;
+  ttfb_ms: number | null;
+  overall_category: "FAST" | "AVERAGE" | "SLOW" | null;
+}
+
 interface CWVData {
   performance_score: number;
   accessibility_score: number;
@@ -16,6 +25,8 @@ interface CWVData {
   speed_index: number;
   total_blocking_time: number;
   page_title?: string | null;
+  field_page?: CrUXFieldData | null;
+  field_origin?: CrUXFieldData | null;
 }
 
 interface AuditIssueRow {
@@ -300,6 +311,21 @@ export async function processPageSpeedAudit(
       cls: cwv.cls,
       inp_ms: cwv.inp_ms,
       issues_count: realIssueCount,
+      // CrUX field data (real-user metrics at p75)
+      ...(cwv.field_page ? {
+        field_lcp_ms: cwv.field_page.lcp_ms,
+        field_cls: cwv.field_page.cls,
+        field_inp_ms: cwv.field_page.inp_ms,
+        field_fcp_ms: cwv.field_page.fcp_ms,
+        field_ttfb_ms: cwv.field_page.ttfb_ms,
+        field_category: cwv.field_page.overall_category,
+      } : {}),
+      ...(cwv.field_origin ? {
+        origin_lcp_ms: cwv.field_origin.lcp_ms,
+        origin_cls: cwv.field_origin.cls,
+        origin_inp_ms: cwv.field_origin.inp_ms,
+        origin_category: cwv.field_origin.overall_category,
+      } : {}),
     });
     if (pageInsertError) {
       console.error("[processPageSpeedAudit] Failed to insert audit page:", pageInsertError.message);

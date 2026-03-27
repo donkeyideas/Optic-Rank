@@ -160,6 +160,41 @@ export async function setGSCProperty(
 }
 
 /**
+ * Test the GSC connection by fetching a small sample of data.
+ */
+export async function testGSCConnection(
+  projectId: string
+): Promise<{ error: string } | { success: true; totalClicks: number; totalImpressions: number }> {
+  const userClient = await createClient();
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
+  const supabase = createAdminClient();
+  const { data: token } = await supabase
+    .from("gsc_tokens")
+    .select("gsc_property_url")
+    .eq("user_id", user.id)
+    .eq("project_id", projectId)
+    .single();
+
+  if (!token?.gsc_property_url) {
+    return { error: "No GSC property selected." };
+  }
+
+  const accessToken = await getValidAccessToken(user.id, projectId);
+  if (!accessToken) return { error: "GSC token expired. Please reconnect." };
+
+  try {
+    const queries = await fetchGSCTopQueries(accessToken, token.gsc_property_url, 7, 5);
+    const totalClicks = queries.reduce((sum, q) => sum + (q.clicks ?? 0), 0);
+    const totalImpressions = queries.reduce((sum, q) => sum + (q.impressions ?? 0), 0);
+    return { success: true, totalClicks, totalImpressions };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to test GSC connection." };
+  }
+}
+
+/**
  * Import top keywords from Google Search Console into the project.
  */
 export async function importKeywordsFromGSC(

@@ -204,6 +204,15 @@ export default async function SearchAIDashboardPage() {
 
   const seoComparisons = computeAllComparisons(auditPoints, seoMetrics, (a) => a.date);
 
+  // Fetch GSC dashboard data
+  let gscData: import("@/lib/actions/gsc-dashboard").GSCDashboardData | null = null;
+  try {
+    const { fetchGSCDashboardData } = await import("@/lib/actions/gsc-dashboard");
+    gscData = await fetchGSCDashboardData(project.id);
+  } catch {
+    // GSC not connected or fetch failed
+  }
+
   return (
     <SearchAIClient
       projectId={project.id}
@@ -227,6 +236,7 @@ export default async function SearchAIDashboardPage() {
       croStats={croStats}
       aeoSignals={aeoSignals}
       geoSignals={geoSignals}
+      gscData={gscData}
       comparisons={seoComparisons}
     />
   );

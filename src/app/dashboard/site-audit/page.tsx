@@ -140,6 +140,18 @@ export default async function SiteAuditPage() {
 
   const auditComparisons = computeAllComparisons(auditPoints, auditMetrics, (a) => a.date);
 
+  // Fetch indexing quota
+  let indexingQuota: { used: number; remaining: number; total: number } | null = null;
+  try {
+    const { getIndexingQuota } = await import("@/lib/actions/indexing");
+    const quotaResult = await getIndexingQuota(project.id);
+    if (!("error" in quotaResult)) {
+      indexingQuota = quotaResult;
+    }
+  } catch {
+    // Indexing quota fetch failed — non-critical
+  }
+
   return (
     <SiteAuditClient
       latestAudit={latestAudit}
@@ -148,6 +160,7 @@ export default async function SiteAuditPage() {
       history={history ?? []}
       projectId={project.id}
       scheduledAudit={scheduledAudit}
+      indexingQuota={indexingQuota}
       comparisons={auditComparisons}
     />
   );

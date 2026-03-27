@@ -174,6 +174,9 @@ interface SettingsClientProps {
   ga4Connected?: boolean;
   ga4GoogleEmail?: string | null;
   ga4OAuthConfigured?: boolean;
+  gscConnected?: boolean;
+  gscPropertyUrl?: string | null;
+  gscOAuthConfigured?: boolean;
   activeProjectId?: string;
 }
 
@@ -238,6 +241,9 @@ export function SettingsClient({
   ga4Connected,
   ga4GoogleEmail,
   ga4OAuthConfigured,
+  gscConnected,
+  gscPropertyUrl,
+  gscOAuthConfigured,
   activeProjectId,
 }: SettingsClientProps) {
   const timezone = useTimezone();
@@ -1054,7 +1060,7 @@ export function SettingsClient({
             ============================================================ */}
         <TabsContent value="integrations">
           {integrationSettings ? (
-            <IntegrationsTab settings={integrationSettings} projectId={activeProjectId} ga4Connected={ga4Connected} ga4GoogleEmail={ga4GoogleEmail} ga4PropertyId={ga4PropertyId} ga4OAuthConfigured={ga4OAuthConfigured} />
+            <IntegrationsTab settings={integrationSettings} projectId={activeProjectId} ga4Connected={ga4Connected} ga4GoogleEmail={ga4GoogleEmail} ga4PropertyId={ga4PropertyId} ga4OAuthConfigured={ga4OAuthConfigured} gscConnected={gscConnected} gscPropertyUrl={gscPropertyUrl} gscOAuthConfigured={gscOAuthConfigured} />
           ) : (
             <EmptyState
               icon={Plug}

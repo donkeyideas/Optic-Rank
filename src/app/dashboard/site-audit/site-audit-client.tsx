@@ -54,10 +54,11 @@ import {
   type AuditFrequency,
   type ScheduledAudit,
 } from "@/lib/actions/site-audit";
+import { requestIndexing } from "@/lib/actions/indexing";
 import type { SiteAudit, AuditIssue, IssueSeverity, IssueCategory, ComparisonTimeRange } from "@/types";
 import { PeriodComparisonBar } from "@/components/editorial/period-comparison-bar";
 import type { GenericPeriodComparison } from "@/lib/utils/period-comparison";
-import { CalendarClock, X } from "lucide-react";
+import { CalendarClock, X, Send } from "lucide-react";
 
 /* ------------------------------------------------------------------
    Props
@@ -86,6 +87,7 @@ interface SiteAuditClientProps {
   history: SiteAudit[];
   projectId: string;
   scheduledAudit?: ScheduledAudit | null;
+  indexingQuota?: { used: number; remaining: number; total: number } | null;
   comparisons: Record<ComparisonTimeRange, GenericPeriodComparison>;
 }
 
@@ -307,6 +309,7 @@ export function SiteAuditClient({
   history,
   projectId,
   scheduledAudit: initialSchedule,
+  indexingQuota: initialQuota,
   comparisons,
 }: SiteAuditClientProps) {
   const timezone = useTimezone();
@@ -316,6 +319,10 @@ export function SiteAuditClient({
   const [auditError, setAuditError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const { runAction, isRunning: isActionRunning } = useActionProgress();
+
+  // Indexing state
+  const [indexingUrl, setIndexingUrl] = useState<string | null>(null);
+  const [indexingQuota, setIndexingQuota] = useState(initialQuota ?? null);
 
   // Schedule state
   const [schedule, setSchedule] = useState<ScheduledAudit | null>(initialSchedule ?? null);
@@ -865,6 +872,88 @@ export function SiteAuditClient({
         </Card>
       )}
 
+      {/* Lab vs Field Comparison (CrUX real-user data) */}
+      {pages.some((p) => p.field_lcp_ms != null || p.origin_lcp_ms != null) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              Lab vs Field
+              <Badge variant="info">CrUX</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-4 text-xs text-ink-muted">
+              Comparing Lighthouse lab data with Chrome User Experience Report (CrUX) real-user p75 values.
+            </p>
+            {(() => {
+              const page = pages.find((p) => p.field_lcp_ms != null || p.origin_lcp_ms != null);
+              if (!page) return null;
+              const fieldCategory = (page.field_category as string) ?? (page.origin_category as string) ?? null;
+              const metrics = [
+                { label: "LCP", unit: "ms", labKey: "lcp", fieldVal: page.field_lcp_ms as number | null, originVal: page.origin_lcp_ms as number | null, labVal: cwvData.lcp?.value, threshold: 2500 },
+                { label: "CLS", unit: "", labKey: "cls", fieldVal: page.field_cls as number | null, originVal: page.origin_cls as number | null, labVal: cwvData.cls?.value, threshold: 0.1 },
+                { label: "INP", unit: "ms", labKey: "inp", fieldVal: page.field_inp_ms as number | null, originVal: page.origin_inp_ms as number | null, labVal: cwvData.inp?.value, threshold: 200 },
+                { label: "FCP", unit: "ms", labKey: "fcp", fieldVal: page.field_fcp_ms as number | null, originVal: null, labVal: cwvData.fcp?.value, threshold: 1800 },
+                { label: "TTFB", unit: "ms", labKey: "ttfb", fieldVal: page.field_ttfb_ms as number | null, originVal: null, labVal: cwvData.ttfb?.value, threshold: 800 },
+              ];
+              return (
+                <div className="flex flex-col gap-3">
+                  {fieldCategory && (
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">CrUX Overall:</span>
+                      <Badge variant={fieldCategory === "FAST" ? "success" : fieldCategory === "AVERAGE" ? "warning" : "danger"}>
+                        {fieldCategory}
+                      </Badge>
+                    </div>
+                  )}
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b-2 border-rule-dark">
+                        <th className="pb-2 text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Metric</th>
+                        <th className="pb-2 text-right text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Lab (Lighthouse)</th>
+                        <th className="pb-2 text-right text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Field (CrUX p75)</th>
+                        <th className="pb-2 text-right text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Origin (CrUX p75)</th>
+                        <th className="pb-2 text-right text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {metrics.map(({ label, unit, fieldVal, originVal, labVal, threshold }) => {
+                        const fieldDisplay = fieldVal != null
+                          ? label === "CLS" ? fieldVal.toFixed(3) : Math.round(fieldVal)
+                          : "--";
+                        const originDisplay = originVal != null
+                          ? label === "CLS" ? originVal.toFixed(3) : Math.round(originVal)
+                          : "--";
+                        const labDisplay = labVal != null
+                          ? label === "CLS" ? labVal.toFixed(3) : Math.round(labVal)
+                          : "--";
+                        const bestField = fieldVal ?? originVal;
+                        const isGood = bestField != null && bestField <= threshold;
+                        return (
+                          <tr key={label} className="border-b border-rule">
+                            <td className="py-2 text-xs font-semibold text-ink">{label}</td>
+                            <td className="py-2 text-right font-mono text-xs text-ink-secondary">{labDisplay}{labVal != null ? unit : ""}</td>
+                            <td className="py-2 text-right font-mono text-xs font-bold text-ink">{fieldDisplay}{fieldVal != null ? unit : ""}</td>
+                            <td className="py-2 text-right font-mono text-xs text-ink-secondary">{originDisplay}{originVal != null ? unit : ""}</td>
+                            <td className="py-2 text-right">
+                              {bestField != null ? (
+                                <Badge variant={isGood ? "success" : "warning"}>{isGood ? "Good" : "Needs Work"}</Badge>
+                              ) : (
+                                <span className="text-xs text-ink-muted">--</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Tabs */}
       <Tabs defaultValue="issues">
         <TabsList>
@@ -1019,8 +1108,13 @@ export function SiteAuditClient({
             />
           ) : (
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Crawled Pages</CardTitle>
+                {indexingQuota && (
+                  <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+                    Indexing: {indexingQuota.used}/{indexingQuota.total} today
+                  </span>
+                )}
               </CardHeader>
               <CardContent className="p-0">
                 <Table>
@@ -1031,6 +1125,7 @@ export function SiteAuditClient({
                       <SortableHeader label="Status" sortKey="status_code" currentSort={pagesSort.sortKey} currentDir={pagesSort.sortDir} onSort={pagesSort.toggleSort} />
                       <SortableHeader label="Load Time" sortKey="load_time" currentSort={pagesSort.sortKey} currentDir={pagesSort.sortDir} onSort={pagesSort.toggleSort} />
                       <SortableHeader label="Issues" sortKey="issues_count" currentSort={pagesSort.sortKey} currentDir={pagesSort.sortDir} onSort={pagesSort.toggleSort} />
+                      <TableCell className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Index</TableCell>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1083,6 +1178,36 @@ export function SiteAuditClient({
                           ) : (
                             <CheckCircle2 size={14} className="text-editorial-green" />
                           )}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-[10px]"
+                            disabled={isPending || indexingUrl === page.url}
+                            onClick={() => {
+                              setIndexingUrl(page.url);
+                              startTransition(async () => {
+                                const result = await requestIndexing(projectId, [page.url]);
+                                setIndexingUrl(null);
+                                if ("error" in result) {
+                                  setAuditError(result.error);
+                                } else if (indexingQuota) {
+                                  setIndexingQuota({
+                                    ...indexingQuota,
+                                    used: indexingQuota.used + 1,
+                                    remaining: Math.max(0, indexingQuota.remaining - 1),
+                                  });
+                                }
+                              });
+                            }}
+                          >
+                            {indexingUrl === page.url ? (
+                              <span className="h-3 w-3 animate-spin rounded-full border-2 border-ink-muted border-t-transparent" />
+                            ) : (
+                              <Send size={12} />
+                            )}
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
