@@ -107,20 +107,20 @@ function isLikelySPA(html: string, $: cheerio.CheerioAPI): boolean {
   // ---------------------------------------------------------------
 
   if (isKnownFramework) {
-    // Known framework detected. These sites often have SSR layouts
-    // (nav, footer = 100-200 words) but client-rendered page content.
-    // If body word count is low relative to a real content page, flag it.
-    // A real content page typically has 300+ words of actual content
-    // PLUS layout text. Under 250 total words means content is likely
-    // client-rendered.
-    if (wordCount < 250) return true;
+    // Known framework detected. These sites often SSR the layout
+    // (nav, footer = 100-200 words) but client-render page content.
+    // SSR output typically captures only 30-60% of the actual rendered
+    // content. A real content page should have 600+ total words (layout
+    // + content). Under 500 total words strongly suggests significant
+    // client-side rendering that JS rendering would capture.
+    if (wordCount < 500) return true;
 
-    // Even with more words, if there are many script bundles and the
-    // main content area (<main>, [role="main"], article) is nearly
-    // empty, it's a SPA with SSR layout.
+    // Even with more words, if the main content area (<main>,
+    // [role="main"], article) is thin relative to the overall body,
+    // the page content is likely client-rendered while the layout is SSR'd.
     const mainContent = $("main, [role='main'], article").text().replace(/\s+/g, " ").trim();
     const mainWordCount = mainContent ? mainContent.split(/\s+/).length : 0;
-    if (mainWordCount < 50 && scriptTags > 3) return true;
+    if (mainWordCount < 150 && scriptTags > 3) return true;
   }
 
   // ---------------------------------------------------------------

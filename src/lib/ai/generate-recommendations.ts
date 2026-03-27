@@ -187,7 +187,23 @@ export async function generateProjectRecommendations(
   }
 
   // ── RULE 5: Thin Pages ───────────────────────────────────────────
-  const thinPages = auditPages.filter((p) => p.word_count !== null && p.word_count < 300);
+  // Exclude legal/utility pages (terms, privacy, contact, etc.) from thin content
+  const nonContentPatterns = [
+    /\/(terms|tos|terms-of-service|terms-and-conditions)(\/|$)/i,
+    /\/(privacy|privacy-policy)(\/|$)/i,
+    /\/(cookie|cookies|cookie-policy)(\/|$)/i,
+    /\/(legal|disclaimer|dmca|gdpr|compliance)(\/|$)/i,
+    /\/(contact|contact-us)(\/|$)/i,
+    /\/(login|signin|sign-in|signup|sign-up|register|auth)(\/|$)/i,
+    /\/(sitemap|robots|404|500|error)(\/|$)/i,
+  ];
+  const isNonContent = (url: string) => {
+    try { const p = new URL(url).pathname.toLowerCase(); return nonContentPatterns.some(r => r.test(p)); }
+    catch { return false; }
+  };
+  const thinPages = auditPages.filter(
+    (p) => p.word_count !== null && p.word_count < 300 && !isNonContent(p.url)
+  );
   if (thinPages.length > 3) {
     recs.push({
       category: "content",

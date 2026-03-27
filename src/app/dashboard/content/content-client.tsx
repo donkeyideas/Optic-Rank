@@ -424,20 +424,65 @@ export function ContentClient({
       });
     }
 
-    // Low word count pages
-    contentPages.filter(p => p.word_count != null && p.word_count < 500 && p.status !== "archived").forEach((page) => {
-      recs.push({
-        id: `thin-${page.id}`,
-        priority: "medium",
-        category: "Thin Content",
-        icon: FileText,
-        item: page.title ?? page.url ?? "Untitled page",
-        action: `This page has only ${page.word_count} words. Expand it to at least 1,000-1,500 words with comprehensive topic coverage.`,
-        where: page.url ?? "Check your content inventory",
-        estimatedImpact: "Pages with 1,000+ words rank significantly better for competitive keywords.",
-        details: "Thin content often fails to satisfy search intent. Add sections addressing related questions, examples, and actionable advice.",
+    // Low word count pages — skip legal/utility pages where thin content is expected
+    contentPages
+      .filter(p => p.word_count != null && p.word_count < 500 && p.status !== "archived")
+      .filter(p => {
+        // Exclude legal, auth, and utility pages from thin content flagging
+        const url = (p.url ?? "").toLowerCase();
+        const path = (() => { try { return new URL(url).pathname; } catch { return url; } })();
+        const skipPatterns = [
+          /\/(terms|tos|terms-of-service|terms-and-conditions)(\/|$)/,
+          /\/(privacy|privacy-policy)(\/|$)/,
+          /\/(cookie|cookies|cookie-policy)(\/|$)/,
+          /\/(legal|disclaimer|dmca|gdpr|compliance)(\/|$)/,
+          /\/(contact|contact-us)(\/|$)/,
+          /\/(login|signin|sign-in|signup|sign-up|register|auth)(\/|$)/,
+          /\/(forgot-password|reset-password|verify|confirm|callback)(\/|$)/,
+          /\/(sitemap|robots)(\/|$)/,
+          /\/(404|500|error)(\/|$)/,
+          /\/(unsubscribe|opt-out|preferences)(\/|$)/,
+        ];
+        return !skipPatterns.some(pattern => pattern.test(path));
+      })
+      .forEach((page) => {
+        // Page-type-aware word count targets
+        const url = (page.url ?? "").toLowerCase();
+        const path = (() => { try { return new URL(url).pathname; } catch { return url; } })();
+        const isChangelog = /\/(changelog|release-notes|whats-new)(\/|$)/.test(path);
+        const isPricing = /\/(pricing|plans)(\/|$)/.test(path);
+        const isCareers = /\/(careers|jobs)(\/|$)/.test(path);
+
+        let target: string;
+        let impact: string;
+        if (isChangelog) {
+          target = "Add more release entries and detailed descriptions for each update.";
+          impact = "A detailed changelog builds trust and shows active development — users and search engines value fresh, regular updates.";
+        } else if (isPricing) {
+          target = "Add an FAQ section, feature comparison details, and customer testimonials to strengthen this page.";
+          impact = "Pricing pages with 800+ words (FAQs, comparisons, testimonials) convert 25-40% better and rank for commercial keywords.";
+        } else if (isCareers) {
+          target = "Expand job descriptions, add company culture details, benefits, and employee testimonials.";
+          impact = "Rich careers pages attract better talent and can rank for employer brand keywords.";
+        } else {
+          target = `Expand to at least 1,000-1,500 words with comprehensive topic coverage.`;
+          impact = "Pages with 1,000+ words rank significantly better for competitive keywords.";
+        }
+
+        recs.push({
+          id: `thin-${page.id}`,
+          priority: "medium",
+          category: "Thin Content",
+          icon: FileText,
+          item: page.title ?? page.url ?? "Untitled page",
+          action: `This page has only ${page.word_count} words. ${target}`,
+          where: page.url ?? "Check your content inventory",
+          estimatedImpact: impact,
+          details: isChangelog || isPricing || isCareers
+            ? "Focus on adding content that serves the page's specific purpose rather than generic filler."
+            : "Thin content often fails to satisfy search intent. Add sections addressing related questions, examples, and actionable advice.",
+        });
       });
-    });
 
     // Draft briefs ready to write
     contentBriefs.filter(b => b.status === "ready" || b.status === "draft").forEach((brief) => {

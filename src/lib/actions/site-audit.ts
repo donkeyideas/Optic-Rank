@@ -375,12 +375,15 @@ function computeScoresFromCrawl(
   );
 
   // Content score: based on word count adequacy
-  const withAdequateContent = ok.filter((p) => p.wordCount >= 300).length;
-  const avgWordCount = ok.reduce((sum, p) => sum + p.wordCount, 0) / total;
+  // Exclude non-content pages (legal, utility) from thin content penalty
+  const contentPages = ok.filter((p) => !isNonContentPage(p.url));
+  const contentTotal = contentPages.length || 1;
+  const withAdequateContent = contentPages.filter((p) => p.wordCount >= 300).length;
+  const avgWordCount = contentPages.reduce((sum, p) => sum + p.wordCount, 0) / contentTotal;
   const wordCountBonus = Math.min(1, avgWordCount / 500); // bonus for avg 500+ words
   const contentScore = Math.round(
-    (withAdequateContent / total) * 80 + // 80% weight: pages with 300+ words
-    wordCountBonus * 20                  // 20% weight: average word count depth
+    (withAdequateContent / contentTotal) * 80 + // 80% weight: content pages with 300+ words
+    wordCountBonus * 20                         // 20% weight: average word count depth
   );
 
   // Health score: weighted average of all available scores
@@ -399,6 +402,34 @@ function computeScoresFromCrawl(
 // Helpers
 // ================================================================
 
+// URL patterns for pages where thin content is expected and NOT an SEO issue.
+// These pages serve legal, utility, or functional purposes — word count is irrelevant.
+const NON_CONTENT_URL_PATTERNS = [
+  /\/(terms|tos|terms-of-service|terms-and-conditions)(\/|$)/i,
+  /\/(privacy|privacy-policy)(\/|$)/i,
+  /\/(cookie|cookies|cookie-policy)(\/|$)/i,
+  /\/(legal|disclaimer|dmca|gdpr|compliance)(\/|$)/i,
+  /\/(contact|contact-us)(\/|$)/i,
+  /\/(login|signin|sign-in|signup|sign-up|register|auth)(\/|$)/i,
+  /\/(forgot-password|reset-password|verify|confirm|callback)(\/|$)/i,
+  /\/(sitemap|robots)(\/|$)/i,
+  /\/(404|500|error)(\/|$)/i,
+  /\/(unsubscribe|opt-out|preferences)(\/|$)/i,
+];
+
+/**
+ * Check if a URL is a non-content page (legal, utility, auth) where
+ * thin content should NOT be flagged as an SEO issue.
+ */
+function isNonContentPage(url: string): boolean {
+  try {
+    const pathname = new URL(url).pathname.toLowerCase();
+    return NON_CONTENT_URL_PATTERNS.some(pattern => pattern.test(pathname));
+  } catch {
+    return false;
+  }
+}
+
 function countPageIssues(page: CrawledPage): number {
   let issues = 0;
   if (!page.title) issues++;
@@ -407,7 +438,7 @@ function countPageIssues(page: CrawledPage): number {
   if (!page.hasSchema) issues++;
   if (!page.hasCanonical) issues++;
   if (page.imagesWithoutAlt > 0) issues++;
-  if (page.wordCount < 300) issues++;
+  if (page.wordCount < 300 && !isNonContentPage(page.url)) issues++;
   return issues;
 }
 
@@ -487,8 +518,14 @@ function generateCrawlIssues(pages: CrawledPage[], auditId: string, skipSpaFalse
       });
     }
 
-    // Thin content
-    if (page.wordCount < 300 && page.statusCode === 200 && !(isUnrenderedSpaPage && SPA_FALSE_POSITIVE_RULES.has("thin-content"))) {
+    // Thin content — skip for legal/utility pages (terms, privacy, contact, etc.)
+    // where low word count is expected and not an SEO concern
+    if (
+      page.wordCount < 300 &&
+      page.statusCode === 200 &&
+      !isNonContentPage(page.url) &&
+      !(isUnrenderedSpaPage && SPA_FALSE_POSITIVE_RULES.has("thin-content"))
+    ) {
       issues.push({
         audit_id: auditId,
         category: "content",
