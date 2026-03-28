@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { aiChat } from "@/lib/ai/ai-provider";
 import { fetchAppData, fetchGooglePlayReviews, batchCheckKeywordRankings } from "@/lib/app-store/fetcher";
 import { trackVersionChange, recordSnapshot } from "@/lib/actions/app-store-versions";
-import { fetchPlayReviews, fetchPlayMetrics, validatePlayAccess } from "@/lib/google/play-console";
+import { fetchPlayReviews, fetchPlayMetrics, validatePlayAccess, fetchPlayStoreListing } from "@/lib/google/play-console";
 import { refreshAccessToken } from "@/lib/google/oauth";
 
 /**
@@ -99,7 +99,6 @@ export async function addAppListing(
 
   // Auto-fetch reviews for Google Play
   if (store === "google" && inserted?.id) {
-    // Try authenticated API first
     const playToken = await getPlayAccessToken(user.id, projectId);
     let usedAuth = false;
 
@@ -121,6 +120,14 @@ export async function addAppListing(
               review_date: r.lastModified || new Date().toISOString(),
             }, { onConflict: "listing_id,review_id" });
           }
+          // Update listing with real review data
+          const avgRating = Math.round(
+            (authReviews.reduce((sum, r) => sum + r.rating, 0) / authReviews.length) * 100
+          ) / 100;
+          await supabase.from("app_store_listings").update({
+            rating: avgRating,
+            reviews_count: authReviews.length,
+          }).eq("id", inserted.id);
           usedAuth = true;
         }
       } catch { /* fall back to scraper */ }
@@ -190,20 +197,24 @@ export async function refreshAppListing(
 
   // Try authenticated Google Play API for richer data
   let authenticatedReviews: Awaited<ReturnType<typeof fetchPlayReviews>> | null = null;
-  let authenticatedMetrics: Awaited<ReturnType<typeof fetchPlayMetrics>> | null = null;
 
   if (listing.store === "google" && listing.project_id) {
     const playToken = await getPlayAccessToken(user.id, listing.project_id as string);
     if (playToken) {
       try {
-        // Validate access first
         const validation = await validatePlayAccess(playToken, listing.app_id as string);
         if (validation.accessible) {
-          // Fetch authenticated reviews (50 instead of 20 from scraper)
+          // Fetch authenticated reviews (richer than scraper)
           authenticatedReviews = await fetchPlayReviews(playToken, listing.app_id as string, 50).catch(() => null);
 
-          // Fetch developer metrics (crash rate, ANR rate)
-          authenticatedMetrics = await fetchPlayMetrics(playToken, listing.app_id as string).catch(() => null);
+          // Fetch store listing details (title, description) from the developer API
+          try {
+            const listingInfo = await fetchPlayStoreListing(playToken, listing.app_id as string);
+            if (listingInfo) {
+              if (listingInfo.title) storeData.app_name = listingInfo.title;
+              if (listingInfo.fullDescription) storeData.description = listingInfo.fullDescription;
+            }
+          } catch { /* non-critical */ }
         }
       } catch {
         // Authenticated API failed — fall back to public data
@@ -226,14 +237,13 @@ export async function refreshAppListing(
     last_updated: new Date().toISOString(),
   };
 
-  // Override with authenticated metrics if available
-  if (authenticatedMetrics) {
-    if (authenticatedMetrics.averageRating !== null) {
-      updates.rating = authenticatedMetrics.averageRating;
-    }
-    if (authenticatedMetrics.totalRatings !== null) {
-      updates.reviews_count = authenticatedMetrics.totalRatings;
-    }
+  // Override with computed values from authenticated reviews
+  if (authenticatedReviews && authenticatedReviews.length > 0) {
+    const avgRating = Math.round(
+      (authenticatedReviews.reduce((sum, r) => sum + r.rating, 0) / authenticatedReviews.length) * 100
+    ) / 100;
+    updates.rating = avgRating;
+    updates.reviews_count = authenticatedReviews.length;
   }
 
   await supabase.from("app_store_listings").update(updates).eq("id", listingId);

@@ -12,6 +12,7 @@ import {
 import {
   fetchPlayReviews,
   fetchPlayMetrics,
+  fetchPlayStoreListing,
   validatePlayAccess,
   type PlayReview,
   type PlayAppMetrics,
@@ -274,6 +275,7 @@ export async function syncGooglePlayData(
 
     // Try to get the app title from the API
     let appTitle = packageName;
+    let appDescription: string | null = null;
     try {
       const { fetchGooglePlayApps } = await import("@/lib/google/oauth");
       const apps = await fetchGooglePlayApps(accessToken);
@@ -282,6 +284,15 @@ export async function syncGooglePlayData(
     } catch {
       // Use package name as title
     }
+
+    // Try to get full store listing details
+    try {
+      const listingInfo = await fetchPlayStoreListing(accessToken, packageName);
+      if (listingInfo) {
+        if (listingInfo.title) appTitle = listingInfo.title;
+        if (listingInfo.fullDescription) appDescription = listingInfo.fullDescription;
+      }
+    } catch { /* non-critical */ }
 
     // Auto-create the listing
     const { data: newListing, error: insertErr } = await supabase
@@ -292,6 +303,7 @@ export async function syncGooglePlayData(
         app_id: packageName,
         app_name: appTitle,
         app_url: `https://play.google.com/store/apps/details?id=${packageName}`,
+        ...(appDescription ? { description: appDescription } : {}),
       })
       .select("id, app_id, app_name")
       .single();
