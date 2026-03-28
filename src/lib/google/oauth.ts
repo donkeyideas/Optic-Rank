@@ -312,42 +312,53 @@ export interface GooglePlayAppSummary {
 }
 
 /**
- * Fetch the list of apps accessible via the Google Play Developer API.
- * Uses the androidpublisher v3 API to list edits or simply validate access.
- * Note: The Play Developer API doesn't have a "list all apps" endpoint directly,
- * so we use the Google Play Developer API v3 to check access.
+ * Fetch the list of apps accessible via the Play Developer Reporting API.
+ * Endpoint: GET /v1beta1/apps:search
+ * Requires the playdeveloperreporting scope + API enabled in Cloud Console.
+ * @see https://developers.google.com/play/developer/reporting/reference/rest/v1beta1/apps/search
  */
 export async function fetchGooglePlayApps(
   accessToken: string
 ): Promise<GooglePlayAppSummary[]> {
-  // Use the Play Developer Reporting API to list apps.
-  // Requires the playdeveloperreporting scope + API enabled in Cloud Console.
   try {
-    const res = await fetch(
-      "https://playdeveloperreporting.googleapis.com/v1beta1/apps",
-      {
-        headers: { Authorization: `Bearer ${accessToken}` },
+    const allApps: GooglePlayAppSummary[] = [];
+    let pageToken: string | undefined;
+
+    do {
+      const params = new URLSearchParams({ pageSize: "100" });
+      if (pageToken) params.set("pageToken", pageToken);
+
+      const res = await fetch(
+        `https://playdeveloperreporting.googleapis.com/v1beta1/apps:search?${params.toString()}`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      );
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error(`[google-play] apps:search failed: ${res.status}`, errText);
+        return [];
       }
-    );
 
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error(`[google-play] List apps failed: ${res.status}`, errText);
-      // Return empty — UI will show manual entry fallback
-      return [];
-    }
+      const data = await res.json();
+      const apps = (data.apps ?? []) as Array<{
+        packageName?: string;
+        displayName?: string;
+        name?: string;
+      }>;
 
-    const data = await res.json();
-    const apps = (data.apps ?? []) as Array<{
-      packageName?: string;
-      displayName?: string;
-      name?: string;
-    }>;
+      for (const app of apps) {
+        allApps.push({
+          packageName: app.packageName ?? app.name?.replace("apps/", "") ?? "",
+          title: app.displayName ?? app.packageName ?? "",
+        });
+      }
 
-    return apps.map((app) => ({
-      packageName: app.packageName ?? app.name?.replace("apps/", "") ?? "",
-      title: app.displayName ?? app.packageName ?? "",
-    }));
+      pageToken = data.nextPageToken as string | undefined;
+    } while (pageToken);
+
+    return allApps;
   } catch (err) {
     console.error("[google-play] List apps error:", err);
     return [];
