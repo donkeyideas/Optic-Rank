@@ -17,6 +17,7 @@ const GA4_SCOPES = [
 
 const GOOGLE_PLAY_SCOPES = [
   "https://www.googleapis.com/auth/androidpublisher",
+  "https://www.googleapis.com/auth/playdeveloperreporting",
 ];
 
 function getOAuthConfig(redirectPath = "/api/auth/gsc/callback") {
@@ -319,31 +320,36 @@ export interface GooglePlayAppSummary {
 export async function fetchGooglePlayApps(
   accessToken: string
 ): Promise<GooglePlayAppSummary[]> {
-  // The Play Developer API doesn't have a direct "list apps" endpoint.
-  // We use the Generalized Play Developer Reporting API to list apps.
-  const res = await fetch(
-    "https://playdeveloperreporting.googleapis.com/v1beta1/apps",
-    {
-      headers: { Authorization: `Bearer ${accessToken}` },
+  // Use the Play Developer Reporting API to list apps.
+  // Requires the playdeveloperreporting scope + API enabled in Cloud Console.
+  try {
+    const res = await fetch(
+      "https://playdeveloperreporting.googleapis.com/v1beta1/apps",
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`[google-play] List apps failed: ${res.status}`, errText);
+      // Return empty — UI will show manual entry fallback
+      return [];
     }
-  );
 
-  if (!res.ok) {
-    // Fallback: try the androidpublisher API to validate access
-    const errText = await res.text();
-    throw new Error(`Failed to fetch Google Play apps: ${res.status} ${errText}`);
+    const data = await res.json();
+    const apps = (data.apps ?? []) as Array<{
+      packageName?: string;
+      displayName?: string;
+      name?: string;
+    }>;
+
+    return apps.map((app) => ({
+      packageName: app.packageName ?? app.name?.replace("apps/", "") ?? "",
+      title: app.displayName ?? app.packageName ?? "",
+    }));
+  } catch (err) {
+    console.error("[google-play] List apps error:", err);
+    return [];
   }
-
-  const data = await res.json();
-  // Response format: { apps: [{ name: "apps/{packageName}", packageName: "...", displayName: "..." }] }
-  const apps = (data.apps ?? []) as Array<{
-    packageName?: string;
-    displayName?: string;
-    name?: string;
-  }>;
-
-  return apps.map((app) => ({
-    packageName: app.packageName ?? app.name?.replace("apps/", "") ?? "",
-    title: app.displayName ?? app.packageName ?? "",
-  }));
 }
