@@ -106,8 +106,10 @@ export function AppStoreClient({
   const [selectedRecsListing, setSelectedRecsListing] = useState<string>("all");
   const [addError, setAddError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isDeleting, startDeleteTransition] = useTransition();
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const { runAction, isRunning: isActionRunning } = useActionProgress();
 
   function handleGenerateAll() {
@@ -149,9 +151,15 @@ export function AppStoreClient({
   function confirmDelete() {
     if (!deleteTarget) return;
     const id = deleteTarget.id;
-    setDeleteTarget(null);
-    startTransition(async () => {
-      await deleteAppListing(id);
+    setDeleteError(null);
+    startDeleteTransition(async () => {
+      const result = await deleteAppListing(id);
+      if ("error" in result) {
+        setDeleteError(result.error);
+      } else {
+        setDeleteTarget(null);
+        setStatusMsg("App listing deleted.");
+      }
     });
   }
 
@@ -609,7 +617,7 @@ export function AppStoreClient({
       {renderAddDialog()}
 
       {/* Delete Confirmation Modal */}
-      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open && !isDeleting) { setDeleteTarget(null); setDeleteError(null); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete App Listing</DialogTitle>
@@ -617,9 +625,14 @@ export function AppStoreClient({
               Are you sure you want to delete <strong>{deleteTarget?.name}</strong>? This will remove all tracked keywords, reviews, competitors, and rankings for this app. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
+          {deleteError && (
+            <div className="border border-editorial-red/30 bg-editorial-red/5 px-4 py-3 text-sm text-editorial-red">
+              {deleteError}
+            </div>
+          )}
           <DialogFooter>
-            <Button type="button" variant="secondary" size="md" onClick={() => setDeleteTarget(null)}>Cancel</Button>
-            <Button type="button" variant="danger" size="md" onClick={confirmDelete} loading={isPending}>Delete</Button>
+            <Button type="button" variant="secondary" size="md" onClick={() => { setDeleteTarget(null); setDeleteError(null); }} disabled={isDeleting}>Cancel</Button>
+            <Button type="button" variant="danger" size="md" onClick={confirmDelete} loading={isDeleting}>Delete</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
