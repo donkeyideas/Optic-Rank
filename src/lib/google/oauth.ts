@@ -2,8 +2,9 @@
  * Google OAuth2 flows for user-facing integrations:
  * - Google Search Console (GSC)
  * - Google Analytics 4 (GA4)
+ * - Google Play Developer API
  *
- * Both use the same GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET.
+ * All use the same GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET.
  */
 
 const GSC_SCOPES = [
@@ -12,6 +13,10 @@ const GSC_SCOPES = [
 
 const GA4_SCOPES = [
   "https://www.googleapis.com/auth/analytics.readonly",
+];
+
+const GOOGLE_PLAY_SCOPES = [
+  "https://www.googleapis.com/auth/androidpublisher",
 ];
 
 function getOAuthConfig(redirectPath = "/api/auth/gsc/callback") {
@@ -31,6 +36,10 @@ export function hasGSCOAuthCredentials(): boolean {
 }
 
 export function hasGA4OAuthCredentials(): boolean {
+  return !!(process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET);
+}
+
+export function hasGooglePlayOAuthCredentials(): boolean {
   return !!(process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET);
 }
 
@@ -66,6 +75,26 @@ export function getGA4AuthUrl(state: string): string {
     redirect_uri: redirectUri,
     response_type: "code",
     scope: GA4_SCOPES.join(" "),
+    access_type: "offline",
+    prompt: "consent",
+    state,
+  });
+
+  return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+}
+
+/**
+ * Generate the Google OAuth2 authorization URL for Google Play Developer API.
+ */
+export function getGooglePlayAuthUrl(state: string): string {
+  const { clientId, redirectUri } = getOAuthConfig("/api/auth/google-play/callback");
+  if (!clientId) throw new Error("GOOGLE_OAUTH_CLIENT_ID not configured");
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: GOOGLE_PLAY_SCOPES.join(" "),
     access_type: "offline",
     prompt: "consent",
     state,
@@ -270,4 +299,51 @@ export async function fetchGoogleUserEmail(accessToken: string): Promise<string 
   } catch {
     return null;
   }
+}
+
+// ================================================================
+// Google Play Developer API — App listing
+// ================================================================
+
+export interface GooglePlayAppSummary {
+  packageName: string;
+  title: string;
+}
+
+/**
+ * Fetch the list of apps accessible via the Google Play Developer API.
+ * Uses the androidpublisher v3 API to list edits or simply validate access.
+ * Note: The Play Developer API doesn't have a "list all apps" endpoint directly,
+ * so we use the Google Play Developer API v3 to check access.
+ */
+export async function fetchGooglePlayApps(
+  accessToken: string
+): Promise<GooglePlayAppSummary[]> {
+  // The Play Developer API doesn't have a direct "list apps" endpoint.
+  // We use the Generalized Play Developer Reporting API to list apps.
+  const res = await fetch(
+    "https://playdeveloperreporting.googleapis.com/v1beta1/apps",
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  );
+
+  if (!res.ok) {
+    // Fallback: try the androidpublisher API to validate access
+    const errText = await res.text();
+    throw new Error(`Failed to fetch Google Play apps: ${res.status} ${errText}`);
+  }
+
+  const data = await res.json();
+  // Response format: { apps: [{ name: "apps/{packageName}", packageName: "...", displayName: "..." }] }
+  const apps = (data.apps ?? []) as Array<{
+    packageName?: string;
+    displayName?: string;
+    name?: string;
+  }>;
+
+  return apps.map((app) => ({
+    packageName: app.packageName ?? app.name?.replace("apps/", "") ?? "",
+    title: app.displayName ?? app.packageName ?? "",
+  }));
 }

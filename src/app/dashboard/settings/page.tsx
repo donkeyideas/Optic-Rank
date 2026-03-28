@@ -9,6 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { IntegrationSettings } from "@/lib/actions/integrations";
 import { getGA4ConnectionStatus } from "@/lib/actions/ga4-import";
 import { getGSCConnectionStatus } from "@/lib/actions/gsc";
+import { getGooglePlayConnectionStatus } from "@/lib/actions/google-play-console";
 import { getMFAStatus } from "@/lib/actions/two-fa";
 
 export default async function SettingsPage() {
@@ -181,6 +182,23 @@ export default async function SettingsPage() {
     }
   }
 
+  // Google Play OAuth: check connection status for active project
+  const gplayOAuthConfigured = !!(process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET);
+  let gplayConnected = false;
+  let gplayGoogleEmail: string | null = null;
+  let gplayPackageName: string | null = null;
+
+  if (activeProjectId && gplayOAuthConfigured) {
+    try {
+      const gplayStatus = await getGooglePlayConnectionStatus(activeProjectId);
+      gplayConnected = gplayStatus.connected;
+      gplayGoogleEmail = gplayStatus.googleEmail;
+      gplayPackageName = gplayStatus.packageName;
+    } catch {
+      // Google Play status fetch failed — non-critical
+    }
+  }
+
   // Fetch billing data
   let usage = undefined;
   let billingEvents: Array<{
@@ -229,6 +247,10 @@ export default async function SettingsPage() {
       gscConnected={gscConnected}
       gscPropertyUrl={gscPropertyUrl}
       gscOAuthConfigured={gscOAuthConfigured}
+      gplayConnected={gplayConnected}
+      gplayGoogleEmail={gplayGoogleEmail}
+      gplayPackageName={gplayPackageName}
+      gplayOAuthConfigured={gplayOAuthConfigured}
       activeProjectId={activeProjectId}
     />
   );

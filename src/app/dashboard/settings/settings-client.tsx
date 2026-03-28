@@ -177,6 +177,10 @@ interface SettingsClientProps {
   gscConnected?: boolean;
   gscPropertyUrl?: string | null;
   gscOAuthConfigured?: boolean;
+  gplayConnected?: boolean;
+  gplayGoogleEmail?: string | null;
+  gplayPackageName?: string | null;
+  gplayOAuthConfigured?: boolean;
   activeProjectId?: string;
 }
 
@@ -244,6 +248,10 @@ export function SettingsClient({
   gscConnected,
   gscPropertyUrl,
   gscOAuthConfigured,
+  gplayConnected,
+  gplayGoogleEmail,
+  gplayPackageName,
+  gplayOAuthConfigured,
   activeProjectId,
 }: SettingsClientProps) {
   const timezone = useTimezone();
@@ -1060,7 +1068,7 @@ export function SettingsClient({
             ============================================================ */}
         <TabsContent value="integrations">
           {integrationSettings ? (
-            <IntegrationsTab settings={integrationSettings} projectId={activeProjectId} ga4Connected={ga4Connected} ga4GoogleEmail={ga4GoogleEmail} ga4PropertyId={ga4PropertyId} ga4OAuthConfigured={ga4OAuthConfigured} gscConnected={gscConnected} gscPropertyUrl={gscPropertyUrl} gscOAuthConfigured={gscOAuthConfigured} />
+            <IntegrationsTab settings={integrationSettings} projectId={activeProjectId} ga4Connected={ga4Connected} ga4GoogleEmail={ga4GoogleEmail} ga4PropertyId={ga4PropertyId} ga4OAuthConfigured={ga4OAuthConfigured} gscConnected={gscConnected} gscPropertyUrl={gscPropertyUrl} gscOAuthConfigured={gscOAuthConfigured} gplayConnected={gplayConnected} gplayGoogleEmail={gplayGoogleEmail} gplayPackageName={gplayPackageName} gplayOAuthConfigured={gplayOAuthConfigured} />
           ) : (
             <EmptyState
               icon={Plug}

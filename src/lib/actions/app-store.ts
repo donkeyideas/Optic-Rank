@@ -6,6 +6,48 @@ import { revalidatePath } from "next/cache";
 import { aiChat } from "@/lib/ai/ai-provider";
 import { fetchAppData, fetchGooglePlayReviews, batchCheckKeywordRankings } from "@/lib/app-store/fetcher";
 import { trackVersionChange, recordSnapshot } from "@/lib/actions/app-store-versions";
+import { fetchPlayReviews, fetchPlayMetrics, validatePlayAccess } from "@/lib/google/play-console";
+import { refreshAccessToken } from "@/lib/google/oauth";
+
+/**
+ * Try to get a valid Google Play OAuth access token for a user/project.
+ * Returns null if not connected.
+ */
+async function getPlayAccessToken(
+  userId: string,
+  projectId: string
+): Promise<string | null> {
+  const supabase = createAdminClient();
+  const { data: token } = await supabase
+    .from("google_play_tokens")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("project_id", projectId)
+    .maybeSingle();
+
+  if (!token) return null;
+
+  const expiresAt = new Date(token.expires_at);
+  if (expiresAt.getTime() > Date.now() + 5 * 60 * 1000) {
+    return token.access_token;
+  }
+
+  try {
+    const refreshed = await refreshAccessToken(token.refresh_token);
+    const newExpiresAt = new Date(Date.now() + refreshed.expires_in * 1000);
+    await supabase
+      .from("google_play_tokens")
+      .update({
+        access_token: refreshed.access_token,
+        expires_at: newExpiresAt.toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", token.id);
+    return refreshed.access_token;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Add a new app store listing to a project.
@@ -55,25 +97,55 @@ export async function addAppListing(
     return { error: error.message };
   }
 
-  // Auto-fetch reviews for Google Play (Apple doesn't have a free reviews API)
+  // Auto-fetch reviews for Google Play
   if (store === "google" && inserted?.id) {
-    try {
-      const reviews = await fetchGooglePlayReviews(appId.trim(), 20);
-      for (const r of reviews) {
-        const sentiment = r.rating >= 4 ? "positive" : r.rating <= 2 ? "negative" : "neutral";
-        await supabase.from("app_store_reviews").upsert({
-          listing_id: inserted.id,
-          store: "google",
-          review_id: r.review_id,
-          author: r.author,
-          rating: r.rating,
-          title: r.title || null,
-          text: r.text || null,
-          sentiment,
-          review_date: r.date || new Date().toISOString(),
-        }, { onConflict: "listing_id,review_id" });
-      }
-    } catch { /* reviews are optional */ }
+    // Try authenticated API first
+    const playToken = await getPlayAccessToken(user.id, projectId);
+    let usedAuth = false;
+
+    if (playToken) {
+      try {
+        const authReviews = await fetchPlayReviews(playToken, appId.trim(), 50);
+        if (authReviews.length > 0) {
+          for (const r of authReviews) {
+            const sentiment = r.rating >= 4 ? "positive" : r.rating <= 2 ? "negative" : "neutral";
+            await supabase.from("app_store_reviews").upsert({
+              listing_id: inserted.id,
+              store: "google",
+              review_id: r.reviewId,
+              author: r.authorName,
+              rating: r.rating,
+              title: r.title || null,
+              text: r.text || null,
+              sentiment,
+              review_date: r.lastModified || new Date().toISOString(),
+            }, { onConflict: "listing_id,review_id" });
+          }
+          usedAuth = true;
+        }
+      } catch { /* fall back to scraper */ }
+    }
+
+    // Fall back to public scraper
+    if (!usedAuth) {
+      try {
+        const reviews = await fetchGooglePlayReviews(appId.trim(), 20);
+        for (const r of reviews) {
+          const sentiment = r.rating >= 4 ? "positive" : r.rating <= 2 ? "negative" : "neutral";
+          await supabase.from("app_store_reviews").upsert({
+            listing_id: inserted.id,
+            store: "google",
+            review_id: r.review_id,
+            author: r.author,
+            rating: r.rating,
+            title: r.title || null,
+            text: r.text || null,
+            sentiment,
+            review_date: r.date || new Date().toISOString(),
+          }, { onConflict: "listing_id,review_id" });
+        }
+      } catch { /* reviews are optional */ }
+    }
   }
 
   revalidatePath("/dashboard/app-store");
@@ -82,6 +154,7 @@ export async function addAppListing(
 
 /**
  * Refresh an existing app listing with latest store data.
+ * If Google Play Console OAuth is connected, uses authenticated API for richer data.
  */
 export async function refreshAppListing(
   listingId: string
@@ -94,12 +167,13 @@ export async function refreshAppListing(
 
   const { data: listing } = await supabase
     .from("app_store_listings")
-    .select("id, store, app_id, current_version")
+    .select("id, store, app_id, current_version, project_id")
     .eq("id", listingId)
     .single();
 
   if (!listing) return { error: "Listing not found." };
 
+  // Fetch public store data (always — baseline)
   const storeData = await fetchAppData(
     listing.store as "apple" | "google",
     listing.app_id as string
@@ -114,7 +188,31 @@ export async function refreshAppListing(
     await trackVersionChange(listingId, newVersion);
   }
 
-  await supabase.from("app_store_listings").update({
+  // Try authenticated Google Play API for richer data
+  let authenticatedReviews: Awaited<ReturnType<typeof fetchPlayReviews>> | null = null;
+  let authenticatedMetrics: Awaited<ReturnType<typeof fetchPlayMetrics>> | null = null;
+
+  if (listing.store === "google" && listing.project_id) {
+    const playToken = await getPlayAccessToken(user.id, listing.project_id as string);
+    if (playToken) {
+      try {
+        // Validate access first
+        const validation = await validatePlayAccess(playToken, listing.app_id as string);
+        if (validation.accessible) {
+          // Fetch authenticated reviews (50 instead of 20 from scraper)
+          authenticatedReviews = await fetchPlayReviews(playToken, listing.app_id as string, 50).catch(() => null);
+
+          // Fetch developer metrics (crash rate, ANR rate)
+          authenticatedMetrics = await fetchPlayMetrics(playToken, listing.app_id as string).catch(() => null);
+        }
+      } catch {
+        // Authenticated API failed — fall back to public data
+      }
+    }
+  }
+
+  // Build update with best available data
+  const updates: Record<string, unknown> = {
     app_name: storeData.app_name,
     app_url: storeData.app_url,
     category: storeData.category,
@@ -126,30 +224,61 @@ export async function refreshAppListing(
     current_version: storeData.current_version,
     description: storeData.description,
     last_updated: new Date().toISOString(),
-  }).eq("id", listingId);
+  };
+
+  // Override with authenticated metrics if available
+  if (authenticatedMetrics) {
+    if (authenticatedMetrics.averageRating !== null) {
+      updates.rating = authenticatedMetrics.averageRating;
+    }
+    if (authenticatedMetrics.totalRatings !== null) {
+      updates.reviews_count = authenticatedMetrics.totalRatings;
+    }
+  }
+
+  await supabase.from("app_store_listings").update(updates).eq("id", listingId);
 
   // Record daily snapshot for trend tracking
   await recordSnapshot(listingId);
 
-  // Refresh reviews for Google Play
+  // Import reviews — prefer authenticated API, fall back to scraper
   if (listing.store === "google") {
-    try {
-      const reviews = await fetchGooglePlayReviews(listing.app_id as string, 20);
-      for (const r of reviews) {
+    if (authenticatedReviews && authenticatedReviews.length > 0) {
+      // Use authenticated reviews (richer data, more reviews)
+      for (const r of authenticatedReviews) {
         const sentiment = r.rating >= 4 ? "positive" : r.rating <= 2 ? "negative" : "neutral";
         await supabase.from("app_store_reviews").upsert({
           listing_id: listingId,
           store: "google",
-          review_id: r.review_id,
-          author: r.author,
+          review_id: r.reviewId,
+          author: r.authorName,
           rating: r.rating,
           title: r.title || null,
           text: r.text || null,
           sentiment,
-          review_date: r.date || new Date().toISOString(),
+          review_date: r.lastModified || new Date().toISOString(),
         }, { onConflict: "listing_id,review_id" });
       }
-    } catch { /* reviews are optional */ }
+    } else {
+      // Fall back to public scraper reviews
+      try {
+        const reviews = await fetchGooglePlayReviews(listing.app_id as string, 20);
+        for (const r of reviews) {
+          const sentiment = r.rating >= 4 ? "positive" : r.rating <= 2 ? "negative" : "neutral";
+          await supabase.from("app_store_reviews").upsert({
+            listing_id: listingId,
+            store: "google",
+            review_id: r.review_id,
+            author: r.author,
+            rating: r.rating,
+            title: r.title || null,
+            text: r.text || null,
+            sentiment,
+            review_date: r.date || new Date().toISOString(),
+          }, { onConflict: "listing_id,review_id" });
+        }
+      } catch { /* reviews are optional */ }
+    }
   }
 
   revalidatePath("/dashboard/app-store");

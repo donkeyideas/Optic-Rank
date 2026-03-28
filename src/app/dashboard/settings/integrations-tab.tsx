@@ -47,7 +47,14 @@ import {
   setGSCProperty,
   testGSCConnection,
 } from "@/lib/actions/gsc";
-import type { GA4PropertySummary } from "@/lib/google/oauth";
+import {
+  disconnectGooglePlay,
+  listGooglePlayApps,
+  selectGooglePlayApp,
+  testGooglePlayConnection,
+  syncGooglePlayData,
+} from "@/lib/actions/google-play-console";
+import type { GA4PropertySummary, GooglePlayAppSummary } from "@/lib/google/oauth";
 import { useTimezone } from "@/lib/context/timezone-context";
 import { formatDate } from "@/lib/utils/format-date";
 
@@ -69,6 +76,10 @@ interface IntegrationsTabProps {
   gscConnected?: boolean;
   gscPropertyUrl?: string | null;
   gscOAuthConfigured?: boolean;
+  gplayConnected?: boolean;
+  gplayGoogleEmail?: string | null;
+  gplayPackageName?: string | null;
+  gplayOAuthConfigured?: boolean;
 }
 
 export function IntegrationsTab({
@@ -81,6 +92,10 @@ export function IntegrationsTab({
   gscConnected = false,
   gscPropertyUrl: initialGscPropertyUrl,
   gscOAuthConfigured = false,
+  gplayConnected = false,
+  gplayGoogleEmail,
+  gplayPackageName: initialGplayPackageName,
+  gplayOAuthConfigured = false,
 }: IntegrationsTabProps) {
   const timezone = useTimezone();
   const searchParams = useSearchParams();
@@ -112,12 +127,27 @@ export function IntegrationsTab({
   const [gscTestMessage, setGscTestMessage] = useState<string | null>(null);
   const [showGscPropertyPicker, setShowGscPropertyPicker] = useState(false);
 
+  // Google Play OAuth state
+  const [gplayIsConnected, setGplayIsConnected] = useState(gplayConnected);
+  const [gplayEmail, setGplayEmail] = useState(gplayGoogleEmail);
+  const [gplayApps, setGplayApps] = useState<GooglePlayAppSummary[]>([]);
+  const [gplayAppsLoading, setGplayAppsLoading] = useState(false);
+  const [gplaySelectedPackage, setGplaySelectedPackage] = useState(initialGplayPackageName ?? "");
+  const [gplayTestStatus, setGplayTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
+  const [gplayTestMessage, setGplayTestMessage] = useState<string | null>(null);
+  const [showGplayAppPicker, setShowGplayAppPicker] = useState(false);
+  const [gplaySyncStatus, setGplaySyncStatus] = useState<"idle" | "syncing" | "success" | "error">("idle");
+  const [gplaySyncMessage, setGplaySyncMessage] = useState<string | null>(null);
+  const [gplayManualPackage, setGplayManualPackage] = useState("");
+
   // Handle OAuth callback success/error from URL params
   useEffect(() => {
     const ga4Success = searchParams.get("ga4_success");
     const ga4Error = searchParams.get("ga4_error");
     const gscSuccess = searchParams.get("gsc_success");
     const gscError = searchParams.get("gsc_error");
+    const gplaySuccess = searchParams.get("gplay_success");
+    const gplayError = searchParams.get("gplay_error");
     if (ga4Success) {
       setGa4IsConnected(true);
     } else if (ga4Error) {
@@ -127,6 +157,11 @@ export function IntegrationsTab({
       setGscIsConnected(true);
     } else if (gscError) {
       setError(`Google Search Console connection failed: ${gscError}`);
+    }
+    if (gplaySuccess) {
+      setGplayIsConnected(true);
+    } else if (gplayError) {
+      setError(`Google Play connection failed: ${gplayError}`);
     }
   }, [searchParams]);
 
@@ -144,6 +179,13 @@ export function IntegrationsTab({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gscIsConnected, projectId]);
+
+  useEffect(() => {
+    if (gplayIsConnected && projectId && gplayApps.length === 0) {
+      loadGooglePlayApps();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gplayIsConnected, projectId]);
 
   function loadGA4Properties() {
     if (!projectId) return;
@@ -266,6 +308,96 @@ export function IntegrationsTab({
         setGscTestStatus("success");
         setGscTestMessage(
           `Connection verified! ${result.totalClicks.toLocaleString()} clicks, ${result.totalImpressions.toLocaleString()} impressions in the last 7 days.`
+        );
+      }
+    });
+  }
+
+  // Google Play handlers
+  function loadGooglePlayApps() {
+    if (!projectId) return;
+    setGplayAppsLoading(true);
+    startTransition(async () => {
+      const result = await listGooglePlayApps(projectId);
+      setGplayAppsLoading(false);
+      if ("error" in result) {
+        // If listing fails (common — API doesn't always support list),
+        // show manual entry instead
+        setGplayApps([]);
+      } else {
+        setGplayApps(result.apps);
+      }
+    });
+  }
+
+  function handleSelectGplayApp(packageName: string) {
+    if (!projectId) return;
+    setGplaySelectedPackage(packageName);
+    setShowGplayAppPicker(false);
+    setGplayTestStatus("idle");
+    setGplayTestMessage(null);
+    startTransition(async () => {
+      const result = await selectGooglePlayApp(projectId, packageName);
+      if ("error" in result) {
+        setError(result.error);
+      }
+    });
+  }
+
+  function handleGplayManualPackage() {
+    if (!gplayManualPackage.trim()) return;
+    handleSelectGplayApp(gplayManualPackage.trim());
+    setGplayManualPackage("");
+  }
+
+  function handleDisconnectGplay() {
+    if (!projectId || !confirm("Disconnect Google Play Console? You can reconnect anytime.")) return;
+    startTransition(async () => {
+      const result = await disconnectGooglePlay(projectId);
+      if ("error" in result) {
+        setError(result.error);
+      } else {
+        setGplayIsConnected(false);
+        setGplayEmail(null);
+        setGplayApps([]);
+        setGplaySelectedPackage("");
+        setGplayTestStatus("idle");
+        setGplayTestMessage(null);
+      }
+    });
+  }
+
+  function handleTestGplay() {
+    if (!projectId) return;
+    setGplayTestStatus("testing");
+    setGplayTestMessage(null);
+    startTransition(async () => {
+      const result = await testGooglePlayConnection(projectId);
+      if ("error" in result) {
+        setGplayTestStatus("error");
+        setGplayTestMessage(result.error);
+      } else {
+        setGplayTestStatus("success");
+        setGplayTestMessage(
+          `Connection verified! ${result.reviewCount} reviews accessible.`
+        );
+      }
+    });
+  }
+
+  function handleSyncGplay() {
+    if (!projectId) return;
+    setGplaySyncStatus("syncing");
+    setGplaySyncMessage(null);
+    startTransition(async () => {
+      const result = await syncGooglePlayData(projectId);
+      if ("error" in result) {
+        setGplaySyncStatus("error");
+        setGplaySyncMessage(result.error);
+      } else {
+        setGplaySyncStatus("success");
+        setGplaySyncMessage(
+          `Synced ${result.synced} app(s). ${result.reviewsImported} reviews imported.`
         );
       }
     });
@@ -758,6 +890,242 @@ export function IntegrationsTab({
                 <div className="flex items-start gap-2 border border-editorial-red/30 bg-editorial-red/5 px-4 py-3">
                   <AlertTriangle size={14} className="mt-0.5 shrink-0 text-editorial-red" />
                   <p className="text-sm text-editorial-red">{gscTestMessage}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Google Play Console */}
+      <div>
+        <ColumnHeader
+          title="Google Play Console"
+          subtitle="Connect your Google Play developer account to import real app data"
+        />
+        <div className="mt-4 flex flex-col gap-4 border border-rule bg-surface-card p-5">
+          {/* Status indicator */}
+          <div className="flex items-center gap-3">
+            <div className={`flex h-8 w-8 items-center justify-center border ${
+              gplayIsConnected
+                ? gplaySelectedPackage
+                  ? "border-editorial-green/30 bg-editorial-green/10"
+                  : "border-editorial-gold/30 bg-editorial-gold/10"
+                : "border-rule bg-surface-raised"
+            }`}>
+              <svg viewBox="0 0 24 24" width={14} height={14} className={
+                gplayIsConnected
+                  ? gplaySelectedPackage ? "text-editorial-green" : "text-editorial-gold"
+                  : "text-ink-muted"
+              }>
+                <path fill="currentColor" d="M3.18 23.04L14.28 12 3.18.96A1.76 1.76 0 0 0 2.5 2.34L12.16 12 2.5 21.66c.18.54.6.97 1.12 1.18l-.44.2zM14.28 12l3.94-3.94-10.8-6.2L14.28 12zm3.94 3.94L14.28 12l-6.86-10.1 10.8 6.16-3.94 3.88zM22 12c0-.56-.3-1.08-.78-1.36l-3.28-1.88L14.28 12l3.66 3.24 3.28-1.88c.48-.28.78-.8.78-1.36z"/>
+              </svg>
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-ink">
+                {gplayIsConnected
+                  ? gplaySelectedPackage
+                    ? "Connected"
+                    : "Connected — Select an App"
+                  : "Not Connected"}
+              </p>
+              <p className="text-xs text-ink-muted">
+                {gplayIsConnected
+                  ? gplayEmail
+                    ? `Signed in as ${gplayEmail}`
+                    : "Google account linked"
+                  : "Click below to connect with your Google Play developer account"}
+              </p>
+            </div>
+            {gplayIsConnected && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-ink-muted hover:text-editorial-red"
+                onClick={handleDisconnectGplay}
+                disabled={isPending}
+              >
+                <Unlink size={14} />
+                Disconnect
+              </Button>
+            )}
+          </div>
+
+          {/* Not connected: show Connect button */}
+          {!gplayIsConnected && (
+            <div className="flex flex-col gap-3">
+              {gplayOAuthConfigured ? (
+                <>
+                  {projectId ? (
+                    <a
+                      href={`/api/auth/google-play?project_id=${projectId}`}
+                      className="inline-flex h-10 items-center justify-center gap-2 border border-rule bg-surface-raised px-5 text-sm font-semibold text-ink hover:bg-surface-card"
+                    >
+                      <svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                      </svg>
+                      Connect Google Play Console
+                    </a>
+                  ) : (
+                    <p className="text-xs text-ink-muted">
+                      Create a project first to connect Google Play Console.
+                    </p>
+                  )}
+                  <p className="text-[11px] text-ink-muted">
+                    Grants access to your Google Play developer data: reviews, ratings, and app metrics.
+                    Requires the Google Play Android Developer API enabled in Google Cloud Console.
+                  </p>
+                </>
+              ) : (
+                <div className="flex items-start gap-3 border border-editorial-gold/30 bg-editorial-gold/5 px-4 py-3">
+                  <AlertTriangle size={16} className="mt-0.5 shrink-0 text-editorial-gold" />
+                  <div className="text-sm text-ink-secondary">
+                    <p className="font-semibold text-ink">Google OAuth Not Configured (Admin)</p>
+                    <p className="mt-1">
+                      Set <code className="bg-surface-raised px-1 py-0.5 font-mono text-[10px]">GOOGLE_OAUTH_CLIENT_ID</code> and <code className="bg-surface-raised px-1 py-0.5 font-mono text-[10px]">GOOGLE_OAUTH_CLIENT_SECRET</code> environment variables to enable Google Play integration.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Connected: show app picker or manual entry */}
+          {gplayIsConnected && (
+            <div className="flex flex-col gap-3">
+              <label className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+                Select Google Play App
+              </label>
+
+              {/* App picker dropdown */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowGplayAppPicker(!showGplayAppPicker);
+                    if (gplayApps.length === 0) loadGooglePlayApps();
+                  }}
+                  className="flex h-10 w-full items-center justify-between border border-rule bg-surface-card px-3 text-sm text-ink hover:bg-surface-raised"
+                >
+                  <span className={gplaySelectedPackage ? "font-mono text-xs" : "text-ink-muted"}>
+                    {gplaySelectedPackage || "Choose an app..."}
+                  </span>
+                  <ChevronDown size={14} className="text-ink-muted" />
+                </button>
+                {showGplayAppPicker && (
+                  <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-56 overflow-y-auto border border-rule bg-surface-card shadow-lg">
+                    {gplayAppsLoading ? (
+                      <div className="flex items-center gap-2 px-4 py-3 text-sm text-ink-muted">
+                        <span className="h-3 w-3 animate-spin rounded-full border-2 border-ink-muted border-t-transparent" />
+                        Loading apps...
+                      </div>
+                    ) : gplayApps.length > 0 ? (
+                      gplayApps.map((app) => (
+                        <button
+                          key={app.packageName}
+                          type="button"
+                          onClick={() => handleSelectGplayApp(app.packageName)}
+                          className={`flex w-full flex-col px-4 py-2.5 text-left hover:bg-surface-raised ${
+                            gplaySelectedPackage === app.packageName ? "bg-surface-raised" : ""
+                          }`}
+                        >
+                          <span className="text-sm font-medium text-ink">
+                            {app.title}
+                            {gplaySelectedPackage === app.packageName && (
+                              <Check size={12} className="ml-2 inline text-editorial-green" />
+                            )}
+                          </span>
+                          <span className="font-mono text-[11px] text-ink-muted">
+                            {app.packageName}
+                          </span>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-4 py-3 text-sm text-ink-muted">
+                        Could not list apps automatically. Enter the package name below.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Manual package name entry */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="com.example.app"
+                  value={gplayManualPackage}
+                  onChange={(e) => setGplayManualPackage(e.target.value)}
+                  className="h-8 flex-1 border border-rule bg-surface-card px-3 font-mono text-xs text-ink placeholder:text-ink-muted focus:border-ink focus:outline-none"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGplayManualPackage}
+                  disabled={!gplayManualPackage.trim() || isPending}
+                >
+                  <Plus size={14} />
+                  Set
+                </Button>
+              </div>
+              <p className="text-[11px] text-ink-muted">
+                Enter the package name from your Google Play listing (e.g., com.yourcompany.app).
+              </p>
+
+              {/* Test connection + Sync */}
+              {gplaySelectedPackage && (
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={isPending || gplayTestStatus === "testing"}
+                    onClick={handleTestGplay}
+                  >
+                    {gplayTestStatus === "testing" ? (
+                      <span className="h-3 w-3 animate-spin rounded-full border-2 border-ink-muted border-t-transparent" />
+                    ) : gplayTestStatus === "success" ? (
+                      <Check size={14} className="text-editorial-green" />
+                    ) : (
+                      <BarChart3 size={14} />
+                    )}
+                    {gplayTestStatus === "testing" ? "Testing..." : "Test Connection"}
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={isPending || gplaySyncStatus === "syncing"}
+                    onClick={handleSyncGplay}
+                  >
+                    {gplaySyncStatus === "syncing" ? (
+                      <span className="h-3 w-3 animate-spin rounded-full border-2 border-ink-muted border-t-transparent" />
+                    ) : gplaySyncStatus === "success" ? (
+                      <Check size={14} />
+                    ) : (
+                      <BarChart3 size={14} />
+                    )}
+                    {gplaySyncStatus === "syncing" ? "Syncing..." : "Sync Now"}
+                  </Button>
+                  {gplayTestStatus === "success" && gplayTestMessage && (
+                    <span className="text-xs text-editorial-green">{gplayTestMessage}</span>
+                  )}
+                  {gplaySyncStatus === "success" && gplaySyncMessage && (
+                    <span className="text-xs text-editorial-green">{gplaySyncMessage}</span>
+                  )}
+                </div>
+              )}
+              {gplayTestStatus === "error" && gplayTestMessage && (
+                <div className="flex items-start gap-2 border border-editorial-red/30 bg-editorial-red/5 px-4 py-3">
+                  <AlertTriangle size={14} className="mt-0.5 shrink-0 text-editorial-red" />
+                  <p className="text-sm text-editorial-red">{gplayTestMessage}</p>
+                </div>
+              )}
+              {gplaySyncStatus === "error" && gplaySyncMessage && (
+                <div className="flex items-start gap-2 border border-editorial-red/30 bg-editorial-red/5 px-4 py-3">
+                  <AlertTriangle size={14} className="mt-0.5 shrink-0 text-editorial-red" />
+                  <p className="text-sm text-editorial-red">{gplaySyncMessage}</p>
                 </div>
               )}
             </div>
