@@ -253,14 +253,54 @@ export async function syncGooglePlayData(
   const supabase = createAdminClient();
 
   // Get all Google Play listings for this project
-  const { data: listings } = await supabase
+  let { data: listings } = await supabase
     .from("app_store_listings")
     .select("id, app_id, app_name")
     .eq("project_id", projectId)
     .eq("store", "google");
 
+  // If no listings exist, auto-create one from the selected package in settings
   if (!listings || listings.length === 0) {
-    return { error: "No Google Play apps found in this project. Add an app first." };
+    const { data: project } = await supabase
+      .from("projects")
+      .select("google_play_package_name")
+      .eq("id", projectId)
+      .maybeSingle();
+
+    const packageName = project?.google_play_package_name;
+    if (!packageName) {
+      return { error: "No Google Play app selected. Select an app in Settings → Integrations first." };
+    }
+
+    // Try to get the app title from the API
+    let appTitle = packageName;
+    try {
+      const { fetchGooglePlayApps } = await import("@/lib/google/oauth");
+      const apps = await fetchGooglePlayApps(accessToken);
+      const match = apps.find((a) => a.packageName === packageName);
+      if (match?.title) appTitle = match.title;
+    } catch {
+      // Use package name as title
+    }
+
+    // Auto-create the listing
+    const { data: newListing, error: insertErr } = await supabase
+      .from("app_store_listings")
+      .insert({
+        project_id: projectId,
+        store: "google",
+        app_id: packageName,
+        app_name: appTitle,
+        app_url: `https://play.google.com/store/apps/details?id=${packageName}`,
+      })
+      .select("id, app_id, app_name")
+      .single();
+
+    if (insertErr || !newListing) {
+      return { error: insertErr?.message ?? "Failed to create app listing." };
+    }
+
+    listings = [newListing];
   }
 
   let synced = 0;
