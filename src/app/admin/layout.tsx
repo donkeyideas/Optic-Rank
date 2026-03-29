@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { signOut } from "@/lib/actions/auth";
 import { AdminNav } from "./admin-nav";
 import { getUnreadContactCount } from "@/lib/dal/admin";
+import { Notepad } from "@/components/shared/notepad";
 
 export default async function AdminLayout({
   children,
@@ -83,6 +84,8 @@ export default async function AdminLayout({
         {/* Page Content */}
         <main className="flex-1 p-6 lg:p-8">{children}</main>
       </div>
+
+      <Notepad />
     </div>
   );
 }
