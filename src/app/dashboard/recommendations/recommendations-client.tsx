@@ -18,6 +18,7 @@ import {
   Loader2,
   Sparkles,
   AlertTriangle,
+  ClipboardCopy,
 } from "lucide-react";
 import { HeadlineBar, type HeadlineStat } from "@/components/editorial/headline-bar";
 import type { Recommendation, RecommendationCategory } from "@/types";
@@ -76,6 +77,7 @@ export function RecommendationsClient({
   const [activeCategory, setActiveCategory] = useState<FilterCategory>("all");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const { runAction, isRunning: isActionRunning } = useActionProgress();
 
   // ── Stats for HeadlineBar ─────────────────────────────────────
@@ -166,6 +168,29 @@ export function RecommendationsClient({
     categoryCounts[r.category] = (categoryCounts[r.category] ?? 0) + 1;
   }
 
+  // ── Copy all recommendations ───────────────────────────────
+  function handleCopyAll() {
+    const lines: string[] = [
+      `Smart Recommendations — ${projectDomain}`,
+      `Active: ${stats.totalActive} | High Impact: ${stats.highImpactCount} | Quick Wins: ${stats.quickWinCount} | Completed: ${stats.completedCount}`,
+      "",
+    ];
+
+    for (const rec of recommendations) {
+      const cfg = CATEGORY_CONFIG[rec.category];
+      lines.push(`[${cfg.label.toUpperCase()}] ${rec.title}  (Impact: ${rec.impact} | Effort: ${rec.effort})`);
+      lines.push(`  ${rec.description}`);
+      if (rec.expected_result) lines.push(`  Expected: ${rec.expected_result}`);
+      if (rec.data_sources.length > 0) lines.push(`  Sources: ${rec.data_sources.join(", ")}`);
+      lines.push("");
+    }
+
+    navigator.clipboard.writeText(lines.join("\n")).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
   return (
     <div className="space-y-6">
       {/* Headline Stats */}
@@ -185,14 +210,25 @@ export function RecommendationsClient({
             <span className="font-semibold text-ink">{projectDomain}</span>
           </p>
         </div>
-        <button
-          onClick={handleGenerate}
-          disabled={isActionRunning || isPending}
-          className="inline-flex items-center gap-2 bg-editorial-red px-5 py-2.5 font-sans text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-editorial-red/90 disabled:opacity-50"
-        >
-          <Sparkles size={14} />
-          Generate Recommendations
-        </button>
+        <div className="flex items-center gap-2">
+          {recommendations.length > 0 && (
+            <button
+              onClick={handleCopyAll}
+              className="inline-flex items-center gap-1.5 border border-rule px-4 py-2.5 font-sans text-[10px] font-bold uppercase tracking-widest text-ink-secondary transition-colors hover:bg-surface-raised hover:text-ink"
+            >
+              {copied ? <Check size={12} className="text-editorial-green" /> : <ClipboardCopy size={12} />}
+              {copied ? "Copied!" : "Copy All"}
+            </button>
+          )}
+          <button
+            onClick={handleGenerate}
+            disabled={isActionRunning || isPending}
+            className="inline-flex items-center gap-2 bg-editorial-red px-5 py-2.5 font-sans text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-editorial-red/90 disabled:opacity-50"
+          >
+            <Sparkles size={14} />
+            Generate Recommendations
+          </button>
+        </div>
       </div>
 
       {/* Disclaimer */}
