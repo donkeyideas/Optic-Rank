@@ -53,27 +53,33 @@ export function TrialBanner({ trialEndsAt, isExpired }: TrialBannerProps) {
   const [timeLeft, setTimeLeft] = useState(getTimeRemaining(trialEndsAt));
   const [mounted, setMounted] = useState(false);
 
+  const [justExpired, setJustExpired] = useState(false);
+
   useEffect(() => {
     setMounted(true);
+
+    // If already expired on mount, no need for a countdown
+    if (isExpired) return;
+
     const interval = setInterval(() => {
       const remaining = getTimeRemaining(trialEndsAt);
       setTimeLeft(remaining);
 
-      // Force reload when trial expires to trigger lockout
+      // When countdown hits zero during an active session, show expired UI
       if (remaining.total <= 0) {
         clearInterval(interval);
-        window.location.reload();
+        setJustExpired(true);
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [trialEndsAt]);
+  }, [trialEndsAt, isExpired]);
 
   if (!mounted) {
     return null;
   }
 
-  if (isExpired) {
+  if (isExpired || justExpired) {
     return (
       <div className="border-b-2 border-editorial-red bg-editorial-red/10 px-4 py-3">
         <div className="mx-auto flex max-w-[1400px] items-center justify-between">
