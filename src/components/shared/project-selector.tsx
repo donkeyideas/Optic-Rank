@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Globe } from "lucide-react";
 import {
   DropdownMenu,
@@ -25,6 +26,7 @@ interface ProjectSelectorProps {
 
 export function ProjectSelector({ projects }: ProjectSelectorProps) {
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   const active = projects.find((p) => p.is_active) ?? projects[0];
 
@@ -58,7 +60,7 @@ export function ProjectSelector({ projects }: ProjectSelectorProps) {
               if (project.is_active) return;
               startTransition(async () => {
                 await switchProject(project.id);
-                window.location.reload();
+                router.refresh();
               });
             }}
             className={project.is_active ? "font-bold" : ""}

@@ -338,7 +338,7 @@ export async function switchProject(
 
   if (error) return { error: error.message };
 
-  revalidatePath("/dashboard", "layout");
+  revalidatePath("/dashboard");
   return { success: true };
 }
 
