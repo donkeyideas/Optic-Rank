@@ -92,12 +92,12 @@ export function TrialBanner({ trialEndsAt, isExpired }: TrialBannerProps) {
               Upgrade to continue using Optic Rank.
             </span>
           </div>
-          <Link
+          <a
             href="/dashboard/settings?tab=billing"
             className="shrink-0 bg-editorial-red px-4 py-1.5 font-sans text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-editorial-red/90"
           >
             Upgrade Now
-          </Link>
+          </a>
         </div>
       </div>
     );

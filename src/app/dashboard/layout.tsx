@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { headers } from "next/headers";
 import { Masthead } from "@/components/editorial/masthead";
 import { PaperHeader } from "@/components/editorial/paper-header";
@@ -24,18 +23,20 @@ function TrialExpiredLockout() {
         using Optic Rank and access all your data.
       </p>
       <div className="flex gap-3">
-        <Link
+        {/* Use <a> tags (hard navigation) so the server layout re-renders
+            with the new x-pathname header, bypassing the lockout on /settings */}
+        <a
           href="/dashboard/settings?tab=billing"
           className="inline-flex items-center gap-2 bg-editorial-red px-6 py-3 font-sans text-sm font-semibold uppercase tracking-wider text-white transition-colors hover:bg-editorial-red/90"
         >
           Upgrade Now
-        </Link>
-        <Link
+        </a>
+        <a
           href="/pricing"
           className="inline-flex items-center gap-2 border border-rule px-6 py-3 font-sans text-sm font-semibold uppercase tracking-wider text-ink transition-colors hover:bg-surface-card"
         >
           View Plans
-        </Link>
+        </a>
       </div>
     </div>
   );
