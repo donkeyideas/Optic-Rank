@@ -257,7 +257,7 @@ export async function generateTitleVariants(
 
   const descText = (listing.description as string)?.slice(0, 300) ?? "N/A";
 
-  const prompt = `Generate 5 optimized app store titles for this app:
+  const prompt = `Generate 5 optimized app store titles for this app. GOAL: Maximize organic visibility — the title is the #1 ranking factor. Every character must target high-impact keywords.
 
 App: "${listing.app_name}"
 Store: ${listing.store === "apple" ? "Apple App Store" : "Google Play"}
@@ -276,12 +276,13 @@ ${ctx.visibilityContext}
 
 For each title:
 - HARD LIMIT: Each title MUST be ${maxLen} characters or fewer (count every character including spaces, colons, dashes). Any title over ${maxLen} chars is invalid.
+- NEAR-MISS keywords (positions 4-10) get TOP PRIORITY — including them in the title can push them to top 3, giving the biggest visibility boost
 - Include the brand name "${listing.app_name}" or a close variant
-- Prioritize high-volume keywords from the tracked data above
+- Pack remaining space with the highest-volume keywords that fit naturally
 - Differentiate from competitor titles listed above
-- Only reference features/capabilities that appear in the description
+- Score should reflect expected VISIBILITY IMPACT, not just quality
 
-Return ONLY a JSON array: [{"title": "...", "score": 85, "reason": "Includes brand + primary keyword"}, ...]`;
+Return ONLY a JSON array: [{"title": "...", "score": 85, "reason": "Targets near-miss keyword X + high-volume keyword Y"}, ...]`;
 
   const result = await aiChat(prompt, {
     temperature: 0.8,
@@ -342,7 +343,7 @@ export async function generateSubtitleVariant(
   const maxLen = isApple ? 30 : 80;
   const fieldName = isApple ? "Subtitle" : "Short Description";
 
-  const prompt = `Generate an optimized ${fieldName} for this ${isApple ? "Apple App Store" : "Google Play"} listing:
+  const prompt = `Generate an optimized ${fieldName} for this ${isApple ? "Apple App Store" : "Google Play"} listing. GOAL: Maximize organic visibility — the ${fieldName.toLowerCase()} is a key ranking signal.${isApple ? " Apple indexes every word in the subtitle for search." : " Google shows this in search results — it must be keyword-rich AND compelling."}
 
 App: "${listing.app_name}"
 Category: ${listing.category ?? "Unknown"}
@@ -356,11 +357,11 @@ ${ctx.reviewContext ? `\n${ctx.reviewContext}` : ""}
 
 Requirements:
 - MUST be ${maxLen} characters or fewer
-- PRIORITIZE near-miss keywords (positions 4-10) — including them in the subtitle pushes them toward top 3
-- Include the highest-volume keyword from tracked data that fits naturally
+- NEAR-MISS keywords (positions 4-10) get TOP PRIORITY — pushing these to top 3 gives the biggest visibility score jump
+- Fill remaining space with highest-volume keywords not already in the title
 ${ctx.highValueKw.length > 0 ? `- PRIORITIZE these proven keywords: ${ctx.highValueKw.slice(0, 3).join(", ")}` : "- Include the most important keyword for discoverability"}
 ${ctx.praises.length > 0 ? `- Highlight what users love: ${ctx.praises.slice(0, 2).join(", ")}` : ""}
-- Be compelling and descriptive${isApple ? "\n- Apple indexes the subtitle for keyword ranking — make every word count" : "\n- Google Play shows this in search results — make it compelling"}
+- Every word must serve visibility or conversion — no filler words
 
 Return ONLY the optimized ${fieldName} text (no quotes, no explanation).`;
 
@@ -395,7 +396,7 @@ export async function generateDescriptionVariant(
 
   const ctx = await getListingContext(listingId);
 
-  const prompt = `Rewrite this app store description to be fully optimized for ASO:
+  const prompt = `Rewrite this app store description to MAXIMIZE VISIBILITY AND DOWNLOADS.${listing.store === "google" ? " Google Play indexes the FULL description for keyword ranking — every keyword mention matters." : " Apple does NOT index the description for search — this is purely for CONVERSION. Convince users to download."}
 
 App: "${listing.app_name}"
 Store: ${listing.store === "apple" ? "Apple App Store" : "Google Play"}
@@ -415,15 +416,14 @@ ${ctx.praises.length > 0 ? `- HIGHLIGHT what users love: ${ctx.praises.slice(0, 
 ${ctx.complaints.length > 0 ? `- COUNTER common complaints by emphasizing solutions: ${ctx.complaints.slice(0, 3).join(", ")}` : ""}
 
 Requirements:
-- Start with a compelling hook (first 3 lines visible before "Read More")
-- Include ALL high-value tracked keywords naturally throughout (this is critical for ranking)
+- Start with a compelling hook (first 3 lines visible before "Read More") — this is the conversion moment
+- ${listing.store === "google" ? "Repeat high-volume keywords 2-3× naturally across different sections to maximize keyword density for Google Play indexing" : "Focus on benefits, social proof, and clear value props — Apple ranks on title/subtitle/keywords, description sells the download"}
 - Use bullet points (•) or short paragraphs for features
-- Address the top user concerns and feature requests from reviews
+- Address the top user concerns and feature requests from reviews (improves conversion → more downloads)
 - Differentiate from competitors listed above
 - Include a call-to-action at the end
 - MUST be under 4000 characters total (hard limit for both stores)
 - 1000-2000 characters optimal
-- ${listing.store === "google" ? "Google Play indexes the full description for keywords — keyword density matters" : "Apple indexes only title, subtitle, and keyword field — description is for conversion, not keywords"}
 - IMPORTANT: Return PLAIN TEXT only. Do NOT use markdown formatting (no **, no ##, no \`code\`). Use simple bullet characters (•) instead of markdown lists. Do NOT include emoji unicode characters.
 
 Return ONLY the optimized description text in plain text format.`;
@@ -553,7 +553,9 @@ export async function generateFullListingRecommendation(
   const isApple = listing.store === "apple";
   const store = isApple ? "Apple App Store" : "Google Play";
 
-  const prompt = `You are a world-class ASO (App Store Optimization) strategist. Based on ALL the data below, write the IDEAL store listing for this app.
+  const prompt = `You are a world-class ASO strategist. Your PRIMARY OBJECTIVE is to MAXIMIZE ORGANIC VISIBILITY — get this app discovered by the most people and drive downloads.
+
+Visibility Score measures how discoverable the app is across all tracked keywords, weighted by search volume and position. A higher visibility score = more people see the app = more downloads. Every word in this listing must serve that goal.
 
 APP: "${listing.app_name}"
 STORE: ${store}
@@ -576,25 +578,25 @@ LOCALIZATION: ${ctx.localizations.length > 0 ? `${ctx.localizations.length} mark
 
 Now write the COMPLETE optimized store listing. Return ONLY valid JSON in this exact format:
 {
-  "analysis": "2-3 sentences explaining what you found in the data and your strategy",
+  "analysis": "2-3 sentences explaining your visibility strategy — which keywords will move the needle most and why",
   "title": "optimized title (max 30 chars)",
   "subtitle": "${isApple ? "optimized subtitle (max 30 chars)" : "optimized short description (max 80 chars)"}",
   "description": "full optimized description (1000-2000 chars, plain text, use bullet • for lists, NO markdown, NO emoji)",
   "keywords_field": "${isApple ? "comma-separated keywords, no spaces after commas, max 100 chars" : ""}"
 }
 
-CRITICAL RULES:
-- Title MUST be 30 characters or fewer
-- ${isApple ? "Subtitle MUST be 30 characters or fewer" : "Short description MUST be 80 characters or fewer"}
-- Description must be plain text only (no markdown ** ## etc), use • for bullets
-- ${isApple ? "Keywords field max 100 chars, comma-separated, no spaces after commas, exclude app name and category" : "keywords_field should be empty string for Google Play"}
-- PRIORITIZE near-miss keywords (positions 4-10) in title and subtitle — these are closest to top 3 and will most improve visibility
-- INCLUDE unranked high-volume keywords somewhere in the listing — these are missed opportunities
-- Include high-volume tracked keywords naturally throughout
-- Address what users praise and complain about in reviews
-- Differentiate from competitors
-- Start description with a compelling hook (first 3 lines visible before "Read More")
-- End description with a call-to-action`;
+CRITICAL RULES — VISIBILITY-FIRST OPTIMIZATION:
+1. NEAR-MISS KEYWORDS (positions 4-10) go in title and subtitle FIRST — pushing these to top 3 has the highest visibility impact per change
+2. UNRANKED HIGH-VOLUME KEYWORDS must appear in the listing — these are zero-visibility keywords with massive upside
+3. Title MUST be 30 characters or fewer — pack it with the highest-volume keywords that fit
+4. ${isApple ? "Subtitle MUST be 30 characters or fewer — use it for the next-best keywords not in the title" : "Short description MUST be 80 characters or fewer — keyword-rich and compelling"}
+5. Description must be plain text only (no markdown ** ## etc), use • for bullets
+6. ${isApple ? "Keywords field max 100 chars, comma-separated, no spaces after commas, exclude app name and category — fill EVERY character with keywords sorted by search volume × position opportunity" : "keywords_field should be empty string for Google Play"}
+7. ${listing.store === "google" ? "Google Play indexes the FULL description — repeat high-volume keywords 2-3× naturally across different sections" : "Apple only indexes title + subtitle + keyword field for search — description is for CONVERSION (convince users to download)"}
+8. Address what users praise and complain about in reviews — this improves conversion rate (more downloads from the same visibility)
+9. Differentiate from competitors — unique value props make users choose YOUR app
+10. Start description with a compelling hook (first 3 lines visible before "Read More") — this is your conversion moment
+11. End description with a clear call-to-action`;
 
   const result = await aiChat(prompt, {
     temperature: 0.7,
