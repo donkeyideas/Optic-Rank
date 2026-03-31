@@ -810,10 +810,10 @@ export function VisibilityTab({
                     variant="outline"
                     size="sm"
                     onClick={() => handleGetRecommendations(d.listing.id)}
-                    disabled={recsLoading || actionId !== null || isActionRunning}
+                    disabled={isActionRunning}
                   >
-                    {recsLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                    {aiRecs ? "Refresh AI Analysis" : "Enhance with AI"}
+                    {isActionRunning ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                    {aiRecs ? "Regenerate" : "Generate"}
                   </Button>
                 </div>
 

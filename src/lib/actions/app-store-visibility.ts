@@ -185,10 +185,16 @@ Return ONLY a JSON array, no markdown.`;
 
   try {
     const text = result.text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const parsed = JSON.parse(text) as VisibilityRecommendation[];
-    if (!Array.isArray(parsed)) throw new Error("Not an array");
-    return { success: true, recommendations: parsed };
+    const parsed = JSON.parse(text);
+    // Handle both raw array and wrapped object (e.g. { "recommendations": [...] })
+    const arr = Array.isArray(parsed)
+      ? parsed
+      : parsed && typeof parsed === "object"
+        ? (Array.isArray(parsed.recommendations) ? parsed.recommendations : Object.values(parsed).find(Array.isArray))
+        : null;
+    if (!Array.isArray(arr) || arr.length === 0) throw new Error("Not an array");
+    return { success: true, recommendations: arr as VisibilityRecommendation[] };
   } catch {
-    return { error: "Failed to parse AI response." };
+    return { error: "Failed to parse AI response. Please try again." };
   }
 }
