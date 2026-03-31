@@ -10,7 +10,7 @@ import { aiChat } from "@/lib/ai/ai-provider";
  */
 async function getListingContext(listingId: string) {
   const supabase = createAdminClient();
-  const [rankingsRes, competitorsRes, topicsRes, localizationsRes] = await Promise.all([
+  const [rankingsRes, competitorsRes, topicsRes, localizationsRes, listingRes] = await Promise.all([
     supabase
       .from("app_store_rankings")
       .select("keyword, position, search_volume, difficulty")
@@ -33,6 +33,11 @@ async function getListingContext(listingId: string) {
       .eq("listing_id", listingId)
       .order("opportunity_score", { ascending: false })
       .limit(5),
+    supabase
+      .from("app_store_listings")
+      .select("visibility_score, aso_score")
+      .eq("id", listingId)
+      .maybeSingle(),
   ]);
 
   const rankings = (rankingsRes.data ?? []) as Array<{ keyword: string; position: number | null; search_volume: number | null; difficulty: number | null }>;
@@ -74,6 +79,44 @@ async function getListingContext(listingId: string) {
     ? `USER REVIEW INSIGHTS:\n${praises.length > 0 ? `  Praised: ${praises.slice(0, 3).join(", ")}\n` : ""}${featureRequests.length > 0 ? `  Requested: ${featureRequests.slice(0, 3).join(", ")}\n` : ""}${complaints.length > 0 ? `  Complaints: ${complaints.slice(0, 3).join(", ")}` : ""}`
     : "";
 
+  // Build visibility context from scores + ranking data
+  const visScore = listingRes.data?.visibility_score as number | null;
+  const asoScore = listingRes.data?.aso_score as number | null;
+
+  // Compute visibility metrics from rankings
+  const ranked = rankings.filter((r) => r.position != null && r.position > 0);
+  const totalVol = rankings.reduce((s, r) => s + (r.search_volume ?? 0), 0);
+  const capturedVol = rankings.reduce((s, r) => {
+    if (r.position == null || r.position <= 0) return s;
+    const w = r.position <= 3 ? 0.85 : r.position <= 10 ? 0.35 : r.position <= 25 ? 0.15 : 0.05;
+    return s + w * (r.search_volume ?? 0);
+  }, 0);
+  const capturePct = totalVol > 0 ? Math.round((capturedVol / totalVol) * 100) : 0;
+
+  // Near-miss keywords (positions 4-10, high value — best optimization targets)
+  const nearMiss = ranked
+    .filter((r) => r.position! >= 4 && r.position! <= 10 && (r.search_volume ?? 0) > 0)
+    .sort((a, b) => (b.search_volume ?? 0) - (a.search_volume ?? 0))
+    .slice(0, 5);
+
+  // Unranked high-volume keywords (biggest missed opportunities)
+  const unrankedHighVol = rankings
+    .filter((r) => (r.position == null || r.position <= 0) && (r.search_volume ?? 0) > 100)
+    .sort((a, b) => (b.search_volume ?? 0) - (a.search_volume ?? 0))
+    .slice(0, 5);
+
+  const visibilityContext = [
+    `VISIBILITY INTELLIGENCE:`,
+    `  Visibility Score: ${visScore ?? "Not calculated"}/100 | ASO Score: ${asoScore ?? "Not calculated"}/100`,
+    `  Keywords ranked: ${ranked.length}/${rankings.length} | Volume captured: ${capturePct}% (${Math.round(capturedVol).toLocaleString()} of ${totalVol.toLocaleString()})`,
+    nearMiss.length > 0
+      ? `  NEAR-MISS KEYWORDS (positions 4-10 — include these in title/subtitle to push to top 3):\n${nearMiss.map((k) => `    - "${k.keyword}" #${k.position} (${(k.search_volume ?? 0).toLocaleString()} vol)`).join("\n")}`
+      : "",
+    unrankedHighVol.length > 0
+      ? `  UNRANKED HIGH-VOLUME KEYWORDS (not ranking — MUST include in listing):\n${unrankedHighVol.map((k) => `    - "${k.keyword}" (${(k.search_volume ?? 0).toLocaleString()} vol)`).join("\n")}`
+      : "",
+  ].filter(Boolean).join("\n");
+
   return {
     rankings,
     competitors,
@@ -84,6 +127,7 @@ async function getListingContext(listingId: string) {
     weakKw,
     competitorContext,
     reviewContext,
+    visibilityContext,
     featureRequests,
     praises,
     complaints,
@@ -228,6 +272,8 @@ ${ctx.reviewContext ? `\n${ctx.reviewContext}` : ""}
 PRIORITY KEYWORDS to include: ${kwList}
 ${ctx.weakKw.length > 0 ? `OPPORTUNITY KEYWORDS (currently ranked poorly, worth targeting): ${ctx.weakKw.join(", ")}` : ""}
 
+${ctx.visibilityContext}
+
 For each title:
 - HARD LIMIT: Each title MUST be ${maxLen} characters or fewer (count every character including spaces, colons, dashes). Any title over ${maxLen} chars is invalid.
 - Include the brand name "${listing.app_name}" or a close variant
@@ -304,11 +350,13 @@ Description: "${(listing.description as string)?.slice(0, 500) ?? "N/A"}"
 Current ${fieldName}: "${listing.subtitle ?? "none"}"
 
 ${ctx.keywordsContext}
+${ctx.visibilityContext}
 ${ctx.competitorContext ? `\n${ctx.competitorContext}` : ""}
 ${ctx.reviewContext ? `\n${ctx.reviewContext}` : ""}
 
 Requirements:
 - MUST be ${maxLen} characters or fewer
+- PRIORITIZE near-miss keywords (positions 4-10) — including them in the subtitle pushes them toward top 3
 - Include the highest-volume keyword from tracked data that fits naturally
 ${ctx.highValueKw.length > 0 ? `- PRIORITIZE these proven keywords: ${ctx.highValueKw.slice(0, 3).join(", ")}` : "- Include the most important keyword for discoverability"}
 ${ctx.praises.length > 0 ? `- Highlight what users love: ${ctx.praises.slice(0, 2).join(", ")}` : ""}
@@ -355,6 +403,7 @@ Category: ${listing.category ?? "Unknown"}
 Current Description: "${(listing.description as string)?.slice(0, 2000) ?? "No current description"}"
 
 ${ctx.keywordsContext}
+${ctx.visibilityContext}
 ${ctx.competitorContext ? `\n${ctx.competitorContext}` : ""}
 ${ctx.reviewContext ? `\n${ctx.reviewContext}` : ""}
 
@@ -439,6 +488,7 @@ Description: ${(listing.description as string)?.slice(0, 500) ?? "N/A"}
 Current Keywords: "${listing.keywords_field ?? "none"}"
 
 ${ctx.keywordsContext}
+${ctx.visibilityContext}
 ${ctx.competitorContext ? `\n${ctx.competitorContext}` : ""}
 
 KEYWORD PERFORMANCE DATA:
@@ -516,6 +566,8 @@ ${isApple ? `CURRENT KEYWORDS FIELD: "${listing.keywords_field ?? "none"}"` : ""
 
 ${ctx.keywordsContext}
 
+${ctx.visibilityContext}
+
 ${ctx.competitorContext || "NO COMPETITORS TRACKED YET"}
 
 ${ctx.reviewContext || "NO REVIEW DATA YET"}
@@ -536,6 +588,8 @@ CRITICAL RULES:
 - ${isApple ? "Subtitle MUST be 30 characters or fewer" : "Short description MUST be 80 characters or fewer"}
 - Description must be plain text only (no markdown ** ## etc), use • for bullets
 - ${isApple ? "Keywords field max 100 chars, comma-separated, no spaces after commas, exclude app name and category" : "keywords_field should be empty string for Google Play"}
+- PRIORITIZE near-miss keywords (positions 4-10) in title and subtitle — these are closest to top 3 and will most improve visibility
+- INCLUDE unranked high-volume keywords somewhere in the listing — these are missed opportunities
 - Include high-volume tracked keywords naturally throughout
 - Address what users praise and complain about in reviews
 - Differentiate from competitors

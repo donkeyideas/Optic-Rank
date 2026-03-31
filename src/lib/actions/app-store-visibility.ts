@@ -73,19 +73,22 @@ export async function getVisibilityRecommendations(
   const supabase = createAdminClient();
 
   // Fetch listing + rankings
-  const [{ data: listing }, { data: rankings }] = await Promise.all([
+  const [listingRes, rankingsRes] = await Promise.all([
     supabase
       .from("app_store_listings")
-      .select("app_name, store, category, visibility_score, aso_score, description, title")
+      .select("app_name, store, category, visibility_score, aso_score, description")
       .eq("id", listingId)
-      .single(),
+      .maybeSingle(),
     supabase
       .from("app_store_rankings")
       .select("keyword, position, search_volume, difficulty")
       .eq("listing_id", listingId),
   ]);
 
-  if (!listing) return { error: "Listing not found." };
+  const listing = listingRes.data;
+  const rankings = rankingsRes.data;
+
+  if (!listing) return { error: `Listing not found (id: ${listingId.slice(0, 8)}…). ${listingRes.error?.message ?? ""}`.trim() };
   if (!rankings || rankings.length === 0) return { error: "No keywords tracked." };
 
   // Deduplicate by keyword (best position)
