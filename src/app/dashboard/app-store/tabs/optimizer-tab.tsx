@@ -19,6 +19,7 @@ import { ColumnHeader } from "@/components/editorial/column-header";
 import { AppSelectorStrip } from "@/components/app-store/app-selector-strip";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
+import { useActionProgress } from "@/components/shared/action-progress";
 
 import {
   scoreMetadata,
@@ -47,6 +48,7 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
   const [selectedListing, setSelectedListing] = useState<string>(listings[0]?.id ?? "");
   const [, startTransition] = useTransition();
   const [actionId, setActionId] = useState<string | null>(null);
+  const { runAction } = useActionProgress();
 
   const listing = useMemo(() => listings.find((l) => l.id === selectedListing), [listings, selectedListing]);
 
@@ -147,9 +149,21 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
   function handleGenerateFullRecommendation() {
     if (!selectedListing) return;
     setRecLoading(true);
-    startTransition(async () => {
-      const result = await generateFullListingRecommendation(selectedListing);
-      if ("recommendation" in result) setRecommendation(result.recommendation);
+    runAction(
+      {
+        title: "Generating Optimized Listing",
+        description: "AI is analyzing keywords, competitors, and reviews to maximize visibility",
+        steps: [
+          "Analyzing keyword rankings & visibility data",
+          "Evaluating competitor landscape",
+          "Processing user reviews & sentiment",
+          "Generating visibility-optimized listing",
+        ],
+        estimatedDuration: 25,
+      },
+      () => generateFullListingRecommendation(selectedListing)
+    ).then((result) => {
+      if (result && "recommendation" in result) setRecommendation(result.recommendation);
       setRecLoading(false);
     });
   }
@@ -169,9 +183,11 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
     if (!selectedListing) return;
     setActionId("titles");
     const keywords = keywordsField.split(",").map((k) => k.trim()).filter(Boolean);
-    startTransition(async () => {
-      const result = await generateTitleVariants(selectedListing, keywords);
-      if ("variants" in result) setTitleVariants(result.variants);
+    runAction(
+      { title: "Generating Title Variants", description: "AI is crafting visibility-optimized titles", estimatedDuration: 15 },
+      () => generateTitleVariants(selectedListing, keywords)
+    ).then((result) => {
+      if (result && "variants" in result) setTitleVariants(result.variants);
       setActionId(null);
     });
   }
@@ -179,9 +195,11 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
   function handleGenerateSubtitle() {
     if (!selectedListing) return;
     setActionId("subtitle");
-    startTransition(async () => {
-      const result = await generateSubtitleVariant(selectedListing);
-      if ("subtitle" in result) setGeneratedSubtitle(result.subtitle);
+    runAction(
+      { title: "Generating Subtitle", description: "AI is optimizing subtitle for keyword ranking", estimatedDuration: 12 },
+      () => generateSubtitleVariant(selectedListing)
+    ).then((result) => {
+      if (result && "subtitle" in result) setGeneratedSubtitle(result.subtitle);
       setActionId(null);
     });
   }
@@ -189,9 +207,11 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
   function handleGenerateDescription() {
     if (!selectedListing) return;
     setActionId("desc");
-    startTransition(async () => {
-      const result = await generateDescriptionVariant(selectedListing);
-      if ("description" in result) setGeneratedDesc(result.description);
+    runAction(
+      { title: "Generating Description", description: "AI is writing a visibility-optimized description", estimatedDuration: 20 },
+      () => generateDescriptionVariant(selectedListing)
+    ).then((result) => {
+      if (result && "description" in result) setGeneratedDesc(result.description);
       setActionId(null);
     });
   }
@@ -199,9 +219,11 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
   function handleGenerateKeywords() {
     if (!selectedListing) return;
     setActionId("kw");
-    startTransition(async () => {
-      const result = await generateKeywordField(selectedListing);
-      if ("keywords" in result) setGeneratedKeywords(result.keywords);
+    runAction(
+      { title: "Generating Keywords", description: "AI is selecting highest-impact keywords for visibility", estimatedDuration: 12 },
+      () => generateKeywordField(selectedListing)
+    ).then((result) => {
+      if (result && "keywords" in result) setGeneratedKeywords(result.keywords);
       setActionId(null);
     });
   }
@@ -228,7 +250,7 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
           <div>
             <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">AI Store Listing Optimizer</span>
             <p className="mt-0.5 text-[11px] text-ink-secondary">
-              AI analyzes your keywords, competitors, reviews, and locale data to write the ideal store listing.
+              AI analyzes your keywords, competitors, reviews, and locale data to maximize organic visibility and downloads.
             </p>
           </div>
           <Button variant="primary" size="md" onClick={handleGenerateFullRecommendation} disabled={recLoading}>
