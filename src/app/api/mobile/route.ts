@@ -37,7 +37,7 @@ import { analyzeSocialProfile, addSocialCompetitor, removeSocialCompetitor, disc
 
 type ActionResult =
   | { error: string }
-  | { success: true; [key: string]: unknown };
+  | { [key: string]: unknown };
 
 /**
  * Universal mobile API endpoint.
