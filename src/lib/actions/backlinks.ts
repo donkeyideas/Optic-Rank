@@ -506,3 +506,117 @@ export async function addBacklinkFromUrl(
     };
   }
 }
+
+// ─── Broken Link Building Opportunities ─────────────────────────────────────
+
+/**
+ * Discover broken link building opportunities using AI analysis.
+ * Identifies potential broken links on competitor sites that you could
+ * offer your content as a replacement for.
+ */
+export async function discoverBrokenLinkOpportunities(
+  projectId: string
+): Promise<
+  | { error: string }
+  | {
+      success: true;
+      opportunities: Array<{
+        sourceDomain: string;
+        brokenUrl: string;
+        suggestedReplacement: string;
+        relevanceScore: number;
+        outreachTemplate: string;
+      }>;
+    }
+> {
+  const userClient = await createClient();
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
+  const supabase = createAdminClient();
+
+  try {
+    // Fetch competitors for the project
+    const { data: competitors } = await supabase
+      .from("competitors")
+      .select("id, name, domain")
+      .eq("project_id", projectId);
+
+    if (!competitors || competitors.length === 0) {
+      return { error: "No competitors tracked. Add competitors first." };
+    }
+
+    // Fetch your existing backlinks to understand your content topics
+    const { data: backlinks } = await supabase
+      .from("backlinks")
+      .select("target_url, anchor_text, source_domain")
+      .eq("project_id", projectId)
+      .limit(30);
+
+    // Get project domain for context
+    const { data: project } = await supabase
+      .from("projects")
+      .select("domain, name")
+      .eq("id", projectId)
+      .single();
+
+    if (!project?.domain) return { error: "Project has no domain configured." };
+
+    const competitorList = competitors
+      .map((c) => `- ${c.name} (${c.domain})`)
+      .join("\n");
+
+    const existingBacklinks = (backlinks ?? [])
+      .map((b) => `- ${b.target_url} (anchor: "${b.anchor_text ?? "none"}", from: ${b.source_domain})`)
+      .join("\n");
+
+    const prompt = `You are a link building strategist specializing in broken link building. Analyze the following data and identify broken link building opportunities.
+
+**Your domain:** ${project.domain} (${project.name})
+
+**Competitors:**
+${competitorList}
+
+**Your existing backlinks (to understand your content topics):**
+${existingBacklinks || "No backlinks tracked yet."}
+
+Identify 8-12 potential broken link building opportunities. For each opportunity:
+- sourceDomain: A domain that likely has broken outbound links (could be competitor sites, industry blogs, resource pages, etc.)
+- brokenUrl: A plausible broken URL on that domain (a page that may have been removed, restructured, or is commonly 404)
+- suggestedReplacement: A URL path on "${project.domain}" that could serve as a replacement, or a content piece you should create
+- relevanceScore: How relevant this opportunity is (0-100)
+- outreachTemplate: A brief, personalized outreach email template (2-3 sentences) to contact the site owner
+
+Focus on:
+1. Competitor domains that likely have pages that get removed or restructured
+2. Industry resource pages that commonly link to outdated content
+3. Common broken link patterns in the niche (tools shutting down, blogs being abandoned, etc.)
+
+Return ONLY valid JSON in this format:
+{
+  "opportunities": [...]
+}`;
+
+    const result = await aiChat(prompt, {
+      jsonMode: true,
+      maxTokens: 3000,
+      temperature: 0.5,
+      context: { feature: "broken-link-building" },
+    });
+
+    if (!result?.text) return { error: "AI analysis returned no results." };
+
+    const parsed = JSON.parse(result.text);
+
+    revalidatePath("/dashboard/backlinks");
+    return {
+      success: true,
+      opportunities: parsed.opportunities ?? [],
+    };
+  } catch (err) {
+    console.error("[discoverBrokenLinkOpportunities] Error:", err);
+    return {
+      error: err instanceof Error ? err.message : "Failed to discover broken link opportunities.",
+    };
+  }
+}

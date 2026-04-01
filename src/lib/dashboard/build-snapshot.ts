@@ -53,10 +53,12 @@ export interface DashboardData {
     ai_visibility_count: string | null;
   }[];
   chartKeywords: {
+    id: string;
     keyword: string;
     position: number;
     volume: number;
     estTraffic: number;
+    difficulty: number | null;
   }[];
   insights: AIInsight[];
   competitorsList: {
@@ -189,7 +191,7 @@ export async function buildDashboardData(
     // Traffic keywords
     supabase
       .from("keywords")
-      .select("keyword, current_position, search_volume")
+      .select("id, keyword, current_position, search_volume, difficulty")
       .eq("project_id", projectId)
       .eq("is_active", true)
       .not("current_position", "is", null)
@@ -452,11 +454,11 @@ export async function buildDashboardData(
   ];
 
   // Chart keywords
-  const chartKeywords = trafficKws.map((kw: { keyword: string; current_position: number; search_volume: number }) => {
+  const chartKeywords = trafficKws.map((kw: { id: string; keyword: string; current_position: number; search_volume: number; difficulty: number | null }) => {
     const pos = kw.current_position;
     const vol = kw.search_volume;
     const ctr = pos <= 10 ? (CTR_CURVE[pos] ?? 0.01) : 0.005;
-    return { keyword: kw.keyword, position: pos, volume: vol, estTraffic: Math.round(vol * ctr) };
+    return { id: kw.id, keyword: kw.keyword, position: pos, volume: vol, estTraffic: Math.round(vol * ctr), difficulty: kw.difficulty ?? null };
   });
 
   // App review sentiment

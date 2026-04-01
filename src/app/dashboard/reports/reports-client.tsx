@@ -16,6 +16,10 @@ import {
   CheckSquare,
   Square,
   Eye,
+  BarChart3,
+  Database,
+  ExternalLink,
+  Link2,
 } from "lucide-react";
 import { ColumnHeader } from "@/components/editorial/column-header";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -214,6 +218,10 @@ export function ReportsClient({
           <TabsTrigger value="scheduled">
             <Clock size={12} className="mr-1.5" />
             Scheduled
+          </TabsTrigger>
+          <TabsTrigger value="integrations">
+            <BarChart3 size={12} className="mr-1.5" />
+            Integrations
           </TabsTrigger>
         </TabsList>
 
@@ -441,6 +449,94 @@ export function ReportsClient({
               </div>
             </>
           )}
+        </TabsContent>
+
+        {/* Integrations Tab */}
+        <TabsContent value="integrations">
+          <div className="flex flex-col gap-6">
+            <ColumnHeader
+              title="BI & Data Integrations"
+              subtitle="Connect your SEO data with external analytics and reporting tools."
+            />
+
+            {/* Looker Studio */}
+            <div className="border border-rule bg-surface-card p-6">
+              <div className="flex items-start gap-5">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center bg-ink">
+                  <BarChart3 size={24} className="text-surface-cream" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-serif text-lg font-bold text-ink">Google Looker Studio</h3>
+                    <span className="inline-flex items-center border border-editorial-gold/30 bg-editorial-gold/5 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-editorial-gold">Coming Soon</span>
+                  </div>
+                  <p className="mt-1 text-[13px] text-ink-secondary leading-relaxed">
+                    Connect Optic Rank data directly to Google Looker Studio for custom dashboards and visualizations. Build client-facing reports that auto-update with your SEO data.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {["Keyword Rankings", "Backlink Metrics", "Site Audit Scores", "Traffic Data", "Competitor Analysis"].map((item) => (
+                      <span key={item} className="border border-rule bg-surface-raised px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-ink-muted">{item}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* API / Webhook */}
+            <div className="border border-rule bg-surface-card p-6">
+              <div className="flex items-start gap-5">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center bg-ink">
+                  <Database size={24} className="text-surface-cream" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-serif text-lg font-bold text-ink">REST API</h3>
+                  <p className="mt-1 text-[13px] text-ink-secondary leading-relaxed">
+                    Access your SEO data programmatically via the Optic Rank API. Build custom integrations, automate workflows, or pipe data into your own BI tools like Tableau, Power BI, or custom dashboards.
+                  </p>
+                  <div className="mt-3 border border-rule bg-surface-raised p-4">
+                    <h4 className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted mb-2">Available Endpoints</h4>
+                    <div className="grid gap-1.5 sm:grid-cols-2">
+                      {[
+                        "GET /api/v1/keywords — Keyword rankings & metrics",
+                        "GET /api/v1/backlinks — Backlink profile data",
+                        "GET /api/v1/audits — Site audit results & issues",
+                        "GET /api/v1/competitors — Competitor metrics",
+                        "GET /api/v1/analytics — Traffic & engagement data",
+                        "GET /api/v1/reports — Generated report data",
+                      ].map((endpoint) => (
+                        <div key={endpoint} className="flex items-start gap-2">
+                          <Link2 size={10} className="mt-1 shrink-0 text-editorial-green" />
+                          <span className="font-mono text-[11px] text-ink">{endpoint}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="mt-3 text-[12px] text-ink-muted">
+                    Generate your API key in Settings &rarr; API Keys to get started.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Other Integrations */}
+            <div className="grid gap-4 md:grid-cols-3">
+              {[
+                { name: "Zapier", desc: "Automate workflows between Optic Rank and 5,000+ apps.", status: "Planned" },
+                { name: "Slack", desc: "Get real-time SEO alerts and reports in your Slack channels.", status: "Available" },
+                { name: "Google Sheets", desc: "Export and sync SEO data directly to Google Sheets.", status: "Planned" },
+              ].map((integration) => (
+                <div key={integration.name} className="border border-rule bg-surface-raised p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-[11px] font-bold uppercase tracking-[0.1em] text-ink">{integration.name}</h4>
+                    <span className={`text-[9px] font-bold uppercase tracking-[0.1em] ${integration.status === "Available" ? "text-editorial-green" : "text-editorial-gold"}`}>
+                      {integration.status}
+                    </span>
+                  </div>
+                  <p className="text-[12px] leading-relaxed text-ink-muted">{integration.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
 

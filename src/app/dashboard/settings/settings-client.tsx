@@ -424,6 +424,10 @@ export function SettingsClient({
             <Bell size={12} className="mr-1.5" />
             Notifications
           </TabsTrigger>
+          <TabsTrigger value="extension">
+            <Globe size={14} className="mr-1.5" />
+            Extension
+          </TabsTrigger>
         </TabsList>
 
         {/* ============================================================
@@ -1114,6 +1118,86 @@ export function SettingsClient({
             ============================================================ */}
         <TabsContent value="notifications">
           <NotificationsTab profile={profile} />
+        </TabsContent>
+
+        {/* ============================================================
+            TAB: Browser Extension
+            ============================================================ */}
+        <TabsContent value="extension">
+          <div className="flex flex-col gap-6">
+            <div>
+              <h2 className="font-serif text-xl font-bold text-ink">Browser Extension</h2>
+              <p className="mt-1 text-[12px] text-ink-muted">On-page SEO checker that works on any webpage as you browse.</p>
+            </div>
+
+            {/* Extension Card */}
+            <div className="border border-rule bg-surface-card p-6">
+              <div className="flex items-start gap-6">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center bg-ink">
+                  <Globe size={32} className="text-surface-cream" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-serif text-lg font-bold text-ink">Optic Rank SEO Toolbar</h3>
+                  <p className="mt-1 text-[13px] text-ink-secondary leading-relaxed">
+                    Instantly analyze any webpage&apos;s SEO metrics, check broken links, trace redirects, and view on-page optimization scores — all from your browser toolbar.
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <span className="inline-flex items-center gap-1.5 border border-rule bg-surface-raised px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.1em] text-ink-muted">
+                      Chrome &amp; Edge
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 border border-rule bg-surface-raised px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.1em] text-ink-muted">
+                      Firefox
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 border border-editorial-gold/30 bg-editorial-gold/5 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.1em] text-editorial-gold">
+                      Coming Soon
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Features */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {[
+                { title: "On-Page Analysis", desc: "Title tags, meta descriptions, headings, image alt text, canonical URLs, and structured data — checked instantly." },
+                { title: "Broken Link Checker", desc: "Scan the current page for broken internal and external links with one click." },
+                { title: "Redirect Tracer", desc: "Visualize the full redirect chain for any URL, including status codes and hop count." },
+                { title: "SERP Preview", desc: "See exactly how your page appears in Google search results before publishing." },
+                { title: "Core Web Vitals", desc: "Real-time performance metrics including LCP, CLS, and FID for the current page." },
+                { title: "Competitor Quick-Check", desc: "View any competitor page&apos;s authority score, backlinks, and keyword estimates." },
+              ].map((feature) => (
+                <div key={feature.title} className="border border-rule bg-surface-raised p-4">
+                  <h4 className="text-[11px] font-bold uppercase tracking-[0.1em] text-ink">{feature.title}</h4>
+                  <p className="mt-1.5 text-[12px] leading-relaxed text-ink-muted">{feature.desc}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Setup Instructions */}
+            <div className="border border-rule bg-surface-card p-5">
+              <h3 className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted mb-4">How It Will Work</h3>
+              <ol className="flex flex-col gap-3">
+                {[
+                  "Install the extension from the Chrome Web Store or Firefox Add-ons.",
+                  "Sign in with your Optic Rank account to sync your projects and data.",
+                  "Navigate to any webpage and click the Optic Rank icon in your toolbar.",
+                  "View instant SEO analysis, on-page issues, and competitive data.",
+                  "Export findings directly to your Optic Rank dashboard.",
+                ].map((step, i) => (
+                  <li key={i} className="flex items-start gap-3">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center bg-ink text-[10px] font-bold text-surface-cream">{i + 1}</span>
+                    <span className="text-[13px] text-ink">{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            {/* Notify Me */}
+            <div className="border border-editorial-gold/30 bg-editorial-gold/5 p-5 text-center">
+              <p className="text-[13px] font-bold text-editorial-gold">The browser extension is currently in development.</p>
+              <p className="mt-1 text-[12px] text-ink-muted">We&apos;ll notify you when it&apos;s available for download.</p>
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
 

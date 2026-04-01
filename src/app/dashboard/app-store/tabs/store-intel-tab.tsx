@@ -136,6 +136,12 @@ export function StoreIntelTab({ listings }: StoreIntelTabProps) {
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="border-b border-rule pb-4">
+        <h2 className="font-serif text-xl font-bold text-ink">Store Intelligence</h2>
+        <p className="mt-1 max-w-2xl font-sans text-[13px] text-ink-secondary">
+          Category leaderboards, keyword opportunities, and AI-driven trend analysis for your app&apos;s market.
+        </p>
+      </div>
       <AppSelectorStrip listings={listings} selected={selectedListing} onSelect={setSelectedListing} />
 
       {/* Actions */}

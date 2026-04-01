@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { StickyNote, X, Plus, Trash2, Check, Copy, GripVertical } from "lucide-react";
+import { StickyNote, X, Plus, Trash2, Check, Copy, Cloud, CloudOff } from "lucide-react";
+import { loadUserNotes, saveUserNotes } from "@/lib/actions/notes";
 
 /* ------------------------------------------------------------------
    Types
@@ -19,8 +20,9 @@ interface NotepadData {
 }
 
 const STORAGE_KEY = "opticrank-notepad";
+const SAVE_DEBOUNCE_MS = 1500;
 
-function loadNotepad(): NotepadData {
+function loadLocal(): NotepadData {
   if (typeof window === "undefined") return { notes: "", checklist: [] };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -29,7 +31,7 @@ function loadNotepad(): NotepadData {
   return { notes: "", checklist: [] };
 }
 
-function saveNotepad(data: NotepadData) {
+function saveLocal(data: NotepadData) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch { /* ignore */ }
@@ -46,18 +48,63 @@ export function Notepad() {
   const [checklist, setChecklist] = useState<NoteItem[]>([]);
   const [newItem, setNewItem] = useState("");
   const [copied, setCopied] = useState(false);
+  const [synced, setSynced] = useState<boolean | null>(null); // null=loading, true=synced, false=error
   const inputRef = useRef<HTMLInputElement>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initialized = useRef(false);
 
-  // Load from localStorage on mount
+  // Load from DB on mount, fall back to localStorage
   useEffect(() => {
-    const data = loadNotepad();
-    setNotes(data.notes);
-    setChecklist(data.checklist);
+    let cancelled = false;
+    (async () => {
+      // Show localStorage data immediately for fast UX
+      const local = loadLocal();
+      if (!initialized.current) {
+        setNotes(local.notes);
+        setChecklist(local.checklist);
+      }
+
+      // Then fetch from DB — DB is the source of truth
+      try {
+        const remote = await loadUserNotes();
+        if (cancelled) return;
+        const hasRemoteData = remote.notes !== "" || remote.checklist.length > 0;
+        if (hasRemoteData) {
+          setNotes(remote.notes);
+          setChecklist(remote.checklist);
+          saveLocal(remote); // update local cache
+        } else if (local.notes || local.checklist.length > 0) {
+          // First time: push existing local notes to DB
+          await saveUserNotes(local);
+        }
+        setSynced(true);
+      } catch {
+        setSynced(false); // offline — local-only mode
+      }
+      initialized.current = true;
+    })();
+    return () => { cancelled = true; };
   }, []);
 
-  // Auto-save on changes
+  // Debounced save to DB + immediate save to localStorage
   useEffect(() => {
-    saveNotepad({ notes, checklist });
+    if (!initialized.current) return;
+    const data: NotepadData = { notes, checklist };
+    saveLocal(data);
+
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      try {
+        const result = await saveUserNotes(data);
+        setSynced(!result.error);
+      } catch {
+        setSynced(false);
+      }
+    }, SAVE_DEBOUNCE_MS);
+
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
   }, [notes, checklist]);
 
   const addChecklistItem = useCallback(() => {
@@ -118,9 +165,17 @@ export function Notepad() {
         <div className="fixed bottom-20 right-6 z-50 flex w-[360px] max-h-[520px] flex-col border border-rule bg-surface-card shadow-2xl">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-rule bg-ink px-4 py-2.5">
-            <span className="font-sans text-[11px] font-bold uppercase tracking-[0.15em] text-surface-cream">
-              Notepad
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="font-sans text-[11px] font-bold uppercase tracking-[0.15em] text-surface-cream">
+                Notepad
+              </span>
+              {synced === true && (
+                <span title="Synced across devices"><Cloud size={11} className="text-editorial-green" /></span>
+              )}
+              {synced === false && (
+                <span title="Local only — sync failed"><CloudOff size={11} className="text-editorial-red" /></span>
+              )}
+            </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={copyAll}

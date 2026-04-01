@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useMemo, useCallback } from "react";
+
 import {
   Users,
   Globe,
@@ -18,6 +19,10 @@ import {
   Eye,
   Zap,
   TrendingUp,
+  Search,
+  DollarSign,
+  FileText,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -46,7 +51,7 @@ import type { Recommendation, StrategyContent } from "@/components/shared/page-g
 import { EmptyState } from "@/components/shared/empty-state";
 import { SortableHeader } from "@/components/editorial/sortable-header";
 import { useTableSort } from "@/hooks/use-table-sort";
-import { addCompetitor, removeCompetitor, generateCompetitorsAI } from "@/lib/actions/competitors";
+import { addCompetitor, removeCompetitor, generateCompetitorsAI, analyzeCompetitorPages, analyzeCompetitorPPC } from "@/lib/actions/competitors";
 import { useActionProgress } from "@/components/shared/action-progress";
 import type { Competitor, ComparisonTimeRange } from "@/types";
 import { PeriodComparisonBar } from "@/components/editorial/period-comparison-bar";
@@ -91,6 +96,55 @@ export function CompetitorsClient({
   const [competitorError, setCompetitorError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const { runAction, isRunning: isActionRunning } = useActionProgress();
+  const [selectedCompetitorId, setSelectedCompetitorId] = useState<string | null>(null);
+  const [siteExplorerData, setSiteExplorerData] = useState<{
+    topPages: Array<{ urlPath: string; estimatedTraffic: number; topKeyword: string; title: string }>;
+    topKeywords: Array<{ keyword: string; estimatedPosition: number; volume: number; difficulty: number }>;
+    summary: string;
+  } | null>(null);
+  const [siteExplorerLoading, setSiteExplorerLoading] = useState(false);
+  const [ppcData, setPpcData] = useState<{
+    competitors: Array<{ name: string; domain: string; estimatedMonthlySpend: string; topPaidKeywords: Array<{ keyword: string; estimatedCPC: number }>; adCopyThemes: string[] }>;
+    overallInsights: string;
+  } | null>(null);
+  const [ppcLoading, setPpcLoading] = useState(false);
+  const [ppcError, setPpcError] = useState<string | null>(null);
+
+  async function handleAnalyzeCompetitor(competitorId: string) {
+    setSelectedCompetitorId(competitorId);
+    setSiteExplorerLoading(true);
+    setSiteExplorerData(null);
+    try {
+      const result = await analyzeCompetitorPages(projectId, competitorId);
+      if ("error" in result) {
+        setSiteExplorerData(null);
+      } else {
+        setSiteExplorerData(result as unknown as NonNullable<typeof siteExplorerData>);
+      }
+    } catch {
+      setSiteExplorerData(null);
+    }
+    setSiteExplorerLoading(false);
+  }
+
+  async function handleAnalyzePPC() {
+    setPpcLoading(true);
+    setPpcData(null);
+    setPpcError(null);
+    try {
+      const result = await analyzeCompetitorPPC(projectId);
+      if ("error" in result) {
+        setPpcError(result.error);
+        setPpcData(null);
+      } else {
+        setPpcData(result as typeof ppcData);
+      }
+    } catch (err) {
+      setPpcError(err instanceof Error ? err.message : "PPC analysis failed unexpectedly.");
+      setPpcData(null);
+    }
+    setPpcLoading(false);
+  }
 
   function handleAddCompetitor(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -199,12 +253,52 @@ export function CompetitorsClient({
       onClick={() => {
         runAction(
           {
-            title: "Discovering Competitors",
-            description: "Analyzing your niche and finding competitors...",
-            steps: ["Fetching website data", "Analyzing business context", "Identifying industry niche", "Finding direct competitors", "Enriching competitor metrics"],
-            estimatedDuration: 25,
+            title: "Full Competitive Analysis",
+            description: "Discovering competitors, analyzing pages, and estimating PPC strategy...",
+            steps: [
+              "Fetching website data",
+              "Analyzing business context",
+              "Finding direct competitors",
+              "Enriching competitor metrics",
+              "Analyzing top competitor pages",
+              "Estimating PPC landscape",
+            ],
+            estimatedDuration: 90,
           },
-          () => generateCompetitorsAI(projectId)
+          async () => {
+            const completed: string[] = [];
+
+            // Step 1: Discover competitors
+            const discoverResult = await generateCompetitorsAI(projectId);
+            if ("error" in discoverResult) {
+              // If discovery fails but we already have competitors, continue with analysis
+              if (competitors.length === 0) {
+                return { error: discoverResult.error };
+              }
+            } else {
+              completed.push(`Discovered ${discoverResult.added} competitors`);
+            }
+
+            // Step 2: Site Explorer on first competitor
+            const firstCompetitor = competitors[0];
+            if (firstCompetitor) {
+              const seResult = await analyzeCompetitorPages(projectId, firstCompetitor.id);
+              if (!("error" in seResult)) {
+                setSelectedCompetitorId(firstCompetitor.id);
+                setSiteExplorerData(seResult as unknown as NonNullable<typeof siteExplorerData>);
+                completed.push("Site explorer analysis complete");
+              }
+            }
+
+            // Step 3: PPC Intelligence
+            const ppcResult = await analyzeCompetitorPPC(projectId);
+            if (!("error" in ppcResult)) {
+              setPpcData(ppcResult as unknown as NonNullable<typeof ppcData>);
+              completed.push("PPC intelligence analysis complete");
+            }
+
+            return { message: completed.length > 0 ? completed.join(". ") : "Competitive analysis complete" };
+          }
         );
       }}
     >
@@ -465,12 +559,20 @@ export function CompetitorsClient({
       <Tabs defaultValue="dashboard">
         <TabsList>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+          <TabsTrigger value="site-explorer">Site Explorer</TabsTrigger>
+          <TabsTrigger value="ppc-intel">PPC Intel</TabsTrigger>
           <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
           <TabsTrigger value="strategy">Strategy Guide</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard">
           <div className="flex flex-col gap-6">
+            <div className="border-b border-rule pb-4">
+              <h2 className="font-serif text-xl font-bold text-ink">Competitor Dashboard</h2>
+              <p className="mt-1 max-w-2xl font-sans text-[13px] text-ink-secondary">
+                Side-by-side comparison of domain authority, traffic, and keyword rankings across all tracked competitors. Identify strengths, weaknesses, and opportunities.
+              </p>
+            </div>
             {/* Competitor Comparison Table */}
             <Card>
               <CardHeader>
@@ -660,6 +762,222 @@ export function CompetitorsClient({
                 </div>
               </CardContent>
             </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="site-explorer">
+          <div className="flex flex-col gap-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-serif text-xl font-bold text-ink">Site Explorer</h2>
+                <p className="mt-1 text-[12px] text-ink-muted">Deep-dive into competitor pages, keywords, and content strategy.</p>
+              </div>
+            </div>
+
+            {/* Competitor selector */}
+            <div className="flex flex-wrap gap-2">
+              {competitors.map((comp) => (
+                <button
+                  key={comp.id}
+                  onClick={() => handleAnalyzeCompetitor(comp.id)}
+                  disabled={siteExplorerLoading}
+                  className={`border px-4 py-2 font-sans text-[11px] font-bold uppercase tracking-[0.1em] transition-colors ${
+                    selectedCompetitorId === comp.id
+                      ? "border-editorial-red bg-editorial-red text-white"
+                      : "border-rule bg-surface-card text-ink hover:border-ink"
+                  } disabled:opacity-50`}
+                >
+                  {comp.name}
+                </button>
+              ))}
+            </div>
+
+            {siteExplorerLoading && (
+              <div className="flex h-48 items-center justify-center border border-dashed border-rule bg-surface-raised">
+                <div className="flex items-center gap-3 text-ink-muted">
+                  <Loader2 size={20} className="animate-spin" />
+                  <span className="text-[11px] font-bold uppercase tracking-[0.15em]">Analyzing competitor domain...</span>
+                </div>
+              </div>
+            )}
+
+            {siteExplorerData && !siteExplorerLoading && (
+              <div className="flex flex-col gap-6">
+                {/* Summary */}
+                <div className="border border-rule bg-surface-raised p-5">
+                  <h3 className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">Content Strategy Summary</h3>
+                  <p className="mt-2 text-[13px] leading-relaxed text-ink">{siteExplorerData.summary}</p>
+                </div>
+
+                {/* Top Pages */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Top Pages</CardTitle>
+                    <CardDescription>Estimated highest-traffic pages on this competitor&apos;s domain.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">Page</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted text-right">Est. Traffic</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">Top Keyword</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {siteExplorerData.topPages.map((page, i) => (
+                          <TableRow key={i}>
+                            <TableCell>
+                              <div>
+                                <p className="text-[13px] font-bold text-ink">{page.title}</p>
+                                <p className="text-[11px] text-ink-muted">{page.urlPath}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-[13px] text-ink">{formatTraffic(page.estimatedTraffic)}</TableCell>
+                            <TableCell><Badge variant="muted">{page.topKeyword}</Badge></TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+
+                {/* Top Keywords */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Top Keywords</CardTitle>
+                    <CardDescription>Keywords this competitor likely ranks for.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">Keyword</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted text-right">Position</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted text-right">Volume</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted text-right">Difficulty</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {siteExplorerData.topKeywords.map((kw, i) => (
+                          <TableRow key={i}>
+                            <TableCell className="font-mono text-[13px] text-ink">{kw.keyword}</TableCell>
+                            <TableCell className="text-right font-mono text-[13px] text-ink">#{kw.estimatedPosition}</TableCell>
+                            <TableCell className="text-right font-mono text-[13px] text-ink">{formatNumber(kw.volume)}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <Progress value={kw.difficulty} className="w-16" color={kw.difficulty < 40 ? "green" : kw.difficulty < 70 ? "gold" : "red"} />
+                                <span className="font-mono text-[13px] text-ink">{kw.difficulty}</span>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {!siteExplorerData && !siteExplorerLoading && (
+              <div className="flex h-48 items-center justify-center border border-dashed border-rule bg-surface-raised">
+                <div className="text-center">
+                  <Search className="mx-auto mb-2 h-8 w-8 text-ink-muted" />
+                  <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-ink-muted">Select a competitor above to explore</p>
+                  <p className="mt-1 text-[11px] text-ink-muted">Analyze their top pages, keywords, and content strategy.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="ppc-intel">
+          <div className="flex flex-col gap-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-serif text-xl font-bold text-ink">PPC Intelligence</h2>
+                <p className="mt-1 text-[12px] text-ink-muted">Estimated paid search strategy across your competitive landscape.</p>
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleAnalyzePPC}
+                disabled={ppcLoading || competitors.length === 0}
+              >
+                {ppcLoading ? <Loader2 size={14} className="animate-spin mr-1.5" /> : <DollarSign size={14} className="mr-1.5" />}
+                {ppcLoading ? "Analyzing..." : "Analyze PPC"}
+              </Button>
+            </div>
+
+            {ppcLoading && (
+              <div className="flex h-48 items-center justify-center border border-dashed border-rule bg-surface-raised">
+                <div className="flex items-center gap-3 text-ink-muted">
+                  <Loader2 size={20} className="animate-spin" />
+                  <span className="text-[11px] font-bold uppercase tracking-[0.15em]">Analyzing paid search landscape...</span>
+                </div>
+              </div>
+            )}
+
+            {ppcData && !ppcLoading && (
+              <div className="flex flex-col gap-6">
+                {/* Overall Insights */}
+                <div className="border border-rule bg-surface-raised p-5">
+                  <h3 className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">PPC Landscape Overview</h3>
+                  <p className="mt-2 text-[13px] leading-relaxed text-ink">{ppcData.overallInsights}</p>
+                </div>
+
+                {/* Per-competitor PPC cards */}
+                <div className="grid gap-4 md:grid-cols-2">
+                  {ppcData.competitors.map((comp, i) => (
+                    <Card key={i}>
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-base">{comp.name}</CardTitle>
+                          <Badge variant="info">{comp.estimatedMonthlySpend}</Badge>
+                        </div>
+                        <CardDescription>{comp.domain}</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex flex-col gap-4">
+                          <div>
+                            <h4 className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted mb-2">Top Paid Keywords</h4>
+                            <div className="flex flex-col gap-1.5">
+                              {comp.topPaidKeywords.map((kw, j) => (
+                                <div key={j} className="flex items-center justify-between border-b border-rule/50 pb-1.5">
+                                  <span className="font-mono text-[12px] text-ink">{kw.keyword}</span>
+                                  <span className="font-mono text-[12px] text-editorial-green">${kw.estimatedCPC.toFixed(2)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <h4 className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted mb-2">Ad Copy Themes</h4>
+                            <div className="flex flex-wrap gap-1.5">
+                              {comp.adCopyThemes.map((theme, j) => (
+                                <Badge key={j} variant="muted">{theme}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!ppcData && !ppcLoading && (
+              <div className="flex h-48 items-center justify-center border border-dashed border-rule bg-surface-raised">
+                <div className="text-center">
+                  <DollarSign className="mx-auto mb-2 h-8 w-8 text-ink-muted" />
+                  <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-ink-muted">No PPC analysis yet</p>
+                  <p className="mt-1 text-[11px] text-ink-muted">Click &quot;Analyze PPC&quot; to estimate competitor paid search strategies.</p>
+                  {ppcError && (
+                    <p className="mt-2 text-[11px] text-editorial-red">{ppcError}</p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </TabsContent>
 

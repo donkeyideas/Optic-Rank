@@ -804,3 +804,118 @@ Return ONLY a JSON array of objects.`,
   revalidatePath("/dashboard/content");
   return { success: true, generated };
 }
+
+// ─── Content Gap Analysis ───────────────────────────────────────────────────
+
+/**
+ * Detect content gaps — topics and keywords that competitors likely cover but you don't.
+ * Uses AI to cross-reference your content, keywords, and competitor domains.
+ */
+export async function detectContentGaps(
+  projectId: string
+): Promise<
+  | { error: string }
+  | {
+      success: true;
+      gaps: Array<{
+        topic: string;
+        competitorsCovering: string[];
+        trafficOpportunity: string;
+        difficulty: number;
+        priority: "high" | "medium" | "low";
+        suggestedAction: string;
+      }>;
+    }
+> {
+  const userClient = await createClient();
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
+  const supabase = createAdminClient();
+
+  try {
+    // Fetch content pages for the project
+    const { data: contentPages } = await supabase
+      .from("content_pages")
+      .select("title, url, primary_keyword")
+      .eq("project_id", projectId)
+      .limit(50);
+
+    // Fetch tracked keywords
+    const { data: keywords } = await supabase
+      .from("keywords")
+      .select("keyword, search_volume, difficulty, current_position")
+      .eq("project_id", projectId)
+      .limit(50);
+
+    // Fetch competitors
+    const { data: competitors } = await supabase
+      .from("competitors")
+      .select("domain, name")
+      .eq("project_id", projectId);
+
+    if (!competitors || competitors.length === 0) {
+      return { error: "No competitors tracked. Add competitors first to find content gaps." };
+    }
+
+    const yourContent = (contentPages ?? [])
+      .map((p) => `- "${p.title ?? "Untitled"}" (${p.url}) — keyword: "${p.primary_keyword ?? "none"}"`)
+      .join("\n");
+
+    const yourKeywords = (keywords ?? [])
+      .map((k) => `"${k.keyword}" (vol: ${k.search_volume ?? "?"}, pos: ${k.current_position ?? "?"})`)
+      .join(", ");
+
+    const competitorList = competitors
+      .map((c) => `- ${c.name} (${c.domain})`)
+      .join("\n");
+
+    const prompt = `You are an SEO content gap analyst. Identify content topics and keywords that the competitors likely cover but the user's site does NOT.
+
+**Your existing content pages:**
+${yourContent || "No content pages tracked yet."}
+
+**Your tracked keywords:**
+${yourKeywords || "No keywords tracked yet."}
+
+**Competitors:**
+${competitorList}
+
+Analyze the competitive landscape and identify 8-12 content gaps — topics or keywords that the competitors likely rank for but are missing from the user's content.
+
+For each gap, provide:
+- topic: The topic or keyword phrase
+- competitorsCovering: Array of competitor names that likely cover this topic
+- trafficOpportunity: Estimated monthly traffic potential (e.g., "500-1,000")
+- difficulty: Keyword difficulty (0-100)
+- priority: "high", "medium", or "low" based on traffic opportunity vs difficulty
+- suggestedAction: A specific recommendation (e.g., "Create a comprehensive guide on X", "Add a comparison page for Y")
+
+Return ONLY valid JSON in this format:
+{
+  "gaps": [...]
+}`;
+
+    const result = await aiChat(prompt, {
+      jsonMode: true,
+      maxTokens: 2500,
+      temperature: 0.5,
+      context: { feature: "content-gap-analysis" },
+    });
+
+    if (!result?.text) return { error: "AI analysis returned no results." };
+
+    const parsed = JSON.parse(result.text);
+
+    revalidatePath("/dashboard/content");
+    return {
+      success: true,
+      gaps: parsed.gaps ?? [],
+    };
+  } catch (err) {
+    console.error("[detectContentGaps] Error:", err);
+    return {
+      error: err instanceof Error ? err.message : "Failed to detect content gaps.",
+    };
+  }
+}

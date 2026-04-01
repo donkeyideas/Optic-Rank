@@ -164,6 +164,12 @@ export function CompetitorsTab({ listings, competitors }: CompetitorsTabProps) {
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="border-b border-rule pb-4">
+        <h2 className="font-serif text-xl font-bold text-ink">Competitors</h2>
+        <p className="mt-1 max-w-2xl font-sans text-[13px] text-ink-secondary">
+          Discover and track competitor apps with side-by-side comparisons, gap analysis, and AI-powered competitive insights.
+        </p>
+      </div>
       {/* App Selector + Actions */}
       <AppSelectorStrip listings={listings} selected={selectedListing} onSelect={setSelectedListing} />
 

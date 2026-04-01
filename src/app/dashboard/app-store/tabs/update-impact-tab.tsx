@@ -116,6 +116,12 @@ export function UpdateImpactTab({ listings, versions, snapshots }: UpdateImpactT
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="border-b border-rule pb-4">
+        <h2 className="font-serif text-xl font-bold text-ink">Update Impact</h2>
+        <p className="mt-1 max-w-2xl font-sans text-[13px] text-ink-secondary">
+          Analyze how each app version release affected ratings, rankings, and downloads over time.
+        </p>
+      </div>
       <AppSelectorStrip listings={listings} selected={selectedListing} onSelect={setSelectedListing} />
 
       {/* Actions */}

@@ -14,6 +14,7 @@ import {
   Copy,
   Check,
   Target,
+  PieChart,
   BarChart3,
   Lightbulb,
   ArrowRight,
@@ -539,6 +540,7 @@ export function KeywordsPageClient({
         <TabsList>
           <TabsTrigger value="all">All Keywords</TabsTrigger>
           <TabsTrigger value="traffic">Traffic Intelligence</TabsTrigger>
+          <TabsTrigger value="sov">Share of Voice</TabsTrigger>
           <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
           <TabsTrigger value="strategy">Strategy Guide</TabsTrigger>
         </TabsList>
@@ -547,8 +549,14 @@ export function KeywordsPageClient({
             TAB: All Keywords
             ============================================================ */}
         <TabsContent value="all">
+          <div className="border-b border-rule pb-4">
+            <h2 className="font-serif text-xl font-bold text-ink">All Keywords</h2>
+            <p className="mt-1 max-w-2xl font-sans text-[13px] text-ink-secondary">
+              Your complete keyword portfolio with positions, search volume, difficulty, and AI visibility scores. Filter, sort, and track every keyword you monitor.
+            </p>
+          </div>
           {/* Toolbar */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center border-b border-rule pb-4">
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center border-b border-rule pb-4">
             <Input
               placeholder="Search keywords..."
               prefixIcon={<Search />}
@@ -638,7 +646,54 @@ export function KeywordsPageClient({
               {isPending ? "Importing..." : "CSV Import"}
             </Button>
 
-            {/* Generate Keywords */}
+            {/* Generate All — AI keywords + GA import + GSC import */}
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={isActionRunning || isPending}
+              onClick={() => {
+                runAction(
+                  {
+                    title: "Full Keyword Discovery",
+                    description: "Generating AI keywords, importing from Google Analytics & Search Console...",
+                    steps: [
+                      "Generating AI keyword suggestions",
+                      "Importing from Google Analytics",
+                      "Importing from Search Console",
+                    ],
+                    estimatedDuration: 45,
+                  },
+                  async () => {
+                    const completed: string[] = [];
+
+                    // Step 1: AI keyword generation
+                    const genResult = await generateKeywordsAI(projectId, addLocation, addDevice);
+                    if (!("error" in genResult)) {
+                      completed.push(`Generated ${("added" in genResult ? genResult.added : 0)} keywords`);
+                    }
+
+                    // Step 2: Google Analytics import (may fail if GA not connected — that's OK)
+                    try {
+                      const gaResult = await importFromGoogleAnalytics(projectId);
+                      if (!("error" in gaResult)) completed.push("GA4 import complete");
+                    } catch { /* GA4 not connected */ }
+
+                    // Step 3: Google Search Console import (may fail if GSC not connected — that's OK)
+                    try {
+                      const gscResult = await importKeywordsFromGSC(projectId);
+                      if (!("error" in gscResult)) completed.push("GSC import complete");
+                    } catch { /* GSC not connected */ }
+
+                    return { message: completed.length > 0 ? completed.join(". ") : "Keyword discovery complete" };
+                  }
+                );
+              }}
+            >
+              <Zap size={14} />
+              Generate All
+            </Button>
+
+            {/* Individual actions */}
             <Button
               variant="outline"
               size="sm"
@@ -659,7 +714,6 @@ export function KeywordsPageClient({
               Generate
             </Button>
 
-            {/* Import from Google Analytics */}
             <Button
               variant="outline"
               size="sm"
@@ -1191,7 +1245,26 @@ export function KeywordsPageClient({
             TAB: Traffic Intelligence
             ============================================================ */}
         <TabsContent value="traffic">
+          <div className="border-b border-rule pb-4 mb-4">
+            <h2 className="font-serif text-xl font-bold text-ink">Traffic Intelligence</h2>
+            <p className="mt-1 max-w-2xl font-sans text-[13px] text-ink-secondary">
+              Analyze organic traffic patterns from Google Analytics 4. See which pages drive the most sessions, track landing page performance, and identify growth opportunities.
+            </p>
+          </div>
           <TrafficIntelligenceSection ga4Data={ga4Data ?? null} />
+        </TabsContent>
+
+        {/* ============================================================
+            TAB: Share of Voice
+            ============================================================ */}
+        <TabsContent value="sov">
+          <div className="border-b border-rule pb-4 mb-4">
+            <h2 className="font-serif text-xl font-bold text-ink">Share of Voice</h2>
+            <p className="mt-1 max-w-2xl font-sans text-[13px] text-ink-secondary">
+              Measure your organic search market share. Share of Voice estimates how much of the total click opportunity you capture across all tracked keywords, weighted by search volume and position.
+            </p>
+          </div>
+          <ShareOfVoiceSection keywords={keywords} />
         </TabsContent>
 
         {/* ============================================================
@@ -1536,6 +1609,177 @@ export function KeywordsPageClient({
           </div>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------
+   Share of Voice Section
+   ------------------------------------------------------------------ */
+
+function ShareOfVoiceSection({ keywords }: { keywords: Array<{ keyword: string; current_position: number | null; search_volume: number | null; intent: string | null }> }) {
+  // CTR curve — estimated click-through rates by position
+  const CTR: Record<number, number> = { 1: 0.315, 2: 0.155, 3: 0.11, 4: 0.08, 5: 0.068, 6: 0.047, 7: 0.035, 8: 0.03, 9: 0.022, 10: 0.019 };
+
+  const rankedKeywords = keywords.filter((k) => k.current_position && k.current_position <= 100 && k.search_volume);
+
+  // Total search volume across all tracked keywords
+  const totalVolume = keywords.reduce((sum, k) => sum + (k.search_volume ?? 0), 0);
+
+  // Your estimated clicks (SoV numerator)
+  const yourClicks = rankedKeywords.reduce((sum, k) => {
+    const pos = k.current_position!;
+    const vol = k.search_volume ?? 0;
+    const ctr = pos <= 10 ? (CTR[pos] ?? 0.01) : pos <= 20 ? 0.005 : 0.001;
+    return sum + vol * ctr;
+  }, 0);
+
+  // Max possible clicks (if #1 for everything)
+  const maxClicks = keywords.reduce((sum, k) => sum + (k.search_volume ?? 0) * 0.315, 0);
+
+  const sovPercent = maxClicks > 0 ? (yourClicks / maxClicks) * 100 : 0;
+
+  // Position distribution
+  const top3 = rankedKeywords.filter((k) => k.current_position! <= 3).length;
+  const top10 = rankedKeywords.filter((k) => k.current_position! <= 10).length;
+  const top20 = rankedKeywords.filter((k) => k.current_position! <= 20).length;
+  const below20 = rankedKeywords.length - top20;
+
+  // SoV by intent
+  const intents = ["informational", "navigational", "transactional", "commercial"];
+  const sovByIntent = intents.map((intent) => {
+    const intentKws = rankedKeywords.filter((k) => k.intent === intent);
+    const intentClicks = intentKws.reduce((sum, k) => {
+      const pos = k.current_position!;
+      const vol = k.search_volume ?? 0;
+      const ctr = pos <= 10 ? (CTR[pos] ?? 0.01) : pos <= 20 ? 0.005 : 0.001;
+      return sum + vol * ctr;
+    }, 0);
+    const intentMaxClicks = intentKws.reduce((sum, k) => sum + (k.search_volume ?? 0) * 0.315, 0);
+    return {
+      intent,
+      sov: intentMaxClicks > 0 ? (intentClicks / intentMaxClicks) * 100 : 0,
+      keywords: intentKws.length,
+    };
+  });
+
+  // Top keywords by SoV contribution
+  const topContributors = rankedKeywords
+    .map((k) => {
+      const pos = k.current_position!;
+      const vol = k.search_volume ?? 0;
+      const ctr = pos <= 10 ? (CTR[pos] ?? 0.01) : pos <= 20 ? 0.005 : 0.001;
+      return { keyword: k.keyword, position: pos, volume: vol, clicks: vol * ctr, contribution: maxClicks > 0 ? ((vol * ctr) / maxClicks) * 100 : 0 };
+    })
+    .sort((a, b) => b.clicks - a.clicks)
+    .slice(0, 10);
+
+  const fmt = (n: number) => {
+    if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+    return Math.round(n).toLocaleString();
+  };
+
+  if (keywords.length === 0) {
+    return (
+      <div className="flex h-48 items-center justify-center border border-dashed border-rule bg-surface-raised">
+        <div className="text-center">
+          <PieChart className="mx-auto mb-2 h-8 w-8 text-ink-muted" />
+          <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-ink-muted">No keywords tracked</p>
+          <p className="mt-1 text-[11px] text-ink-muted">Add keywords to calculate your Share of Voice.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-8">
+      {/* SoV Hero */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="border border-rule bg-surface-raised p-5">
+          <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Share of Voice</p>
+          <p className="mt-1 font-serif text-3xl font-bold text-ink">{sovPercent.toFixed(1)}%</p>
+          <p className="mt-0.5 text-[10px] text-ink-muted">of total click potential</p>
+        </div>
+        <div className="border border-rule bg-surface-raised p-5">
+          <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Est. Monthly Clicks</p>
+          <p className="mt-1 font-serif text-3xl font-bold text-ink">{fmt(yourClicks)}</p>
+          <p className="mt-0.5 text-[10px] text-ink-muted">from {rankedKeywords.length} ranked keywords</p>
+        </div>
+        <div className="border border-rule bg-surface-raised p-5">
+          <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Total Search Volume</p>
+          <p className="mt-1 font-serif text-3xl font-bold text-ink">{fmt(totalVolume)}</p>
+          <p className="mt-0.5 text-[10px] text-ink-muted">across {keywords.length} keywords</p>
+        </div>
+        <div className="border border-rule bg-surface-raised p-5">
+          <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Click Potential</p>
+          <p className="mt-1 font-serif text-3xl font-bold text-ink">{fmt(maxClicks)}</p>
+          <p className="mt-0.5 text-[10px] text-ink-muted">if #1 for all keywords</p>
+        </div>
+      </div>
+
+      {/* Position Distribution */}
+      <div className="border border-rule bg-surface-card p-5">
+        <h3 className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted mb-4">Ranking Distribution</h3>
+        <div className="grid grid-cols-4 gap-4">
+          {[
+            { label: "Top 3", count: top3, color: "bg-editorial-red" },
+            { label: "Top 10", count: top10, color: "bg-editorial-green" },
+            { label: "Top 20", count: top20, color: "bg-editorial-gold" },
+            { label: "Below 20", count: below20, color: "bg-ink-muted" },
+          ].map((tier) => (
+            <div key={tier.label} className="text-center">
+              <p className="font-serif text-2xl font-bold text-ink">{tier.count}</p>
+              <p className="text-[10px] text-ink-muted">{tier.label}</p>
+              <div className="mt-2 h-2 w-full bg-surface-raised">
+                <div className={`h-full ${tier.color}`} style={{ width: `${rankedKeywords.length > 0 ? (tier.count / rankedKeywords.length) * 100 : 0}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* SoV by Intent */}
+      <div className="border border-rule bg-surface-card p-5">
+        <h3 className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted mb-4">Share of Voice by Intent</h3>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {sovByIntent.map((item) => (
+            <div key={item.intent} className="border border-rule/50 p-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-ink-muted capitalize">{item.intent}</p>
+              <p className="mt-1 font-serif text-xl font-bold text-ink">{item.sov.toFixed(1)}%</p>
+              <p className="text-[10px] text-ink-muted">{item.keywords} keywords</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Top Contributors */}
+      {topContributors.length > 0 && (
+        <div className="border border-rule bg-surface-card p-5">
+          <h3 className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted mb-4">Top SoV Contributors</h3>
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-rule">
+                <th className="pb-2 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">Keyword</th>
+                <th className="pb-2 text-right text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">Position</th>
+                <th className="pb-2 text-right text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">Volume</th>
+                <th className="pb-2 text-right text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">Est. Clicks</th>
+                <th className="pb-2 text-right text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">% of SoV</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topContributors.map((kw, i) => (
+                <tr key={i} className="border-b border-rule/50">
+                  <td className="py-2 font-mono text-[12px] text-ink">{kw.keyword}</td>
+                  <td className={`py-2 text-right font-mono text-[12px] ${kw.position <= 3 ? "text-editorial-red font-bold" : "text-ink"}`}>#{kw.position}</td>
+                  <td className="py-2 text-right font-mono text-[12px] text-ink">{fmt(kw.volume)}</td>
+                  <td className="py-2 text-right font-mono text-[12px] text-editorial-green">{fmt(kw.clicks)}</td>
+                  <td className="py-2 text-right font-mono text-[12px] text-ink">{kw.contribution.toFixed(1)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

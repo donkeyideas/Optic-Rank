@@ -170,6 +170,12 @@ export function ReviewsTab({ listings, reviews, topics }: ReviewsTabProps) {
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="border-b border-rule pb-4">
+        <h2 className="font-serif text-xl font-bold text-ink">Reviews</h2>
+        <p className="mt-1 max-w-2xl font-sans text-[13px] text-ink-secondary">
+          Monitor user reviews with sentiment analysis, topic extraction, and AI-generated reply suggestions.
+        </p>
+      </div>
       {/* Analytics Dashboard */}
       <div className="grid gap-4 md:grid-cols-4">
         {/* Sentiment Pie */}

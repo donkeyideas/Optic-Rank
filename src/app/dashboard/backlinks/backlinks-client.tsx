@@ -25,6 +25,7 @@ import {
   Copy,
   Check,
   Info,
+  Loader2,
 } from "lucide-react";
 
 import { useTimezone } from "@/lib/context/timezone-context";
@@ -59,7 +60,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { disavowBacklink, reclaimBacklink, discoverBacklinks, addBacklinkFromUrl } from "@/lib/actions/backlinks";
+import { disavowBacklink, reclaimBacklink, discoverBacklinks, addBacklinkFromUrl, discoverBrokenLinkOpportunities } from "@/lib/actions/backlinks";
 import { useActionProgress } from "@/components/shared/action-progress";
 import { RecommendationsTab, StrategyGuideTab } from "@/components/shared/page-guide";
 import type { Recommendation, StrategyContent } from "@/components/shared/page-guide";
@@ -227,6 +228,16 @@ export function BacklinksPageClient({
   const { sortKey: colSort, sortDir: colDir, toggleSort: toggleColSort, sort: colSortFn } = useTableSort<BLSortKey>("first_seen", "desc");
   const { sortKey: toxicSort, sortDir: toxicDir, toggleSort: toggleToxicSort, sort: toxicSortFn } = useTableSort<BLSortKey>("risk", "desc");
 
+  const [brokenLinkData, setBrokenLinkData] = useState<Array<{
+    sourceDomain: string;
+    brokenUrl: string;
+    suggestedReplacement: string;
+    relevanceScore: number;
+    outreachTemplate: string;
+  }> | null>(null);
+  const [brokenLinkLoading, setBrokenLinkLoading] = useState(false);
+  const [copiedTemplate, setCopiedTemplate] = useState<number | null>(null);
+
   function handleDisavow(id: string) {
     setActionError(null);
     setPendingId(id);
@@ -255,12 +266,26 @@ export function BacklinksPageClient({
     setActionError(null);
     runAction(
       {
-        title: "Discovering Backlinks",
-        description: "Crawling the web to find sites linking to you...",
-        steps: ["Crawling target URLs", "Extracting link data", "Analyzing link quality", "Scoring domain authority", "Compiling results"],
-        estimatedDuration: 30,
+        title: "Full Backlink Analysis",
+        description: "Discovering backlinks and finding broken link building opportunities...",
+        steps: [
+          "Crawling target URLs",
+          "Extracting link data",
+          "Analyzing link quality",
+          "Scoring domain authority",
+          "Compiling results",
+          "Discovering broken link opportunities",
+        ],
+        estimatedDuration: 50,
       },
-      () => discoverBacklinks(projectId)
+      async () => {
+        await discoverBacklinks(projectId);
+        const brokenResult = await discoverBrokenLinkOpportunities(projectId);
+        if (!("error" in brokenResult)) {
+          setBrokenLinkData((brokenResult as { success: true; opportunities: typeof brokenLinkData }).opportunities);
+        }
+        return { message: "Full backlink analysis complete" };
+      }
     );
   }
 
@@ -294,6 +319,22 @@ export function BacklinksPageClient({
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  }
+
+  async function handleDiscoverBrokenLinks() {
+    setBrokenLinkLoading(true);
+    setBrokenLinkData(null);
+    try {
+      const result = await discoverBrokenLinkOpportunities(projectId);
+      if ("error" in result) {
+        setBrokenLinkData(null);
+      } else {
+        setBrokenLinkData((result as { success: true; opportunities: typeof brokenLinkData }).opportunities);
+      }
+    } catch {
+      setBrokenLinkData(null);
+    }
+    setBrokenLinkLoading(false);
   }
 
   // Accessor for the shared sort hook
@@ -662,6 +703,7 @@ export function BacklinksPageClient({
           <TabsTrigger value="new">New</TabsTrigger>
           <TabsTrigger value="lost">Lost</TabsTrigger>
           <TabsTrigger value="toxic">Toxic</TabsTrigger>
+          <TabsTrigger value="link-building">Link Building</TabsTrigger>
           <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
           <TabsTrigger value="strategy">Strategy Guide</TabsTrigger>
         </TabsList>
@@ -670,8 +712,14 @@ export function BacklinksPageClient({
             TAB: All Backlinks
             ============================================================ */}
         <TabsContent value="all">
+          <div className="border-b border-rule pb-4">
+            <h2 className="font-serif text-xl font-bold text-ink">All Backlinks</h2>
+            <p className="mt-1 max-w-2xl font-sans text-[13px] text-ink-secondary">
+              Your complete backlink profile with domain authority, trust flow, anchor text, and link type. Search, filter, and analyze every link pointing to your site.
+            </p>
+          </div>
           {/* Toolbar */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center border-b border-rule pb-4">
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center border-b border-rule pb-4">
             <Input
               placeholder="Search by domain or anchor text..."
               prefixIcon={<Search />}
@@ -1164,6 +1212,90 @@ export function BacklinksPageClient({
                   <span className="text-xs font-medium uppercase tracking-widest text-ink-muted">
                     No toxic backlinks detected.
                   </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ============================================================
+            TAB: Broken Link Building
+            ============================================================ */}
+        <TabsContent value="link-building">
+          <div className="flex flex-col gap-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-serif text-xl font-bold text-ink">Broken Link Building</h2>
+                <p className="mt-1 text-[12px] text-ink-muted">Discover broken link opportunities on competitor sites for outreach.</p>
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleDiscoverBrokenLinks}
+                disabled={brokenLinkLoading}
+              >
+                {brokenLinkLoading ? <Loader2 size={14} className="animate-spin mr-1.5" /> : <Lightbulb size={14} className="mr-1.5" />}
+                {brokenLinkLoading ? "Discovering..." : "Discover Opportunities"}
+              </Button>
+            </div>
+
+            {brokenLinkLoading && (
+              <div className="flex h-48 items-center justify-center border border-dashed border-rule bg-surface-raised">
+                <div className="flex items-center gap-3 text-ink-muted">
+                  <Loader2 size={20} className="animate-spin" />
+                  <span className="text-[11px] font-bold uppercase tracking-[0.15em]">Scanning for broken link opportunities...</span>
+                </div>
+              </div>
+            )}
+
+            {brokenLinkData && brokenLinkData.length > 0 && !brokenLinkLoading && (
+              <div className="flex flex-col gap-0">
+                {brokenLinkData.map((opp, i) => (
+                  <div key={i} className="flex items-start gap-4 border-b border-rule px-1 py-4 last:border-b-0">
+                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center bg-editorial-gold/10">
+                      <Lightbulb size={16} className="text-editorial-gold" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[13px] font-bold text-ink">{opp.sourceDomain}</span>
+                        <Badge variant="info">Relevance: {opp.relevanceScore}/100</Badge>
+                      </div>
+                      <p className="text-[11px] text-ink-muted truncate">Broken: {opp.brokenUrl}</p>
+                      <p className="text-[11px] text-editorial-green mt-0.5">Replace with: {opp.suggestedReplacement}</p>
+                      <div className="mt-2 border border-rule/50 bg-surface-raised p-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Outreach Template</span>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(opp.outreachTemplate);
+                              setCopiedTemplate(i);
+                              setTimeout(() => setCopiedTemplate(null), 2000);
+                            }}
+                            className="text-[10px] font-bold text-ink-muted hover:text-ink transition-colors"
+                          >
+                            {copiedTemplate === i ? "Copied!" : "Copy"}
+                          </button>
+                        </div>
+                        <p className="text-[12px] leading-relaxed text-ink-secondary whitespace-pre-line">{opp.outreachTemplate}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {brokenLinkData && brokenLinkData.length === 0 && !brokenLinkLoading && (
+              <div className="flex h-40 items-center justify-center border border-dashed border-rule bg-surface-raised">
+                <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-ink-muted">No broken link opportunities found.</span>
+              </div>
+            )}
+
+            {!brokenLinkData && !brokenLinkLoading && (
+              <div className="flex h-48 items-center justify-center border border-dashed border-rule bg-surface-raised">
+                <div className="text-center">
+                  <Lightbulb className="mx-auto mb-2 h-8 w-8 text-ink-muted" />
+                  <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-ink-muted">No broken link analysis yet</p>
+                  <p className="mt-1 text-[11px] text-ink-muted">Click &quot;Discover Opportunities&quot; to find broken links for outreach.</p>
                 </div>
               </div>
             )}

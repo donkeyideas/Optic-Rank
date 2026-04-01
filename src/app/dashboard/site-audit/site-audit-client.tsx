@@ -25,6 +25,10 @@ import {
   ClipboardCopy,
   Check,
   Code2,
+  Loader2,
+  Link2,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +55,7 @@ import {
   runSiteAudit,
   scheduleAudit,
   cancelScheduledAudit,
+  batchAnalyzeUrls,
   type AuditFrequency,
   type ScheduledAudit,
 } from "@/lib/actions/site-audit";
@@ -329,6 +334,19 @@ export function SiteAuditClient({
   const [showScheduleMenu, setShowScheduleMenu] = useState(false);
   const [isScheduling, setIsScheduling] = useState(false);
 
+  // Batch analysis state
+  const [batchUrls, setBatchUrls] = useState<string[]>([""]);
+  const [batchResults, setBatchResults] = useState<Array<{
+    url: string;
+    statusCode: number;
+    responseTime: number;
+    title: string;
+    seoScore: number;
+    issues: string[];
+  }> | null>(null);
+  const [batchSummary, setBatchSummary] = useState<string>("");
+  const [batchLoading, setBatchLoading] = useState(false);
+
   // Table sorting
   type PageSortKey = "url" | "title" | "status_code" | "load_time" | "issues_count";
   type HistorySortKey = "started_at" | "status" | "pages_crawled" | "issues_found" | "health_score" | "seo_score" | "performance_score" | "accessibility_score";
@@ -370,6 +388,40 @@ export function SiteAuditClient({
       setSchedule(null);
     }
     setIsScheduling(false);
+  }
+
+  function handleAddBatchUrl() {
+    if (batchUrls.length < 20) setBatchUrls([...batchUrls, ""]);
+  }
+
+  function handleRemoveBatchUrl(index: number) {
+    setBatchUrls(batchUrls.filter((_, i) => i !== index));
+  }
+
+  function handleBatchUrlChange(index: number, value: string) {
+    const updated = [...batchUrls];
+    updated[index] = value;
+    setBatchUrls(updated);
+  }
+
+  async function handleBatchAnalyze() {
+    const validUrls = batchUrls.filter((u) => u.trim());
+    if (validUrls.length === 0) return;
+    setBatchLoading(true);
+    setBatchResults(null);
+    setBatchSummary("");
+    try {
+      const result = await batchAnalyzeUrls(projectId, validUrls);
+      if ("error" in result) {
+        setBatchResults(null);
+      } else {
+        setBatchResults((result as { success: true; results: typeof batchResults; summary: string }).results);
+        setBatchSummary((result as { success: true; results: typeof batchResults; summary: string }).summary);
+      }
+    } catch {
+      setBatchResults(null);
+    }
+    setBatchLoading(false);
   }
 
   const handleCopyIssues = useCallback(() => {
@@ -969,6 +1021,9 @@ export function SiteAuditClient({
             <Clock size={12} className="mr-1.5" />
             History
           </TabsTrigger>
+          <TabsTrigger value="batch">
+            Batch Analysis
+          </TabsTrigger>
           <TabsTrigger value="recommendations">
             Recommendations
           </TabsTrigger>
@@ -979,6 +1034,12 @@ export function SiteAuditClient({
 
         {/* Issues Tab */}
         <TabsContent value="issues">
+          <div className="border-b border-rule pb-4 mb-4">
+            <h2 className="font-serif text-xl font-bold text-ink">Audit Issues</h2>
+            <p className="mt-1 max-w-2xl font-sans text-[13px] text-ink-secondary">
+              Technical SEO issues found during the latest crawl, grouped by severity. Fix critical issues first to improve your site health score.
+            </p>
+          </div>
           {realIssues.length === 0 ? (
             <EmptyState
               icon={CheckCircle2}
@@ -1100,6 +1161,12 @@ export function SiteAuditClient({
 
         {/* Pages Tab */}
         <TabsContent value="pages">
+          <div className="border-b border-rule pb-4 mb-4">
+            <h2 className="font-serif text-xl font-bold text-ink">Crawled Pages</h2>
+            <p className="mt-1 max-w-2xl font-sans text-[13px] text-ink-secondary">
+              Every page discovered during the crawl with status codes, load times, and indexing options.
+            </p>
+          </div>
           {pages.length === 0 ? (
             <EmptyState
               icon={FileText}
@@ -1220,6 +1287,12 @@ export function SiteAuditClient({
 
         {/* History Tab */}
         <TabsContent value="history">
+          <div className="border-b border-rule pb-4 mb-4">
+            <h2 className="font-serif text-xl font-bold text-ink">Audit History</h2>
+            <p className="mt-1 max-w-2xl font-sans text-[13px] text-ink-secondary">
+              A timeline of all past site audits with health scores, issue counts, and performance trends.
+            </p>
+          </div>
           {history.length === 0 ? (
             <EmptyState
               icon={Clock}
@@ -1293,6 +1366,126 @@ export function SiteAuditClient({
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* Batch URL Analysis Tab */}
+        <TabsContent value="batch">
+          <div className="flex flex-col gap-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-serif text-xl font-bold text-ink">Batch URL Analysis</h2>
+                <p className="mt-1 text-[12px] text-ink-muted">Analyze multiple URLs at once for SEO metrics and issues.</p>
+              </div>
+            </div>
+
+            {/* URL input list */}
+            <div className="border border-rule bg-surface-card p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">URLs to Analyze ({batchUrls.length}/20)</h3>
+                <button
+                  onClick={handleAddBatchUrl}
+                  disabled={batchUrls.length >= 20}
+                  className="flex items-center gap-1 text-[10px] font-bold text-editorial-red hover:text-editorial-red/80 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <Plus size={12} /> Add URL
+                </button>
+              </div>
+              <div className="flex flex-col gap-2">
+                {batchUrls.map((url, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input
+                      type="url"
+                      value={url}
+                      onChange={(e) => handleBatchUrlChange(i, e.target.value)}
+                      placeholder="https://example.com/page"
+                      className="flex-1 border border-rule bg-transparent px-3 py-2 font-mono text-[12px] text-ink placeholder:text-ink-muted/60 focus:border-editorial-red focus:outline-none"
+                    />
+                    {batchUrls.length > 1 && (
+                      <button onClick={() => handleRemoveBatchUrl(i)} className="text-ink-muted hover:text-editorial-red">
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={handleBatchAnalyze}
+                  disabled={batchLoading || batchUrls.every((u) => !u.trim())}
+                  className="inline-flex items-center gap-1.5 border border-ink bg-ink px-4 py-2 font-sans text-[10px] font-bold uppercase tracking-[0.15em] text-surface-cream transition-colors hover:bg-ink/90 disabled:opacity-50"
+                >
+                  {batchLoading ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />}
+                  {batchLoading ? "Analyzing..." : "Analyze URLs"}
+                </button>
+              </div>
+            </div>
+
+            {batchLoading && (
+              <div className="flex h-32 items-center justify-center border border-dashed border-rule bg-surface-raised">
+                <div className="flex items-center gap-3 text-ink-muted">
+                  <Loader2 size={20} className="animate-spin" />
+                  <span className="text-[11px] font-bold uppercase tracking-[0.15em]">Analyzing {batchUrls.filter((u) => u.trim()).length} URLs...</span>
+                </div>
+              </div>
+            )}
+
+            {batchSummary && !batchLoading && (
+              <div className="border border-rule bg-surface-raised p-5">
+                <h3 className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">Analysis Summary</h3>
+                <p className="mt-2 text-[13px] leading-relaxed text-ink">{batchSummary}</p>
+              </div>
+            )}
+
+            {batchResults && batchResults.length > 0 && !batchLoading && (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-rule">
+                      <th className="pb-2 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">URL</th>
+                      <th className="pb-2 text-center text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">Status</th>
+                      <th className="pb-2 text-right text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">Response</th>
+                      <th className="pb-2 text-right text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">SEO Score</th>
+                      <th className="pb-2 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">Issues</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {batchResults.map((r, i) => (
+                      <tr key={i} className="border-b border-rule/50">
+                        <td className="py-3">
+                          <p className="font-mono text-[12px] text-ink truncate max-w-[300px]">{r.url}</p>
+                          <p className="text-[11px] text-ink-muted truncate max-w-[300px]">{r.title}</p>
+                        </td>
+                        <td className="py-3 text-center">
+                          <span className={`inline-flex items-center gap-1 font-mono text-[12px] ${r.statusCode === 200 ? "text-editorial-green" : "text-editorial-red"}`}>
+                            {r.statusCode === 200 ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
+                            {r.statusCode}
+                          </span>
+                        </td>
+                        <td className="py-3 text-right font-mono text-[12px] text-ink">{r.responseTime}ms</td>
+                        <td className="py-3 text-right">
+                          <span className={`font-mono text-[13px] font-bold ${r.seoScore >= 80 ? "text-editorial-green" : r.seoScore >= 60 ? "text-editorial-gold" : "text-editorial-red"}`}>
+                            {r.seoScore}
+                          </span>
+                        </td>
+                        <td className="py-3">
+                          <div className="flex flex-wrap gap-1">
+                            {r.issues.slice(0, 3).map((issue, j) => (
+                              <span key={j} className="inline-block border border-rule bg-surface-raised px-2 py-0.5 text-[10px] text-ink-muted">
+                                {issue}
+                              </span>
+                            ))}
+                            {r.issues.length > 3 && (
+                              <span className="text-[10px] text-ink-muted">+{r.issues.length - 3} more</span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </TabsContent>
 
         {/* Recommendations Tab */}

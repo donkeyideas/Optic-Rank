@@ -24,6 +24,8 @@ import {
   BarChart3,
   ArrowRight,
   Check as CheckIcon,
+  Loader2,
+  Search,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -67,6 +69,7 @@ import {
   generateCalendarEntries,
   updateContentBrief,
   deleteContentBrief,
+  detectContentGaps,
 } from "@/lib/actions/content";
 
 /* ------------------------------------------------------------------
@@ -188,6 +191,15 @@ export function ContentClient({
   });
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [expandedBriefId, setExpandedBriefId] = useState<string | null>(null);
+  const [contentGaps, setContentGaps] = useState<Array<{
+    topic: string;
+    competitorsCovering: string[];
+    trafficOpportunity: string;
+    difficulty: number;
+    priority: "high" | "medium" | "low";
+    suggestedAction: string;
+  }> | null>(null);
+  const [gapsLoading, setGapsLoading] = useState(false);
 
   // ── Table sort hooks ──
   const {
@@ -269,6 +281,22 @@ export function ContentClient({
       },
       () => suggestInternalLinks(projectId)
     );
+  }
+
+  async function handleDetectContentGaps() {
+    setGapsLoading(true);
+    setContentGaps(null);
+    try {
+      const result = await detectContentGaps(projectId);
+      if ("error" in result) {
+        setContentGaps(null);
+      } else {
+        setContentGaps((result as unknown as { gaps: typeof contentGaps }).gaps);
+      }
+    } catch {
+      setContentGaps(null);
+    }
+    setGapsLoading(false);
   }
 
   /* ---- Dialogs ---- */
@@ -600,22 +628,27 @@ export function ContentClient({
               runAction(
                 {
                   title: "Running Full Content Analysis",
-                  description: "Scoring pages, detecting decay & cannibalization, discovering internal links, generating briefs & calendar...",
+                  description: "Scoring pages, detecting decay & cannibalization, discovering internal links, analyzing gaps, generating briefs & calendar...",
                   steps: [
                     "Scoring content pages",
                     "Detecting content decay",
                     "Checking cannibalization",
                     "Suggesting internal links",
+                    "Analyzing content gaps",
                     "Generating content briefs",
                     "Generating calendar entries",
                   ],
-                  estimatedDuration: 90,
+                  estimatedDuration: 110,
                 },
                 async () => {
                   await scoreContentPages(projectId);
                   await detectContentDecay(projectId);
                   await detectCannibalization(projectId);
                   await suggestInternalLinks(projectId);
+                  const gapsResult = await detectContentGaps(projectId);
+                  if (!("error" in gapsResult)) {
+                    setContentGaps((gapsResult as unknown as { gaps: typeof contentGaps }).gaps);
+                  }
                   await generateContentBriefs(projectId);
                   await generateCalendarEntries(projectId);
                   return { message: "Full content analysis complete" };
@@ -639,12 +672,19 @@ export function ContentClient({
           <TabsTrigger value="decay"><TrendingDown size={12} className="mr-1.5" />Decay</TabsTrigger>
           <TabsTrigger value="cannibalization"><Copy size={12} className="mr-1.5" />Cannibalization</TabsTrigger>
           <TabsTrigger value="links"><Link2 size={12} className="mr-1.5" />Internal Links</TabsTrigger>
+          <TabsTrigger value="gaps"><Search size={12} className="mr-1" />Content Gaps</TabsTrigger>
           <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
           <TabsTrigger value="strategy">Strategy Guide</TabsTrigger>
         </TabsList>
 
         {/* ── Inventory Tab ── */}
         <TabsContent value="inventory">
+          <div className="border-b border-rule pb-4 mb-4">
+            <h2 className="font-serif text-xl font-bold text-ink">Content Inventory</h2>
+            <p className="mt-1 max-w-2xl font-sans text-[13px] text-ink-secondary">
+              A complete inventory of your indexed pages with word count, GEO and AEO signals, and performance metrics. Identify thin content and optimization opportunities.
+            </p>
+          </div>
           {contentPages.length === 0 ? (
             <EmptyState icon={FileText} title="No Content Pages" description="No content pages have been indexed for this project yet." actionLabel="Run Site Audit" actionHref="/dashboard/site-audit" />
           ) : (
@@ -850,6 +890,12 @@ export function ContentClient({
 
         {/* ── Calendar Tab ── */}
         <TabsContent value="calendar">
+          <div className="border-b border-rule pb-4 mb-4">
+            <h2 className="font-serif text-xl font-bold text-ink">Content Calendar</h2>
+            <p className="mt-1 max-w-2xl font-sans text-[13px] text-ink-secondary">
+              Plan and visualize your content publishing schedule. Track deadlines, publication dates, and content status across your editorial workflow.
+            </p>
+          </div>
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <button
@@ -1217,6 +1263,86 @@ export function ContentClient({
               })}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="gaps">
+          <div className="flex flex-col gap-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-serif text-xl font-bold text-ink">Content Gap Analysis</h2>
+                <p className="mt-1 text-[12px] text-ink-muted">Identify topics and keywords your competitors cover that you don&apos;t.</p>
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleDetectContentGaps}
+                disabled={gapsLoading}
+              >
+                {gapsLoading ? <Loader2 size={14} className="animate-spin mr-1.5" /> : <Search size={14} className="mr-1.5" />}
+                {gapsLoading ? "Analyzing..." : "Find Content Gaps"}
+              </Button>
+            </div>
+
+            {gapsLoading && (
+              <div className="flex h-48 items-center justify-center border border-dashed border-rule bg-surface-raised">
+                <div className="flex items-center gap-3 text-ink-muted">
+                  <Loader2 size={20} className="animate-spin" />
+                  <span className="text-[11px] font-bold uppercase tracking-[0.15em]">Analyzing competitors for content gaps...</span>
+                </div>
+              </div>
+            )}
+
+            {contentGaps && contentGaps.length > 0 && !gapsLoading && (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">Topic / Keyword Gap</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted text-center">Competitors</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">Traffic Opp.</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">Difficulty</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">Priority</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">Suggested Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {contentGaps.map((gap, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-mono text-[13px] font-bold text-ink">{gap.topic}</TableCell>
+                      <TableCell className="text-center font-mono text-[13px] text-ink">{gap.competitorsCovering.length}</TableCell>
+                      <TableCell><Badge variant="info">{gap.trafficOpportunity}</Badge></TableCell>
+                      <TableCell>
+                        <Badge variant={gap.difficulty < 40 ? "success" : gap.difficulty < 70 ? "warning" : "danger"}>
+                          {gap.difficulty}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={gap.priority === "high" ? "danger" : gap.priority === "medium" ? "warning" : "muted"}>
+                          {gap.priority}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-[12px] text-ink-secondary max-w-[200px]">{gap.suggestedAction}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+
+            {contentGaps && contentGaps.length === 0 && !gapsLoading && (
+              <div className="flex h-40 items-center justify-center border border-dashed border-rule bg-surface-raised">
+                <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-editorial-green">No content gaps found — great coverage!</span>
+              </div>
+            )}
+
+            {!contentGaps && !gapsLoading && (
+              <div className="flex h-48 items-center justify-center border border-dashed border-rule bg-surface-raised">
+                <div className="text-center">
+                  <Search className="mx-auto mb-2 h-8 w-8 text-ink-muted" />
+                  <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-ink-muted">No gap analysis yet</p>
+                  <p className="mt-1 text-[11px] text-ink-muted">Click &quot;Find Content Gaps&quot; to identify missing content opportunities.</p>
+                </div>
+              </div>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="recommendations">

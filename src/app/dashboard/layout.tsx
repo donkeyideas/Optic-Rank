@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { headers } from "next/headers";
 import { Masthead } from "@/components/editorial/masthead";
 import { PaperHeader } from "@/components/editorial/paper-header";
@@ -166,7 +167,9 @@ export default async function DashboardLayout({
         )}
 
         <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 md:px-6 lg:px-8">
-          {showLockout ? <TrialExpiredLockout /> : children}
+          <Suspense>
+            {showLockout ? <TrialExpiredLockout /> : children}
+          </Suspense>
         </main>
 
         <BottomBar

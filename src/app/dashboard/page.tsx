@@ -19,7 +19,10 @@ import { TopTrafficKeywordsChart } from "@/components/charts/top-traffic-keyword
 import { AppStoreDispatch } from "@/components/editorial/app-store-dispatch";
 import { OnboardingChecklist } from "@/components/shared/onboarding-checklist";
 import { OrganicTrafficTrendChart } from "@/components/charts/organic-traffic-trend-chart";
+import { KeywordPositionHeatmap } from "@/components/charts/keyword-position-heatmap";
+import { VolumeDifficultyMatrix } from "@/components/charts/volume-difficulty-matrix";
 import { buildDashboardData, formatEstTraffic } from "@/lib/dashboard/build-snapshot";
+import { getKeywordRanksBatch } from "@/lib/dal/keywords";
 import { getVolume, getVolumeNav } from "@/lib/dal/volumes";
 
 
@@ -207,10 +210,10 @@ export default async function DashboardPage({
             }
             center={
               <div className="flex flex-col gap-6">
-                {/* Keyword Analytics — archived notice */}
+                {/* Performance Analytics — archived notice */}
                 <div>
                   <ColumnHeader
-                    title="Keyword Analytics"
+                    title="Performance Analytics"
                     subtitle={`Archived — Vol. ${volume.volume_number}`}
                   />
                   <div className="flex h-[220px] items-center justify-center border border-dashed border-rule bg-surface-raised">
@@ -581,6 +584,26 @@ export default async function DashboardPage({
     ga4,
   } = data;
 
+  // Fetch rank history for heatmap (top 20 keywords)
+  const heatmapKwIds = chartKeywords.slice(0, 20).map((kw) => kw.id);
+  const rankHistoryMap = heatmapKwIds.length > 0
+    ? await getKeywordRanksBatch(heatmapKwIds, 30)
+    : new Map<string, { date: string; position: number }[]>();
+
+  const heatmapData = chartKeywords.slice(0, 20).map((kw) => ({
+    keyword: kw.keyword,
+    keywordId: kw.id,
+    ranks: rankHistoryMap.get(kw.id) ?? [],
+  }));
+
+  const matrixData = chartKeywords
+    .filter((kw) => kw.difficulty !== null)
+    .map((kw) => ({
+      keyword: kw.keyword,
+      volume: kw.volume,
+      difficulty: kw.difficulty!,
+    }));
+
   return (
     <div className="flex flex-col gap-6">
       {/* Volume Navigator */}
@@ -679,11 +702,11 @@ export default async function DashboardPage({
               </Link>
             )}
 
-            {/* Keyword Analytics Carousel */}
+            {/* Performance Analytics Carousel */}
             {chartKeywords.length > 0 ? (
               <div>
                 <ColumnHeader
-                  title="Keyword Analytics"
+                  title="Performance Analytics"
                   subtitle={`${rankedPositions.length} Ranked Keywords — ${projectDomain.toUpperCase()}`}
                 />
                 <KeywordChartCarousel
@@ -692,6 +715,8 @@ export default async function DashboardPage({
                     { label: "Traffic Opportunity", chart: <TrafficOpportunityTreemapChart data={chartKeywords} /> },
                     { label: "Rank vs Volume", chart: <RankVolumeScatterChart data={chartKeywords} /> },
                     { label: "Top Traffic", chart: <TopTrafficKeywordsChart data={chartKeywords} /> },
+                    { label: "Position Heatmap", chart: <KeywordPositionHeatmap data={heatmapData} /> },
+                    { label: "Opportunity Matrix", chart: <VolumeDifficultyMatrix data={matrixData} /> },
                     { label: "Traffic Trend", chart: (
                       <OrganicTrafficTrendChart
                         volumes={(volumeHistory ?? []).map((v) => ({
@@ -711,7 +736,7 @@ export default async function DashboardPage({
             ) : (
               <div>
                 <ColumnHeader
-                  title="Keyword Analytics"
+                  title="Performance Analytics"
                   subtitle={`${projectDomain.toUpperCase()}`}
                 />
                 <div className="flex h-[220px] items-center justify-center border border-dashed border-rule bg-surface-raised">

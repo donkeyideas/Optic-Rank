@@ -14,6 +14,7 @@ import {
   Users,
   MessageSquare,
   Globe,
+  Megaphone,
 } from "lucide-react";
 import { ColumnHeader } from "@/components/editorial/column-header";
 import { AppSelectorStrip } from "@/components/app-store/app-selector-strip";
@@ -40,6 +41,7 @@ type FullRecommendation = {
   subtitle: string;
   description: string;
   keywordsField: string;
+  promotionalText: string;
   analysis: string;
   dataSources: { keywords: number; competitors: number; reviewTopics: number; locales: number };
 };
@@ -59,11 +61,13 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
     typeof listing?.description === "string" ? listing.description : ""
   );
   const [keywordsField, setKeywordsField] = useState(String(listing?.keywords_field ?? ""));
+  const [promotionalText, setPromotionalText] = useState(String(listing?.promotional_text ?? ""));
 
   // Live scoring
   const initialScore = useMemo(() => {
     if (!listing) return null;
     const store = listing.store as "apple" | "google";
+    const isApple = store === "apple";
     let score = 0;
     const recs: string[] = [];
     const maxTitle = 30;
@@ -75,21 +79,28 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
     const sLen = (listing.subtitle ?? "").trim().length;
     if (sLen >= 10) score += 15;
     else if (sLen > 0) score += 8;
-    else recs.push(store === "apple" ? "Add a subtitle." : "Add a short description.");
+    else recs.push(isApple ? "Add a subtitle." : "Add a short description.");
 
     const desc = typeof listing.description === "string" ? listing.description : "";
     const dLen = desc.trim().length;
-    if (dLen >= 1000) score += 25;
-    else if (dLen >= 500) { score += 18; recs.push("Expand description to 1000+ chars."); }
-    else if (dLen > 0) { score += 10; recs.push("Description too short."); }
+    const descMax = isApple ? 20 : 25;
+    if (dLen >= 1000) score += descMax;
+    else if (dLen >= 500) { score += Math.round(descMax * 0.72); recs.push("Expand description to 1000+ chars."); }
+    else if (dLen > 0) { score += Math.round(descMax * 0.4); recs.push("Description too short."); }
     else recs.push("Add a description.");
 
-    if (store === "apple") {
+    if (isApple) {
       const kwLen = (listing.keywords_field ?? "").trim().length;
-      if (kwLen >= 80) score += 15;
-      else if (kwLen >= 50) { score += 10; recs.push(`Keywords: ${kwLen}/100 chars.`); }
-      else if (kwLen > 0) { score += 5; recs.push(`Only ${kwLen}/100 keyword chars.`); }
+      if (kwLen >= 80) score += 10;
+      else if (kwLen >= 50) { score += 7; recs.push(`Keywords: ${kwLen}/100 chars.`); }
+      else if (kwLen > 0) { score += 4; recs.push(`Only ${kwLen}/100 keyword chars.`); }
       else recs.push("Keywords field is empty!");
+
+      const promoLen = (listing.promotional_text ?? "").trim().length;
+      if (promoLen >= 100) score += 10;
+      else if (promoLen >= 50) { score += 6; recs.push("Expand promotional text."); }
+      else if (promoLen > 0) { score += 3; recs.push("Promotional text too short."); }
+      else recs.push("Add promotional text (170 chars).");
     } else { score += 15; }
 
     if (dLen > 100) score += 10;
@@ -119,6 +130,7 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
       setSubtitle(String(l.subtitle ?? ""));
       setDescription(typeof l.description === "string" ? l.description : "");
       setKeywordsField(String(l.keywords_field ?? ""));
+      setPromotionalText(String(l.promotional_text ?? ""));
       setLiveScore(null);
       setTitleVariants([]);
       setGeneratedSubtitle(null);
@@ -137,13 +149,13 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
       const descStr = typeof description === "string" ? description : "";
       startTransition(async () => {
         try {
-          const result = await scoreMetadata(store, title, subtitle, descStr, keywordsField);
+          const result = await scoreMetadata(store, title, subtitle, descStr, keywordsField, promotionalText);
           setLiveScore(result);
         } catch { /* keep previous */ }
       });
     }, 600);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [title, subtitle, description, keywordsField, listing]);
+  }, [title, subtitle, description, keywordsField, promotionalText, listing]);
 
   // Full AI recommendation
   function handleGenerateFullRecommendation() {
@@ -174,8 +186,9 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
     setTitle(recommendation.title);
     setSubtitle(recommendation.subtitle);
     setDescription(recommendation.description);
-    if (listing?.store === "apple" && recommendation.keywordsField) {
-      setKeywordsField(recommendation.keywordsField);
+    if (listing?.store === "apple") {
+      if (recommendation.keywordsField) setKeywordsField(recommendation.keywordsField);
+      if (recommendation.promotionalText) setPromotionalText(recommendation.promotionalText);
     }
   }
 
@@ -242,6 +255,12 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="border-b border-rule pb-4">
+        <h2 className="font-serif text-xl font-bold text-ink">Optimizer</h2>
+        <p className="mt-1 max-w-2xl font-sans text-[13px] text-ink-secondary">
+          AI-powered ASO metadata editor with live scoring, keyword analysis, and one-click optimized listing generation.
+        </p>
+      </div>
       <AppSelectorStrip listings={listings} selected={selectedListing} onSelect={handleListingChange} />
 
       {/* AI Full Listing Recommendation */}
@@ -351,6 +370,20 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
                     <span className="font-mono text-[10px] text-ink-muted">{recommendation.keywordsField.length}/100 chars</span>
                   </div>
                   <button onClick={() => { setKeywordsField(recommendation.keywordsField); }} className="mt-1 text-[10px] font-bold text-editorial-red hover:underline">
+                    Use
+                  </button>
+                </div>
+              )}
+
+              {/* Promotional Text (iOS) */}
+              {listing?.store === "apple" && recommendation.promotionalText && (
+                <div className="flex items-start justify-between px-4 py-3">
+                  <div className="flex-1">
+                    <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Recommended Promotional Text</span>
+                    <p className="mt-1 font-sans text-[12px] text-ink-secondary">{recommendation.promotionalText}</p>
+                    <span className="font-mono text-[10px] text-ink-muted">{recommendation.promotionalText.length}/170 chars</span>
+                  </div>
+                  <button onClick={() => { setPromotionalText(recommendation.promotionalText); }} className="mt-1 text-[10px] font-bold text-editorial-red hover:underline">
                     Use
                   </button>
                 </div>
@@ -532,6 +565,31 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
               )}
             </div>
           )}
+
+          {/* Promotional Text (iOS only) */}
+          {listing?.store === "apple" && (
+            <div className="border border-rule bg-surface-card p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Megaphone size={14} className="text-ink-muted" />
+                  <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Promotional Text</span>
+                  <span className={`font-mono text-[10px] ${promotionalText.length > 170 ? "text-editorial-red" : promotionalText.length >= 100 ? "text-editorial-green" : "text-ink-muted"}`}>
+                    {promotionalText.length}/170
+                  </span>
+                </div>
+              </div>
+              <textarea
+                value={promotionalText}
+                onChange={(e) => setPromotionalText(e.target.value)}
+                rows={3}
+                placeholder="Highlight current promotions, seasonal content, or new features. This appears above your description and can be updated without submitting a new app version."
+                className="mt-2 w-full border border-rule bg-surface-raised px-3 py-2 font-sans text-[12px] leading-relaxed text-ink focus:border-editorial-red focus:outline-none"
+              />
+              <span className="mt-1 block text-[9px] text-ink-muted">
+                Appears above your description. Can be changed anytime without a new release.
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Right: Live Score Panel */}
@@ -581,16 +639,20 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
                   {keywordsField.split(",").map((kw) => kw.trim()).filter(Boolean).slice(0, 15).map((kw) => {
                     const inTitle = title.toLowerCase().includes(kw.toLowerCase());
                     const inDesc = description.toLowerCase().includes(kw.toLowerCase());
+                    const inPromo = listing?.store === "apple" && promotionalText.toLowerCase().includes(kw.toLowerCase());
                     return (
                       <div key={kw} className="flex items-center gap-1 border border-rule px-1.5 py-0.5">
                         <span className="text-[10px] text-ink">{kw}</span>
                         <span className={`text-[8px] font-bold ${inTitle ? "text-editorial-green" : "text-editorial-red"}`}>T</span>
                         <span className={`text-[8px] font-bold ${inDesc ? "text-editorial-green" : "text-editorial-red"}`}>D</span>
+                        {listing?.store === "apple" && (
+                          <span className={`text-[8px] font-bold ${inPromo ? "text-editorial-green" : "text-editorial-red"}`}>P</span>
+                        )}
                       </div>
                     );
                   })}
                 </div>
-                <span className="mt-1 block text-[9px] text-ink-muted">T=Title D=Description</span>
+                <span className="mt-1 block text-[9px] text-ink-muted">T=Title D=Description{listing?.store === "apple" ? " P=Promo" : ""}</span>
               </div>
             )}
           </div>

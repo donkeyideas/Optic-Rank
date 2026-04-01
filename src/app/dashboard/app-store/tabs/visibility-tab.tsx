@@ -291,6 +291,12 @@ export function VisibilityTab({
 
   return (
     <div className="flex flex-col gap-6">
+      <div className="border-b border-rule pb-4">
+        <h2 className="font-serif text-xl font-bold text-ink">Visibility</h2>
+        <p className="mt-1 max-w-2xl font-sans text-[13px] text-ink-secondary">
+          Aggregate discoverability score measuring how well your apps rank across all tracked keywords, weighted by search volume and position.
+        </p>
+      </div>
 
       {/* ─── Org-Level Overview ─── */}
       <div className="grid gap-4 md:grid-cols-4">

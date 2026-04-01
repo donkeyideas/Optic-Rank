@@ -140,11 +140,19 @@ export function OverviewTab({
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="flex flex-col gap-4">
+      <div className="border-b border-rule pb-4">
+        <h2 className="font-serif text-xl font-bold text-ink">Overview</h2>
+        <p className="mt-1 max-w-2xl font-sans text-[13px] text-ink-secondary">
+          A snapshot of all your tracked apps with key metrics, ratings, rankings, and quick actions.
+        </p>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
       {listings.map((listing) => {
         const listingRankings = rankings.filter((r) => r.listing_id === listing.id);
         const uniqueKeywords = new Set(listingRankings.map((r) => r.keyword));
         const listingSnapshots = snapshots.filter((s) => s.listing_id === listing.id);
+        const ratedSnapshots = listingSnapshots.filter((s) => s.rating != null);
         const listingCompetitors = competitors.filter((c) => c.listing_id === listing.id);
         const aso = asoResults[listing.id] ?? (listing.aso_score ? { score: listing.aso_score, recs: [] } : null);
 
@@ -218,16 +226,26 @@ export function OverviewTab({
             </div>
 
             {/* Rating Trend Sparkline */}
-            {listingSnapshots.length > 1 && (
-              <div className="border-b border-rule px-4 py-3">
-                <span className="mb-1 block text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Rating Trend</span>
+            <div className="border-b border-rule px-4 py-3">
+              <span className="mb-1 block text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Rating Trend</span>
+              {ratedSnapshots.length > 1 ? (
                 <AsoRatingTrendChart
-                  data={listingSnapshots.map((s) => ({ date: s.snapshot_date, rating: s.rating }))}
+                  data={ratedSnapshots.map((s) => ({ date: s.snapshot_date, rating: s.rating }))}
                   height={60}
                   showAxis={false}
                 />
-              </div>
-            )}
+              ) : (
+                <div className="flex items-center justify-center py-4 border border-dashed border-rule/50">
+                  <p className="text-[12px] text-ink-muted">
+                    {listing.rating == null
+                      ? "No rating data yet — the app needs reviews before a trend can be shown."
+                      : ratedSnapshots.length === 1
+                        ? "Rating trend will appear after the next daily snapshot."
+                        : "No snapshots yet — refresh the app to record the first data point."}
+                  </p>
+                </div>
+              )}
+            </div>
 
             {/* Health Stats */}
             <div className="grid grid-cols-4 gap-2 border-b border-rule px-4 py-3">
@@ -305,6 +323,7 @@ export function OverviewTab({
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

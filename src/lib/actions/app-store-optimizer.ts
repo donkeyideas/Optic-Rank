@@ -143,10 +143,12 @@ export async function scoreMetadata(
   title: string,
   subtitle: string,
   description: string,
-  keywordsField: string
+  keywordsField: string,
+  promotionalText?: string
 ): Promise<{ score: number; recommendations: string[] }> {
   let score = 0;
   const recs: string[] = [];
+  const isApple = store === "apple";
 
   // Title scoring (max 25 pts)
   const maxTitle = 30; // Both stores limit titles to 30 characters
@@ -163,8 +165,8 @@ export async function scoreMetadata(
     recs.push("Add a title with relevant keywords.");
   }
 
-  // Subtitle scoring (max 15 pts, iOS only)
-  if (store === "apple") {
+  // Subtitle scoring (max 15 pts)
+  if (isApple) {
     const subLen = subtitle.trim().length;
     if (subLen >= 10 && subLen <= 30) {
       score += 15;
@@ -180,23 +182,40 @@ export async function scoreMetadata(
     if (!subtitle.trim()) recs.push("Add a short description (80 chars max) with primary keywords.");
   }
 
-  // Description scoring (max 25 pts)
+  // Description scoring — Apple: 20pts (promo text gets 5pts), Google: 25pts
+  const descMax = isApple ? 20 : 25;
   const descLen = description.trim().length;
-  if (descLen >= 1000) score += 25;
-  else if (descLen >= 500) { score += 18; recs.push("Expand description to 1000+ chars for better keyword coverage."); }
-  else if (descLen >= 200) { score += 10; recs.push("Description is too short. Aim for 1000+ characters with features, benefits, and keywords."); }
-  else if (descLen > 0) { score += 5; recs.push("Very short description. Add detailed features, benefits, use cases, and keywords."); }
+  if (descLen >= 1000) score += descMax;
+  else if (descLen >= 500) { score += Math.round(descMax * 0.72); recs.push("Expand description to 1000+ chars for better keyword coverage."); }
+  else if (descLen >= 200) { score += Math.round(descMax * 0.4); recs.push("Description is too short. Aim for 1000+ characters with features, benefits, and keywords."); }
+  else if (descLen > 0) { score += Math.round(descMax * 0.2); recs.push("Very short description. Add detailed features, benefits, use cases, and keywords."); }
   else recs.push("Add a description — it's critical for both stores' ranking algorithms.");
 
-  // Keywords field (max 15 pts, iOS only)
-  if (store === "apple") {
+  // Keywords field — Apple: 10pts, Google: 15pts (auto)
+  if (isApple) {
     const kwLen = keywordsField.trim().length;
-    if (kwLen >= 80 && kwLen <= 100) score += 15;
-    else if (kwLen >= 50) { score += 10; recs.push(`Keywords field: ${kwLen}/100 chars used. Fill remaining space with relevant terms.`); }
-    else if (kwLen > 0) { score += 5; recs.push(`Only ${kwLen}/100 keyword chars used. Maximize this field with comma-separated terms.`); }
+    if (kwLen >= 80 && kwLen <= 100) score += 10;
+    else if (kwLen >= 50) { score += 7; recs.push(`Keywords field: ${kwLen}/100 chars used. Fill remaining space with relevant terms.`); }
+    else if (kwLen > 0) { score += 4; recs.push(`Only ${kwLen}/100 keyword chars used. Maximize this field with comma-separated terms.`); }
     else recs.push("Keywords field is empty! Use all 100 characters with comma-separated keywords.");
   } else {
     score += 15; // Android doesn't have a separate keywords field
+  }
+
+  // Promotional Text scoring (Apple only, max 10 pts)
+  if (isApple) {
+    const promoLen = (promotionalText ?? "").trim().length;
+    if (promoLen >= 100 && promoLen <= 170) {
+      score += 10;
+    } else if (promoLen >= 50) {
+      score += 6;
+      recs.push(`Promotional text: ${promoLen}/170 chars. Fill it to highlight current offers or seasonal content.`);
+    } else if (promoLen > 0) {
+      score += 3;
+      recs.push(`Promotional text too short (${promoLen}/170 chars). Use this space for timely messaging — it can be changed without a new app version.`);
+    } else {
+      recs.push("Add promotional text (170 chars) — it appears above your description and can be updated anytime without a new release.");
+    }
   }
 
   // Keyword density bonus (max 10 pts)
@@ -532,6 +551,7 @@ export async function generateFullListingRecommendation(
     subtitle: string;
     description: string;
     keywordsField: string;
+    promotionalText: string;
     analysis: string;
     dataSources: { keywords: number; competitors: number; reviewTopics: number; locales: number };
   };
@@ -543,7 +563,7 @@ export async function generateFullListingRecommendation(
   const supabase = createAdminClient();
   const { data: listing } = await supabase
     .from("app_store_listings")
-    .select("app_name, store, category, description, subtitle, keywords_field")
+    .select("*")
     .eq("id", listingId)
     .single();
 
@@ -565,6 +585,7 @@ CURRENT SUBTITLE: "${listing.subtitle ?? "none"}"
 CURRENT DESCRIPTION:
 "${(listing.description as string)?.slice(0, 2000) ?? "No description"}"
 ${isApple ? `CURRENT KEYWORDS FIELD: "${listing.keywords_field ?? "none"}"` : ""}
+${isApple ? `CURRENT PROMOTIONAL TEXT: "${(listing.promotional_text as string) ?? "none"}"` : ""}
 
 ${ctx.keywordsContext}
 
@@ -582,7 +603,8 @@ Now write the COMPLETE optimized store listing. Return ONLY valid JSON in this e
   "title": "optimized title (max 30 chars)",
   "subtitle": "${isApple ? "optimized subtitle (max 30 chars)" : "optimized short description (max 80 chars)"}",
   "description": "full optimized description (1000-2000 chars, plain text, use bullet • for lists, NO markdown, NO emoji)",
-  "keywords_field": "${isApple ? "comma-separated keywords, no spaces after commas, max 100 chars" : ""}"
+  "keywords_field": "${isApple ? "comma-separated keywords, no spaces after commas, max 100 chars" : ""}",
+  "promotional_text": "${isApple ? "promotional text (max 170 chars) — appears above the description, can be updated without a new release. Use for current offers, seasonal content, or key value props" : ""}"
 }
 
 CRITICAL RULES — VISIBILITY-FIRST OPTIMIZATION:
@@ -592,6 +614,7 @@ CRITICAL RULES — VISIBILITY-FIRST OPTIMIZATION:
 4. ${isApple ? "Subtitle MUST be 30 characters or fewer — use it for the next-best keywords not in the title" : "Short description MUST be 80 characters or fewer — keyword-rich and compelling"}
 5. Description must be plain text only (no markdown ** ## etc), use • for bullets
 6. ${isApple ? "Keywords field max 100 chars, comma-separated, no spaces after commas, exclude app name and category — fill EVERY character with keywords sorted by search volume × position opportunity" : "keywords_field should be empty string for Google Play"}
+${isApple ? `6b. Promotional text max 170 chars — this appears ABOVE the description and can be changed without a new app version. Use it for timely messaging: current promotions, seasonal content, new feature announcements, or compelling value propositions. It is NOT indexed for search but hugely impacts conversion.` : `6b. promotional_text should be empty string for Google Play`}
 7. ${listing.store === "google" ? "Google Play indexes the FULL description — repeat high-volume keywords 2-3× naturally across different sections" : "Apple only indexes title + subtitle + keyword field for search — description is for CONVERSION (convince users to download)"}
 8. Address what users praise and complain about in reviews — this improves conversion rate (more downloads from the same visibility)
 9. Differentiate from competitors — unique value props make users choose YOUR app
@@ -614,6 +637,7 @@ CRITICAL RULES — VISIBILITY-FIRST OPTIMIZATION:
       subtitle?: string;
       description?: string;
       keywords_field?: string;
+      promotional_text?: string;
     };
 
     // Strip markdown from description
@@ -638,6 +662,7 @@ CRITICAL RULES — VISIBILITY-FIRST OPTIMIZATION:
         subtitle: (parsed.subtitle ?? "").slice(0, isApple ? 30 : 80),
         description: desc,
         keywordsField: isApple ? (parsed.keywords_field ?? "").slice(0, 100) : "",
+        promotionalText: isApple ? (parsed.promotional_text ?? "").slice(0, 170) : "",
         analysis: parsed.analysis ?? "Optimized based on your keyword rankings, competitor landscape, and user reviews.",
         dataSources: {
           keywords: ctx.rankings.length,

@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { getPageSpeedData } from "@/lib/api/pagespeed";
 import { processPageSpeedAudit } from "@/lib/actions/audit-utils";
 import { crawlSite, type CrawledPage, type CrawlResult } from "@/lib/crawl/site-crawler";
+import { aiChat } from "@/lib/ai/ai-provider";
 
 /* ==================================================================
    Scheduled Audit Actions
@@ -759,4 +760,227 @@ function generatePageSignals(pages: CrawledPage[], auditId: string) {
   }
 
   return signals;
+}
+
+// ─── Batch URL Analysis ─────────────────────────────────────────────────────
+
+/**
+ * Batch analyze a list of URLs for SEO health.
+ * Performs lightweight fetches to check status code, response time, title tag,
+ * then uses AI to provide SEO insights across all results.
+ */
+export async function batchAnalyzeUrls(
+  projectId: string,
+  urls: string[]
+): Promise<
+  | { error: string }
+  | {
+      success: true;
+      results: Array<{
+        url: string;
+        statusCode: number | null;
+        responseTime: number | null;
+        title: string | null;
+        seoScore: number;
+        issues: string[];
+      }>;
+      summary: string;
+    }
+> {
+  const userClient = await createClient();
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
+  // Validate URLs
+  if (!urls || urls.length === 0) return { error: "No URLs provided." };
+  if (urls.length > 20) return { error: "Maximum 20 URLs allowed per batch." };
+
+  const validUrls: string[] = [];
+  for (const url of urls) {
+    try {
+      new URL(url);
+      validUrls.push(url);
+    } catch {
+      return { error: `Invalid URL: ${url}` };
+    }
+  }
+
+  try {
+    // Fetch each URL to get basic info
+    const fetchResults = await Promise.allSettled(
+      validUrls.map(async (url) => {
+        const startTime = Date.now();
+        try {
+          const response = await fetch(url, {
+            method: "GET",
+            redirect: "follow",
+            signal: AbortSignal.timeout(10000),
+            headers: {
+              "User-Agent": "RankPulse-SEO-Audit/1.0",
+            },
+          });
+          const responseTime = Date.now() - startTime;
+          const html = await response.text();
+
+          // Extract title tag
+          const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+          const title = titleMatch ? titleMatch[1].trim().slice(0, 200) : null;
+
+          // Extract meta description
+          const metaMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([\s\S]*?)["']/i);
+          const metaDescription = metaMatch ? metaMatch[1].trim() : null;
+
+          // Check for H1
+          const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+          const hasH1 = !!h1Match;
+
+          // Check content type
+          const contentType = response.headers.get("content-type") ?? "";
+
+          return {
+            url,
+            statusCode: response.status,
+            responseTime,
+            title,
+            metaDescription,
+            hasH1,
+            contentType,
+          };
+        } catch (err) {
+          return {
+            url,
+            statusCode: null,
+            responseTime: Date.now() - startTime,
+            title: null,
+            metaDescription: null,
+            hasH1: false,
+            contentType: "",
+            error: err instanceof Error ? err.message : "Fetch failed",
+          };
+        }
+      })
+    );
+
+    // Process results
+    const pageData = fetchResults.map((result) => {
+      if (result.status === "fulfilled") return result.value;
+      return {
+        url: "unknown",
+        statusCode: null,
+        responseTime: null,
+        title: null,
+        metaDescription: null,
+        hasH1: false,
+        contentType: "",
+        error: "Fetch failed",
+      };
+    });
+
+    // Build summary for AI analysis
+    const pageSummaries = pageData
+      .map(
+        (p, i) =>
+          `${i + 1}. ${p.url} — Status: ${p.statusCode ?? "ERROR"}, Time: ${p.responseTime ?? "N/A"}ms, Title: "${p.title ?? "MISSING"}", Meta: "${p.metaDescription ? "present" : "MISSING"}", H1: ${p.hasH1 ? "present" : "MISSING"}`
+      )
+      .join("\n");
+
+    const prompt = `You are an SEO technical auditor. Analyze these ${pageData.length} URLs and provide SEO insights for each.
+
+**URL Results:**
+${pageSummaries}
+
+For each URL, provide:
+- seoScore: An overall SEO health score (0-100) based on status code, response time, title, meta, H1
+- issues: An array of specific SEO issues found (e.g., "Missing title tag", "Slow response time (>3s)", "Missing meta description", "HTTP error 404")
+
+Also provide a "summary" with 2-3 sentences summarizing the overall batch health and key recommendations.
+
+Return ONLY valid JSON in this format:
+{
+  "results": [
+    {"index": 1, "seoScore": 85, "issues": ["Missing meta description"]},
+    ...
+  ],
+  "summary": "..."
+}`;
+
+    const aiResult = await aiChat(prompt, {
+      jsonMode: true,
+      maxTokens: 2000,
+      temperature: 0.3,
+      context: { feature: "batch-url-analysis" },
+    });
+
+    let aiScores: Array<{ index: number; seoScore: number; issues: string[] }> = [];
+    let aiSummary = "";
+
+    if (aiResult?.text) {
+      try {
+        const parsed = JSON.parse(aiResult.text);
+        aiScores = parsed.results ?? [];
+        aiSummary = parsed.summary ?? "";
+      } catch {
+        // AI response parse failed — use fallback scores
+      }
+    }
+
+    // Merge fetch results with AI scores
+    const results = pageData.map((p, i) => {
+      const aiScore = aiScores.find((s) => s.index === i + 1);
+
+      // Fallback scoring if AI didn't respond
+      let seoScore = aiScore?.seoScore ?? 50;
+      let issues = aiScore?.issues ?? [];
+
+      if (!aiScore) {
+        // Basic heuristic fallback
+        issues = [];
+        seoScore = 100;
+
+        if (!p.statusCode || p.statusCode >= 400) {
+          seoScore -= 40;
+          issues.push(`HTTP error ${p.statusCode ?? "unreachable"}`);
+        }
+        if (!p.title) {
+          seoScore -= 20;
+          issues.push("Missing title tag");
+        }
+        if (!p.metaDescription) {
+          seoScore -= 15;
+          issues.push("Missing meta description");
+        }
+        if (!p.hasH1) {
+          seoScore -= 10;
+          issues.push("Missing H1 heading");
+        }
+        if (p.responseTime && p.responseTime > 3000) {
+          seoScore -= 15;
+          issues.push(`Slow response time (${(p.responseTime / 1000).toFixed(1)}s)`);
+        }
+
+        seoScore = Math.max(0, seoScore);
+      }
+
+      return {
+        url: p.url,
+        statusCode: p.statusCode,
+        responseTime: p.responseTime,
+        title: p.title,
+        seoScore,
+        issues,
+      };
+    });
+
+    const summary =
+      aiSummary ||
+      `Analyzed ${results.length} URLs. ${results.filter((r) => r.seoScore >= 70).length} pages are healthy, ${results.filter((r) => r.seoScore < 50).length} need attention.`;
+
+    revalidatePath("/dashboard/site-audit");
+    return { success: true, results, summary };
+  } catch (err) {
+    console.error("[batchAnalyzeUrls] Error:", err);
+    return {
+      error: err instanceof Error ? err.message : "Failed to analyze URLs.",
+    };
+  }
 }

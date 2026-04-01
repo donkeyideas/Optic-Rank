@@ -142,6 +142,50 @@ export async function getKeywordRanks(
 }
 
 /**
+ * Get rank history for multiple keywords at once, returning a Map keyed by keyword ID.
+ * Each entry contains an array of { date, position } deduplicated per day.
+ */
+export async function getKeywordRanksBatch(
+  keywordIds: string[],
+  days = 30
+): Promise<Map<string, { date: string; position: number }[]>> {
+  const result = new Map<string, { date: string; position: number }[]>();
+  if (keywordIds.length === 0) return result;
+
+  const supabase = await createClient();
+
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+
+  const { data, error } = await supabase
+    .from("keyword_ranks")
+    .select("keyword_id, position, checked_at")
+    .in("keyword_id", keywordIds)
+    .gte("checked_at", since.toISOString())
+    .order("checked_at", { ascending: true });
+
+  if (error || !data) return result;
+
+  for (const row of data) {
+    const kwId = row.keyword_id as string;
+    const date = (row.checked_at as string).slice(0, 10); // YYYY-MM-DD
+    const position = row.position as number;
+
+    if (!result.has(kwId)) result.set(kwId, []);
+    const arr = result.get(kwId)!;
+    // Deduplicate by date — keep the latest entry per day
+    const existing = arr.findIndex((r) => r.date === date);
+    if (existing >= 0) {
+      arr[existing] = { date, position };
+    } else {
+      arr.push({ date, position });
+    }
+  }
+
+  return result;
+}
+
+/**
  * Get keyword clusters for a project.
  */
 export async function getKeywordClusters(

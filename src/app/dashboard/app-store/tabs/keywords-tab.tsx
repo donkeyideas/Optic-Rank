@@ -164,6 +164,12 @@ export function KeywordsTab({ listings, rankings, keywordHistory }: KeywordsTabP
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="border-b border-rule pb-4">
+        <h2 className="font-serif text-xl font-bold text-ink">Keywords</h2>
+        <p className="mt-1 max-w-2xl font-sans text-[13px] text-ink-secondary">
+          Track keyword rankings across the App Store and Google Play with position history, search volume, and difficulty scores.
+        </p>
+      </div>
       <AppSelectorStrip
         listings={listings}
         selected={selectedListing}

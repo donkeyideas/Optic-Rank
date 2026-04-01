@@ -187,6 +187,7 @@ export interface AppStoreListing {
   description: string | null;
   keywords_field: string | null;
   subtitle: string | null;
+  promotional_text: string | null;
   aso_score: number | null;
   visibility_score: number | null;
   last_updated: string;

@@ -666,12 +666,24 @@ export async function getAPIConfigs() {
 export async function getAPIUsageStats() {
   const admin = createAdminClient();
 
-  // Get total calls and cost
-  const { data: logs } = await admin
-    .from("api_call_log")
-    .select("provider, cost_usd, is_success, created_at");
+  // Fetch ALL rows — Supabase caps at 1,000 per request by default,
+  // so we paginate in batches to get the true totals.
+  const PAGE_SIZE = 1000;
+  let allLogs: { provider: string; cost_usd: number | null; is_success: boolean; created_at: string | null }[] = [];
+  let offset = 0;
+  let hasMore = true;
 
-  const allLogs = logs ?? [];
+  while (hasMore) {
+    const { data: page } = await admin
+      .from("api_call_log")
+      .select("provider, cost_usd, is_success, created_at")
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    const rows = page ?? [];
+    allLogs = allLogs.concat(rows);
+    hasMore = rows.length === PAGE_SIZE;
+    offset += PAGE_SIZE;
+  }
 
   const totalCalls = allLogs.length;
   const totalCost = allLogs.reduce((sum, l) => sum + (l.cost_usd ?? 0), 0);

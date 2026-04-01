@@ -153,6 +153,12 @@ export function LocalizationTab({ listings, localizations }: LocalizationTabProp
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="border-b border-rule pb-4">
+        <h2 className="font-serif text-xl font-bold text-ink">Localization</h2>
+        <p className="mt-1 max-w-2xl font-sans text-[13px] text-ink-secondary">
+          Identify high-opportunity markets and generate AI-powered translations to expand your app&apos;s global reach.
+        </p>
+      </div>
       <AppSelectorStrip listings={listings} selected={selectedListing} onSelect={setSelectedListing} />
 
       {/* Actions */}
