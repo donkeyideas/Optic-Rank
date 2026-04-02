@@ -34,6 +34,7 @@ import { scoreMetadata, generateTitleVariants, generateSubtitleVariant, generate
 import { getCategoryLeaderboard, findKeywordOpportunities, analyzeCategoryTrends } from "@/lib/actions/app-store-intel";
 // Social Intelligence actions
 import { analyzeSocialProfile, addSocialCompetitor, removeSocialCompetitor, discoverSocialCompetitors, updateSocialProfile, saveSocialGoals, generateSocialContent, lookupSocialProfile } from "@/lib/actions/social-intelligence";
+import type { SocialAnalysisType } from "@/types";
 
 type ActionResult =
   | { error: string }
@@ -226,7 +227,7 @@ export async function POST(request: NextRequest) {
 
           // ----- Social Intelligence -----
           case "analyzeSocialProfile":
-            return analyzeSocialProfile(body.profileId as string, body.analysisType as string);
+            return analyzeSocialProfile(body.profileId as string, body.analysisType as SocialAnalysisType);
           case "addSocialCompetitor": {
             const fd = new FormData();
             fd.append("platform", body.platform as string);
@@ -250,14 +251,16 @@ export async function POST(request: NextRequest) {
             return updateSocialProfile(body.profileId as string, fd2);
           }
           case "saveSocialGoals":
-            return saveSocialGoals(body.profileId as string, body.goals as Record<string, unknown>[]);
+            return saveSocialGoals(body.profileId as string, body.goals as any);
           case "generateSocialContent":
             return generateSocialContent(
               body.profileId as string,
-              body.contentType as string,
-              (body.topic as string) || "",
-              (body.tone as string) || "professional",
-              typeof body.count === "number" ? body.count : 5
+              {
+                contentType: body.contentType as string,
+                topic: (body.topic as string) || "",
+                tone: (body.tone as string) || "professional",
+                count: typeof body.count === "number" ? body.count : 5,
+              }
             );
           case "lookupSocialProfile":
             return lookupSocialProfile(body.platform as string, body.handle as string);
