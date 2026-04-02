@@ -52,6 +52,29 @@ export function Notepad() {
   const inputRef = useRef<HTMLInputElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialized = useRef(false);
+  const dirty = useRef(false); // tracks whether there are unsaved changes
+  const latestData = useRef<NotepadData>({ notes: "", checklist: [] });
+
+  // Keep latestData ref in sync with state
+  useEffect(() => {
+    latestData.current = { notes, checklist };
+  }, [notes, checklist]);
+
+  // Flush any pending save to Supabase immediately (fire-and-forget)
+  const flushSave = useCallback(async () => {
+    if (!dirty.current || !initialized.current) return;
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+    }
+    dirty.current = false;
+    try {
+      const result = await saveUserNotes(latestData.current);
+      setSynced(!result.error);
+    } catch {
+      setSynced(false);
+    }
+  }, []);
 
   // Load from DB on mount, fall back to localStorage
   useEffect(() => {
@@ -73,11 +96,14 @@ export function Notepad() {
           setNotes(remote.notes);
           setChecklist(remote.checklist);
           saveLocal(remote); // update local cache
+          setSynced(true);
         } else if (local.notes || local.checklist.length > 0) {
           // First time: push existing local notes to DB
-          await saveUserNotes(local);
+          const result = await saveUserNotes(local);
+          setSynced(!result.error);
+        } else {
+          setSynced(true);
         }
-        setSynced(true);
       } catch {
         setSynced(false); // offline — local-only mode
       }
@@ -91,9 +117,11 @@ export function Notepad() {
     if (!initialized.current) return;
     const data: NotepadData = { notes, checklist };
     saveLocal(data);
+    dirty.current = true;
 
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
+      dirty.current = false;
       try {
         const result = await saveUserNotes(data);
         setSynced(!result.error);
@@ -106,6 +134,28 @@ export function Notepad() {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
   }, [notes, checklist]);
+
+  // Flush save on page hide / beforeunload to prevent data loss
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        flushSave();
+      }
+    };
+    const handleBeforeUnload = () => {
+      flushSave();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      // Flush on unmount (e.g. navigating away within the SPA)
+      flushSave();
+    };
+  }, [flushSave]);
 
   const addChecklistItem = useCallback(() => {
     const text = newItem.trim();

@@ -9,6 +9,7 @@ const PAGE_PATH_MAP: Record<string, string> = {
   features: "/features",
   "search-ai": "/search-ai",
   "social-intelligence": "/social-intelligence",
+  global: "/",
 };
 
 /**
@@ -39,5 +40,8 @@ export async function updateSiteContent(
   const pagePath = PAGE_PATH_MAP[page] ?? "/";
   revalidatePath(pagePath);
   revalidatePath("/admin/content");
+  if (page === "global") {
+    revalidatePath("/dashboard");
+  }
   return { success: true };
 }

@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
+  Settings,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +41,7 @@ const PAGE_TABS = [
   { key: "features", label: "Features", icon: Search },
   { key: "search-ai", label: "Search & AI", icon: Brain },
   { key: "social-intelligence", label: "Social Intel", icon: Share2 },
+  { key: "global", label: "Global", icon: Settings },
 ] as const;
 
 const SECTION_LABELS: Record<string, string> = {
@@ -64,6 +66,7 @@ const SECTION_LABELS: Record<string, string> = {
   content_engine: "Content Strategy Engine",
   competitor_bench: "Competitor Benchmarking",
   growth_intel: "Growth Intelligence",
+  mobile_app: "Mobile App Links",
 };
 
 /* ── Friendly field labels ─────────────────────────────────────── */
@@ -95,6 +98,11 @@ const FIELD_LABELS: Record<string, string> = {
   bullets: "Bullet Points",
   image: "Image URL",
   alt: "Image Alt Text",
+  enabled: "Enabled",
+  app_store_url: "App Store URL",
+  app_store_enabled: "App Store Link Enabled",
+  google_play_url: "Google Play URL",
+  google_play_enabled: "Google Play Link Enabled",
 };
 
 function friendlyLabel(key: string): string {

@@ -13,6 +13,7 @@ import {
   Smartphone,
 } from "lucide-react";
 import { getSiteContent } from "@/lib/dal/admin";
+import { MobileAppBanner } from "@/components/shared/mobile-app-banner";
 import {
   JsonLd,
   OG_IMAGES,
@@ -72,7 +73,20 @@ const DEFAULT_STATS = [
 /* ── Page ──────────────────────────────────────────────────────── */
 
 export default async function MarketingHomePage() {
-  const sections = await getSiteContent("homepage");
+  const [sections, globalSections] = await Promise.all([
+    getSiteContent("homepage"),
+    getSiteContent("global"),
+  ]);
+
+  const mobileApp = getSection<{
+    enabled: boolean;
+    headline: string;
+    description: string;
+    app_store_url: string;
+    app_store_enabled: boolean;
+    google_play_url: string;
+    google_play_enabled: boolean;
+  }>(globalSections, "mobile_app");
 
   const hero = getSection<{
     dateline?: string;
@@ -304,6 +318,16 @@ export default async function MarketingHomePage() {
           </div>
         </div>
       </section>
+
+      {/* ==== MOBILE APP SECTION ==== */}
+      {mobileApp?.enabled && (mobileApp.app_store_enabled || mobileApp.google_play_enabled) && (
+        <MobileAppBanner
+          headline={mobileApp.headline}
+          description={mobileApp.description}
+          appStoreUrl={mobileApp.app_store_enabled ? mobileApp.app_store_url : undefined}
+          googlePlayUrl={mobileApp.google_play_enabled ? mobileApp.google_play_url : undefined}
+        />
+      )}
 
       {/* ==== FINAL CTA SECTION ==== */}
       <section className="border-b border-rule">

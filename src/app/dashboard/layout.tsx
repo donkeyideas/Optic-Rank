@@ -11,6 +11,8 @@ import { Notepad } from "@/components/shared/notepad";
 import { TimezoneProvider } from "@/lib/context/timezone-context";
 import { formatDateLine } from "@/lib/utils/format-date";
 import { createClient } from "@/lib/supabase/server";
+import { getSiteContent } from "@/lib/dal/admin";
+import { MobileAppBanner } from "@/components/shared/mobile-app-banner";
 
 function TrialExpiredLockout() {
   return (
@@ -76,6 +78,19 @@ export default async function DashboardLayout({
   let plan: string | null = null;
   let userTimezone = "UTC";
   let isCompAccount = false;
+
+  // Fetch mobile app links from global content
+  const globalSections = await getSiteContent("global");
+  const mobileAppRow = globalSections.find((s: { section: string }) => s.section === "mobile_app");
+  const mobileApp = mobileAppRow?.content as {
+    enabled?: boolean;
+    headline?: string;
+    description?: string;
+    app_store_url?: string;
+    app_store_enabled?: boolean;
+    google_play_url?: string;
+    google_play_enabled?: boolean;
+  } | undefined;
 
   if (user) {
     const { data: profile } = await supabase
@@ -160,6 +175,19 @@ export default async function DashboardLayout({
         />
 
         <PaperNav items={dashboardNavItems} />
+
+        {/* Mobile app banner */}
+        {mobileApp?.enabled && (mobileApp.app_store_enabled || mobileApp.google_play_enabled) && (
+          <div className="mx-auto w-full max-w-[1400px] px-4 pt-4 md:px-6 lg:px-8">
+            <MobileAppBanner
+              headline={mobileApp.headline}
+              description={mobileApp.description}
+              appStoreUrl={mobileApp.app_store_enabled ? mobileApp.app_store_url : undefined}
+              googlePlayUrl={mobileApp.google_play_enabled ? mobileApp.google_play_url : undefined}
+              variant="dashboard"
+            />
+          </div>
+        )}
 
         {/* Trial banner — shown during trial or when expired (never for comp accounts) */}
         {!isCompAccount && subscriptionStatus === "trialing" && trialEndsAt && (
