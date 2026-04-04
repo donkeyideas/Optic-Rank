@@ -13,13 +13,16 @@ import { generatePredictions } from "@/lib/actions/predictions";
 import { runVisibilityCheck } from "@/lib/actions/ai-visibility";
 import { generateBrief } from "@/lib/actions/briefs";
 import {
+  scoreContentPages,
   detectContentDecay,
   detectCannibalization,
   suggestInternalLinks,
   generateContentBriefs,
   detectContentGaps,
+  generateCalendarEntries,
 } from "@/lib/actions/content";
 import { runSiteAudit, batchAnalyzeUrls } from "@/lib/actions/site-audit";
+import { runGeoAnalysis } from "@/lib/actions/optimization";
 import { extractProjectEntities } from "@/lib/actions/entities";
 import { generateInsightsForProject } from "@/lib/actions/insights";
 import { generateRecommendations, dismissRecommendation, completeRecommendation } from "@/lib/actions/recommendations";
@@ -126,6 +129,9 @@ export async function POST(request: NextRequest) {
                 "on_demand"
             );
 
+          case "scoreContentPages":
+            return scoreContentPages(projectId);
+
           case "detectContentDecay":
             return detectContentDecay(projectId);
 
@@ -138,8 +144,14 @@ export async function POST(request: NextRequest) {
           case "generateContentBriefs":
             return generateContentBriefs(projectId);
 
+          case "generateCalendarEntries":
+            return generateCalendarEntries(projectId);
+
           case "runSiteAudit":
             return runSiteAudit(projectId);
+
+          case "runGeoAnalysis":
+            return runGeoAnalysis(projectId);
 
           case "extractProjectEntities":
             return extractProjectEntities(projectId);
