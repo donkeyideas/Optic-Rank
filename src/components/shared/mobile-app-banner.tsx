@@ -1,4 +1,7 @@
-import { Smartphone, Download } from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import { Smartphone, Download, X } from "lucide-react";
 
 interface MobileAppBannerProps {
   headline?: string;
@@ -17,10 +20,12 @@ export function MobileAppBanner({
   googlePlayUrl,
   variant = "marketing",
 }: MobileAppBannerProps) {
+  const [dismissed, setDismissed] = useState(false);
   const hasLinks = appStoreUrl || googlePlayUrl;
   if (!hasLinks) return null;
 
   if (variant === "dashboard") {
+    if (dismissed) return null;
     return (
       <div className="border border-rule bg-surface-card">
         <div className="flex items-center gap-4 px-4 py-3">
@@ -59,6 +64,13 @@ export function MobileAppBanner({
               </a>
             )}
           </div>
+          <button
+            onClick={() => setDismissed(true)}
+            className="ml-2 flex h-7 w-7 shrink-0 items-center justify-center text-ink-muted transition-colors hover:text-ink"
+            aria-label="Dismiss banner"
+          >
+            <X size={16} strokeWidth={1.5} />
+          </button>
         </div>
       </div>
     );
