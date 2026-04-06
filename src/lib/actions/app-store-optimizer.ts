@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { aiChat } from "@/lib/ai/ai-provider";
+import { findKeywordOpportunities } from "@/lib/actions/app-store-intel";
 
 /**
  * Fetch full context for a listing: keywords, competitors, review topics.
@@ -569,9 +570,22 @@ export async function generateFullListingRecommendation(
 
   if (!listing) return { error: "Listing not found." };
 
-  const ctx = await getListingContext(listingId);
+  const [ctx, opportunitiesResult] = await Promise.all([
+    getListingContext(listingId),
+    findKeywordOpportunities(listingId),
+  ]);
   const isApple = listing.store === "apple";
   const store = isApple ? "Apple App Store" : "Google Play";
+
+  // Build keyword opportunities context from Store Intelligence
+  let opportunitiesContext = "";
+  if ("success" in opportunitiesResult && opportunitiesResult.opportunities.length > 0) {
+    const opps = opportunitiesResult.opportunities
+      .sort((a, b) => b.opportunity_score - a.opportunity_score)
+      .slice(0, 10);
+    opportunitiesContext = `KEYWORD OPPORTUNITIES (from Store Intelligence — HIGH PRIORITY, these are untapped keywords you MUST work into the listing):
+${opps.map((o) => `  - "${o.keyword}" | volume: ${o.estimated_volume} | competition: ${o.competition} | score: ${o.opportunity_score} | ${o.reason}`).join("\n")}`;
+  }
 
   const prompt = `You are a world-class ASO strategist. Your PRIMARY OBJECTIVE is to MAXIMIZE ORGANIC VISIBILITY — get this app discovered by the most people and drive downloads.
 
@@ -591,6 +605,7 @@ ${ctx.keywordsContext}
 
 ${ctx.visibilityContext}
 
+${opportunitiesContext ? `\n${opportunitiesContext}\n` : ""}
 ${ctx.competitorContext || "NO COMPETITORS TRACKED YET"}
 
 ${ctx.reviewContext || "NO REVIEW DATA YET"}
@@ -619,7 +634,8 @@ ${isApple ? `6b. Promotional text max 170 chars — this appears ABOVE the descr
 8. Address what users praise and complain about in reviews — this improves conversion rate (more downloads from the same visibility)
 9. Differentiate from competitors — unique value props make users choose YOUR app
 10. Start description with a compelling hook (first 3 lines visible before "Read More") — this is your conversion moment
-11. End description with a clear call-to-action`;
+11. End description with a clear call-to-action
+12. KEYWORD OPPORTUNITIES are the highest-priority untapped keywords — integrate as many as possible into ${isApple ? "title, subtitle, and keywords field" : "title, short description, and full description"}. These represent the biggest growth potential for visibility.`;
 
   const result = await aiChat(prompt, {
     temperature: 0.7,

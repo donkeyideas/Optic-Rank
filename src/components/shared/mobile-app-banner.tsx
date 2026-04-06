@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Smartphone, Download, X } from "lucide-react";
+
+const BANNER_DISMISSED_KEY = "optic-rank-app-banner-dismissed";
 
 interface MobileAppBannerProps {
   headline?: string;
@@ -20,7 +22,12 @@ export function MobileAppBanner({
   googlePlayUrl,
   variant = "marketing",
 }: MobileAppBannerProps) {
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(() => {
+    if (typeof window !== "undefined" && variant === "dashboard") {
+      return localStorage.getItem(BANNER_DISMISSED_KEY) === "true";
+    }
+    return false;
+  });
   const hasLinks = appStoreUrl || googlePlayUrl;
   if (!hasLinks) return null;
 
@@ -55,7 +62,7 @@ export function MobileAppBanner({
                 href={googlePlayUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex h-8 items-center gap-1.5 border border-white/30 bg-white/10 px-3 text-[10px] font-bold uppercase tracking-widest text-white transition-colors hover:bg-white/20"
+                className="inline-flex h-8 items-center gap-1.5 border border-rule bg-surface-raised px-3 text-[10px] font-bold uppercase tracking-widest text-ink transition-colors hover:bg-surface-card"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5">
                   <path d="M3.61 1.81L13.53 12l-9.92 10.19c-.34-.3-.55-.73-.55-1.21V3.02c0-.48.21-.91.55-1.21ZM14.53 13l2.86 2.93-10.87 6.17L14.53 13ZM21.19 10.63c.5.29.81.84.81 1.37 0 .53-.31 1.08-.81 1.37l-2.6 1.48L15.7 12l2.89-2.85 2.6 1.48ZM6.52 2.9l10.87 6.17L14.53 12 6.52 2.9Z" />
@@ -65,7 +72,7 @@ export function MobileAppBanner({
             )}
           </div>
           <button
-            onClick={() => setDismissed(true)}
+            onClick={() => { setDismissed(true); localStorage.setItem(BANNER_DISMISSED_KEY, "true"); }}
             className="ml-2 flex h-7 w-7 shrink-0 items-center justify-center text-ink-muted transition-colors hover:text-ink"
             aria-label="Dismiss banner"
           >
