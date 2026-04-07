@@ -23,12 +23,17 @@ async function getAuthUser(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  console.log("[Push Register] POST received");
   const user = await getAuthUser(request);
-  if (!user)
+  if (!user) {
+    console.log("[Push Register] Unauthorized — no user from auth");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const body = await request.json();
   const { token, subscription, device, userAgent } = body;
+  console.log(`[Push Register] User ${user.id.slice(0, 8)}... | device=${device} | hasToken=${!!token} | hasSub=${!!subscription}`);
+
   if (!token && !subscription) {
     return NextResponse.json(
       { error: "Token or subscription required" },
@@ -77,8 +82,11 @@ export async function POST(request: NextRequest) {
     { onConflict: "token" }
   );
 
-  if (error)
+  if (error) {
+    console.error("[Push Register] Upsert failed:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  console.log(`[Push Register] Success — ${subscription ? "Web Push" : "FCM"} token stored for user ${user.id.slice(0, 8)}...`);
   return NextResponse.json({ success: true });
 }
 

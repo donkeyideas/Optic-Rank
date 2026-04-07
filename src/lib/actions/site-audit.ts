@@ -338,6 +338,18 @@ export async function runSiteAudit(
   revalidatePath("/dashboard/site-audit");
   revalidatePath("/dashboard/search-ai");
   revalidatePath("/dashboard");
+
+  // Push notification: audit complete
+  try {
+    const { sendPushToUser } = await import("@/lib/notifications/push");
+    await sendPushToUser(user.id, {
+      title: "Site Audit Complete",
+      message: `Audit for ${project.domain ?? "your site"} finished successfully.`,
+      type: "audit.completed",
+      actionUrl: "/dashboard/site-audit",
+    });
+  } catch { /* push is best-effort */ }
+
   return { success: true };
 }
 

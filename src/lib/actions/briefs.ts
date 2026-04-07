@@ -45,6 +45,18 @@ export async function generateBrief(
 
     revalidatePath("/dashboard/ai-briefs");
     revalidatePath("/dashboard/advanced-ai");
+
+    // Push notification: brief ready
+    try {
+      const { sendPushToUser } = await import("@/lib/notifications/push");
+      await sendPushToUser(user.id, {
+        title: "AI Brief Ready",
+        message: `Your ${briefType} intelligence brief has been generated.`,
+        type: "brief.generated",
+        actionUrl: "/dashboard/advanced-ai/ai-briefs",
+      });
+    } catch { /* push is best-effort */ }
+
     return { success: true, briefId: data.id };
   } catch (err) {
     return {

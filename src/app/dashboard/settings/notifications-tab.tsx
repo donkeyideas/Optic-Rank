@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useCallback } from "react";
 import { Mail, Smartphone, Newspaper, TrendingUp, Link2, Shield, FileText } from "lucide-react";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { ColumnHeader } from "@/components/editorial/column-header";
 import { updateNotificationPreferences, type NotificationPrefs } from "@/lib/actions/settings";
 import type { Profile } from "@/types";
@@ -68,6 +69,7 @@ export function NotificationsTab({ profile }: NotificationsTabProps) {
   const [localPrefs, setLocalPrefs] = useState<NotificationPrefs>({ ...DEFAULT_PREFS, ...prefs });
   const [isPending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
+  const push = usePushNotifications();
 
   function handleToggle(key: keyof NotificationPrefs, value: boolean) {
     const updated = { ...localPrefs, [key]: value };
@@ -82,6 +84,16 @@ export function NotificationsTab({ profile }: NotificationsTabProps) {
       }
     });
   }
+
+  const handlePushToggle = useCallback(async (value: boolean) => {
+    if (value) {
+      const ok = await push.subscribe();
+      if (ok) handleToggle("push", true);
+    } else {
+      const ok = await push.unsubscribe();
+      if (ok) handleToggle("push", false);
+    }
+  }, [push]);
 
   return (
     <div className="max-w-2xl">
@@ -101,10 +113,16 @@ export function NotificationsTab({ profile }: NotificationsTabProps) {
         <ToggleRow
           icon={<Smartphone size={14} />}
           label="Push Notifications"
-          description="Receive push notifications on your devices"
-          checked={localPrefs.push}
-          onChange={(v) => handleToggle("push", v)}
-          disabled={isPending}
+          description={
+            push.permission === "denied"
+              ? "Blocked by browser — allow in site settings"
+              : push.state === "subscribed"
+                ? "Receiving push notifications on this device"
+                : "Receive push notifications on your devices"
+          }
+          checked={push.state === "subscribed" && localPrefs.push}
+          onChange={handlePushToggle}
+          disabled={isPending || push.state === "loading" || push.permission === "denied"}
         />
         <ToggleRow
           icon={<Newspaper size={14} />}

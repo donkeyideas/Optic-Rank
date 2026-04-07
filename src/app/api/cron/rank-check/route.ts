@@ -136,6 +136,42 @@ export async function GET(request: Request) {
                 })
                 .eq("id", kw.id);
 
+              // Push notification for significant rank changes (5+ positions)
+              if (
+                previousPosition !== null &&
+                currentPosition !== null &&
+                Math.abs(currentPosition - previousPosition) >= 5
+              ) {
+                try {
+                  const { sendPushToUser } = await import("@/lib/notifications/push");
+                  // Look up the project owner
+                  const { data: projectData } = await supabase
+                    .from("projects")
+                    .select("organization_id")
+                    .eq("id", project.id)
+                    .single();
+                  if (projectData?.organization_id) {
+                    const { data: owner } = await supabase
+                      .from("profiles")
+                      .select("id")
+                      .eq("organization_id", projectData.organization_id)
+                      .eq("role", "owner")
+                      .limit(1)
+                      .single();
+                    if (owner) {
+                      const direction = currentPosition < previousPosition ? "up" : "down";
+                      const change = Math.abs(currentPosition - previousPosition);
+                      await sendPushToUser(owner.id, {
+                        title: `Keyword Rank ${direction === "up" ? "Improved" : "Dropped"}`,
+                        message: `"${kw.keyword}" moved ${direction} ${change} positions to #${currentPosition}`,
+                        type: "keyword.rank_changed",
+                        actionUrl: "/dashboard/keywords",
+                      });
+                    }
+                  }
+                } catch { /* push is best-effort */ }
+              }
+
               // Log the API call
               await logAPICall({
                 provider: "dataforseo",

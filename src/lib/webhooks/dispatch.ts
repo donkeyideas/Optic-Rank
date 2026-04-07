@@ -6,7 +6,14 @@ export type WebhookEvent =
   | "audit.completed"
   | "prediction.generated"
   | "backlink.new"
-  | "backlink.lost";
+  | "backlink.lost"
+  | "app_store.rank_changed"
+  | "brief.generated"
+  | "trial.expiring"
+  | "billing.payment_failed"
+  | "billing.subscription_changed"
+  | "system.announcement"
+  | "admin.new_signup";
 
 /**
  * Dispatch a webhook event to all registered endpoints for the given org.

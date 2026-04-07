@@ -10,6 +10,10 @@ import {
   Mail,
   X,
 } from "lucide-react";
+import { BroadcastPanel } from "./broadcast-panel";
+import { PushStatsPanel } from "./push-stats-panel";
+import type { BroadcastHistoryEntry } from "@/lib/actions/broadcast";
+import type { PushLogEntry, TokenStats, DeliveryStats } from "./push-stats-panel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -217,11 +221,20 @@ function ContactModal({
 export function NotificationsClient({
   notifications,
   unreadCount,
+  broadcastHistory = [],
+  pushLog = [],
+  pushTokenStats,
+  pushDeliveryStats,
 }: {
   notifications: Notification[];
   unreadCount: number;
+  broadcastHistory?: BroadcastHistoryEntry[];
+  pushLog?: PushLogEntry[];
+  pushTokenStats?: TokenStats;
+  pushDeliveryStats?: DeliveryStats;
 }) {
   const [selectedContact, setSelectedContact] = useState<ContactData | null>(null);
+  const [activeTab, setActiveTab] = useState<"activity" | "broadcast" | "push-stats">("activity");
   const grouped = groupByDate(notifications);
   const groupKeys = Object.keys(grouped);
 
@@ -230,10 +243,16 @@ export function NotificationsClient({
   const billingCount = notifications.filter((n) => n.type === "billing").length;
   const contactCount = notifications.filter((n) => n.type === "contact").length;
 
+  const tabs = [
+    { key: "activity" as const, label: "Activity Feed" },
+    { key: "broadcast" as const, label: "Broadcast" },
+    { key: "push-stats" as const, label: "Push Stats" },
+  ];
+
   return (
     <div>
       {/* Page Header */}
-      <div className="mb-8">
+      <div className="mb-6">
         <div className="flex items-center gap-3">
           <h2 className="font-serif text-2xl font-bold text-ink">
             Notifications
@@ -250,6 +269,40 @@ export function NotificationsClient({
         </p>
       </div>
 
+      {/* Tabs */}
+      <div className="mb-6 flex gap-6 border-b-2 border-rule">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`relative pb-3 text-[11px] font-bold uppercase tracking-[0.15em] transition-colors ${
+              activeTab === tab.key
+                ? "text-editorial-red after:absolute after:bottom-[-2px] after:left-0 after:right-0 after:h-[2px] after:bg-editorial-red after:content-['']"
+                : "text-ink-muted hover:text-ink-secondary"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Broadcast Tab */}
+      {activeTab === "broadcast" && (
+        <BroadcastPanel initialHistory={broadcastHistory} />
+      )}
+
+      {/* Push Stats Tab */}
+      {activeTab === "push-stats" && pushTokenStats && pushDeliveryStats && (
+        <PushStatsPanel
+          log={pushLog}
+          tokenStats={pushTokenStats}
+          deliveryStats={pushDeliveryStats}
+        />
+      )}
+
+      {/* Activity Feed Tab */}
+      {activeTab === "activity" && (
+        <>
       {/* Stats */}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Card>
@@ -427,6 +480,8 @@ export function NotificationsClient({
           contact={selectedContact}
           onClose={() => setSelectedContact(null)}
         />
+      )}
+        </>
       )}
     </div>
   );

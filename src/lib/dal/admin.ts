@@ -1311,3 +1311,91 @@ export async function dismissInsight(insightId: string): Promise<void> {
     .update({ is_dismissed: true })
     .eq("id", insightId);
 }
+
+/* ================================================================
+   PUSH NOTIFICATIONS
+   ================================================================ */
+
+/** Get push notification history for admin page */
+export async function getPushNotificationLog(limit = 50) {
+  const admin = createAdminClient();
+
+  const { data: logs } = await admin
+    .from("push_notification_log")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (!logs || logs.length === 0) return [];
+
+  // Enrich with sender names
+  const senderIds = [...new Set(logs.map((l) => l.sent_by).filter(Boolean))] as string[];
+  const userIds = [...new Set(logs.map((l) => l.user_id).filter(Boolean))] as string[];
+  const allIds = [...new Set([...senderIds, ...userIds])];
+
+  let nameMap = new Map<string, string>();
+  if (allIds.length > 0) {
+    const { data: profiles } = await admin
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", allIds);
+    nameMap = new Map((profiles ?? []).map((p) => [p.id, p.full_name ?? "Unknown"]));
+  }
+
+  return logs.map((l) => ({
+    ...l,
+    sent_by_name: l.sent_by ? nameMap.get(l.sent_by) ?? "System" : "Automatic",
+    user_name: l.user_id ? nameMap.get(l.user_id) ?? "Unknown" : null,
+  }));
+}
+
+/** Get push token stats */
+export async function getPushTokenStats() {
+  const admin = createAdminClient();
+  const { data: tokens } = await admin
+    .from("push_tokens")
+    .select("id, device_type, user_id");
+
+  if (!tokens) return { totalTokens: 0, uniqueUsers: 0, byDevice: {} as Record<string, number> };
+
+  const uniqueUsers = new Set(tokens.map((t) => t.user_id)).size;
+  const byDevice: Record<string, number> = {};
+  for (const t of tokens) {
+    const d = t.device_type ?? "unknown";
+    byDevice[d] = (byDevice[d] ?? 0) + 1;
+  }
+
+  return { totalTokens: tokens.length, uniqueUsers, byDevice };
+}
+
+/** Get push notification delivery stats (last N days) */
+export async function getPushDeliveryStats(days = 30) {
+  const admin = createAdminClient();
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+
+  const { data } = await admin
+    .from("push_notification_log")
+    .select("tokens_targeted, tokens_success, tokens_failed, type, created_at")
+    .gte("created_at", since.toISOString());
+
+  const entries = data ?? [];
+  const totalSent = entries.reduce((a, e) => a + e.tokens_targeted, 0);
+  const totalSuccess = entries.reduce((a, e) => a + e.tokens_success, 0);
+  const totalFailed = entries.reduce((a, e) => a + e.tokens_failed, 0);
+  const deliveryRate = totalSent > 0 ? Math.round((totalSuccess / totalSent) * 100) : 0;
+
+  const byType: Record<string, number> = {};
+  for (const e of entries) {
+    byType[e.type] = (byType[e.type] ?? 0) + 1;
+  }
+
+  return {
+    totalSent,
+    totalSuccess,
+    totalFailed,
+    deliveryRate,
+    byType,
+    notificationCount: entries.length,
+  };
+}

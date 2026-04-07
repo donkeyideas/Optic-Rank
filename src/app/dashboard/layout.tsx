@@ -7,6 +7,7 @@ import { BottomBar } from "@/components/editorial/bottom-bar";
 import { ProjectSelector } from "@/components/shared/project-selector";
 
 import { TrialBanner } from "@/components/shared/trial-banner";
+import { PushToolbarAction } from "@/components/shared/push-toolbar-action";
 import { Notepad } from "@/components/shared/notepad";
 import { TimezoneProvider } from "@/lib/context/timezone-context";
 import { formatDateLine } from "@/lib/utils/format-date";
@@ -164,7 +165,7 @@ export default async function DashboardLayout({
         <Masthead
           showLogout
           leftSlot={projects.length > 0 ? <ProjectSelector projects={projects} /> : undefined}
-          actions={undefined}
+          actions={<PushToolbarAction />}
         />
 
         <PaperHeader

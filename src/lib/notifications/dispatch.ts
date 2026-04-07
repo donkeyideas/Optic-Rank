@@ -29,6 +29,7 @@ const channelTypeMap: Record<string, SlackMessage["type"] & TeamsMessage["type"]
  * 1. In-app notification (notifications table)
  * 2a. Slack (if configured)
  * 2b. Microsoft Teams (if configured)
+ * 2d. Push notification (Firebase/Web Push)
  * 3. Webhooks (if registered)
  */
 export async function dispatchNotification(
@@ -119,6 +120,21 @@ export async function dispatchNotification(
       }
     } catch (err) {
       console.error("[dispatchNotification] Email error:", err);
+    }
+  }
+
+  // 2d. Push notification
+  if (payload.userId) {
+    try {
+      const { sendPushToUser } = await import("@/lib/notifications/push");
+      await sendPushToUser(payload.userId, {
+        title: payload.title,
+        message: payload.message,
+        type: payload.type,
+        actionUrl: payload.actionUrl,
+      });
+    } catch (err) {
+      console.error("[dispatchNotification] Push error:", err);
     }
   }
 

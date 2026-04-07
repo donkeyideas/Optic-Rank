@@ -42,3 +42,10 @@ scripts/setup-supabase-emails.ts
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+.vercel
+.env*.local
+
+# test artifacts
+/test-results
+uat-test.html

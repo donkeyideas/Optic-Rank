@@ -69,6 +69,17 @@ export async function GET(request: Request) {
           .update({ metadata: { ...meta, trial_expiring_sent: true } })
           .eq("id", org.id);
         sent++;
+
+        // Push notification: trial expiring
+        try {
+          const { sendPushToUser } = await import("@/lib/notifications/push");
+          await sendPushToUser(owner.id, {
+            title: "Your trial ends in 3 days",
+            message: "Upgrade to keep your SEO data and continue tracking.",
+            type: "trial.expiring",
+            actionUrl: "/dashboard/settings?tab=billing",
+          });
+        } catch { /* push is best-effort */ }
       }
 
       // Trial expired
@@ -83,6 +94,17 @@ export async function GET(request: Request) {
           .update({ metadata: { ...meta, trial_expired_sent: true } })
           .eq("id", org.id);
         sent++;
+
+        // Push notification: trial expired
+        try {
+          const { sendPushToUser } = await import("@/lib/notifications/push");
+          await sendPushToUser(owner.id, {
+            title: "Your free trial has ended",
+            message: "Upgrade now to continue using Optic Rank.",
+            type: "trial.expiring",
+            actionUrl: "/dashboard/settings?tab=billing",
+          });
+        } catch { /* push is best-effort */ }
       }
     } catch (err) {
       console.error(`[trial-emails] Error for org ${org.id}:`, err);
