@@ -1,14 +1,38 @@
 import * as webpush from "web-push";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 let configured = false;
 
-function configureVAPID(): boolean {
+/**
+ * Configure VAPID: try DB (admin_settings) first, then env vars.
+ */
+async function configureVAPID(): Promise<boolean> {
   if (configured) return true;
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
+
+  let publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  let privateKey = process.env.VAPID_PRIVATE_KEY;
+
+  // Try DB if env vars missing
+  if (!publicKey || !privateKey) {
+    try {
+      const supabase = createAdminClient();
+      const { data } = await supabase
+        .from("admin_settings")
+        .select("key, value")
+        .in("key", ["VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY"]);
+
+      for (const row of data ?? []) {
+        if (row.key === "VAPID_PUBLIC_KEY") publicKey = row.value;
+        if (row.key === "VAPID_PRIVATE_KEY") privateKey = row.value;
+      }
+    } catch {
+      /* DB lookup failed, continue with whatever we have */
+    }
+  }
+
   const email = process.env.VAPID_CONTACT_EMAIL ?? "admin@opticrank.com";
   if (!publicKey || !privateKey) {
-    console.warn("[Web Push] VAPID keys not configured");
+    console.warn("[Web Push] VAPID keys not configured (checked DB + env)");
     return false;
   }
   webpush.setVapidDetails(`mailto:${email}`, publicKey, privateKey);
@@ -25,7 +49,7 @@ export async function sendWebPush(
   subscription: WebPushSubscription,
   payload: { title: string; body: string; icon?: string; data?: Record<string, unknown> }
 ): Promise<{ success: boolean; error?: string }> {
-  if (!configureVAPID()) return { success: false, error: "VAPID not configured" };
+  if (!(await configureVAPID())) return { success: false, error: "VAPID not configured" };
   try {
     await webpush.sendNotification(
       subscription,
