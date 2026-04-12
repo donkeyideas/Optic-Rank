@@ -63,23 +63,29 @@ export default async function DashboardPage({
     let hasAudit = false;
 
     if (hasOrg) {
-      const [projRes, kwRes, auditRes] = await Promise.all([
-        supabase
-          .from("projects")
-          .select("id", { count: "exact", head: true })
-          .eq("organization_id", profile.organization_id!),
-        supabase
-          .from("keywords")
-          .select("id", { count: "exact", head: true })
-          .eq("organization_id", profile.organization_id!),
-        supabase
-          .from("site_audits")
-          .select("id", { count: "exact", head: true })
-          .eq("organization_id", profile.organization_id!),
-      ]);
-      hasProject = (projRes.count ?? 0) > 0;
-      hasKeywords = (kwRes.count ?? 0) > 0;
-      hasAudit = (auditRes.count ?? 0) > 0;
+      // First get project IDs (keywords & site_audits use project_id, not organization_id)
+      const { data: orgProjects } = await supabase
+        .from("projects")
+        .select("id")
+        .eq("organization_id", profile.organization_id!);
+
+      const projectIds = (orgProjects ?? []).map((p) => p.id);
+      hasProject = projectIds.length > 0;
+
+      if (hasProject) {
+        const [kwRes, auditRes] = await Promise.all([
+          supabase
+            .from("keywords")
+            .select("id", { count: "exact", head: true })
+            .in("project_id", projectIds),
+          supabase
+            .from("site_audits")
+            .select("id", { count: "exact", head: true })
+            .in("project_id", projectIds),
+        ]);
+        hasKeywords = (kwRes.count ?? 0) > 0;
+        hasAudit = (auditRes.count ?? 0) > 0;
+      }
     }
 
     // If all steps are already done, complete onboarding server-side immediately
