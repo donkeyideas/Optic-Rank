@@ -370,7 +370,21 @@ export function SearchAIClient(props: SearchAIClientProps) {
       }
     }
 
-    // AEO recommendations
+    // AEO recommendations — use computed aeoScore (has fallback logic)
+    if (aeoScore > 0 && aeoScore < 70) {
+      recs.push({
+        id: "aeo-score",
+        priority: aeoScore < 40 ? "high" : "medium",
+        category: "AEO — Answer Optimization",
+        icon: Bot,
+        item: `AEO Score: ${aeoScore}/100`,
+        action: "Improve your Answer Engine Optimization score. Add structured Q&A content, FAQ schema, and speakable markup to rank in featured snippets and voice search.",
+        where: "Check the AEO tab for dimension breakdown and page-level optimization suggestions.",
+        estimatedImpact: "Higher AEO scores mean better visibility in featured snippets, People Also Ask, and voice search results.",
+        details: "Focus on FAQ schema, question headings, concise definitions, and HowTo markup for the biggest impact.",
+      });
+    }
+
     if (props.snippetOpportunities.length > 0) {
       const highOpp = props.snippetOpportunities.filter(s => s.score > 70);
       if (highOpp.length > 0) {
@@ -420,14 +434,14 @@ export function SearchAIClient(props: SearchAIClientProps) {
       });
     }
 
-    // GEO recommendations
-    if (props.geoStats.avgGeoScore < 60) {
+    // GEO recommendations — use computed geoScore (has fallback logic), not raw DB value
+    if (geoScore < 60) {
       recs.push({
         id: "geo-score",
         priority: "high",
         category: "GEO — AI Visibility",
         icon: Brain,
-        item: `GEO Score: ${props.geoStats.avgGeoScore}/100`,
+        item: `GEO Score: ${geoScore}/100`,
         action: "Improve your Generative Engine Optimization score. Structure content to be cited by AI models like ChatGPT, Gemini, and Perplexity.",
         where: "Check the GEO tab for page-level scores and optimization suggestions.",
         estimatedImpact: "AI-powered search is rapidly growing. High GEO scores mean your brand appears in AI-generated answers.",
@@ -501,7 +515,7 @@ export function SearchAIClient(props: SearchAIClientProps) {
 
     const priorityOrder = { high: 0, medium: 1, low: 2 };
     return recs.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
-  }, [props.latestAudit, props.snippetOpportunities, props.answerReadiness, props.voiceSearchKeywords, props.geoStats, props.citationMatrix, props.croStats, props.keywordsWithRevenue, props.schemaAudit, props.keywords]);
+  }, [props.latestAudit, props.snippetOpportunities, props.answerReadiness, props.voiceSearchKeywords, geoScore, aeoScore, props.citationMatrix, props.croStats, props.keywordsWithRevenue, props.schemaAudit, props.keywords]);
 
   /* ── Strategy Guide ── */
   const strategyContent: StrategyContent = useMemo(() => ({

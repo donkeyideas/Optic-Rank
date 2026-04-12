@@ -5,6 +5,7 @@ const navLinks = [
   { href: "/#features", label: "Features" },
   { href: "/search-ai", label: "Search & AI" },
   { href: "/social-intelligence", label: "Social Intel" },
+  { href: "/app-store-optimization", label: "App Store" },
   { href: "/pricing", label: "Pricing" },
   { href: "/blog", label: "Blog" },
 ];
@@ -16,6 +17,7 @@ const footerSections = [
       { href: "/#features", label: "Features" },
       { href: "/search-ai", label: "Search & AI" },
       { href: "/social-intelligence", label: "Social Intelligence" },
+      { href: "/app-store-optimization", label: "App Store Optimization" },
       { href: "/pricing", label: "Pricing" },
       { href: "/changelog", label: "Changelog" },
       { href: "/roadmap", label: "Roadmap" },

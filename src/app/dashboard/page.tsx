@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { formatShortDate } from "@/lib/utils/format-date";
 import { HeadlineBar } from "@/components/editorial/headline-bar";
 import { NewspaperGrid } from "@/components/editorial/newspaper-grid";
@@ -79,6 +80,17 @@ export default async function DashboardPage({
       hasProject = (projRes.count ?? 0) > 0;
       hasKeywords = (kwRes.count ?? 0) > 0;
       hasAudit = (auditRes.count ?? 0) > 0;
+    }
+
+    // If all steps are already done, complete onboarding server-side immediately
+    // instead of relying on the client-side 2-second timer which can fail silently
+    if (hasOrg && hasProject && hasKeywords && hasAudit) {
+      const adminClient = createAdminClient();
+      await adminClient
+        .from("profiles")
+        .update({ onboarding_completed: true, updated_at: new Date().toISOString() })
+        .eq("id", user.id);
+      redirect("/dashboard");
     }
 
     const steps = [

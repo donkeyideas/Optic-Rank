@@ -35,6 +35,10 @@ export interface PlayAppMetrics {
   averageRating: number | null;
   crashRate: number | null;
   anrRate: number | null;
+  userPerceivedCrashRate: number | null;
+  userPerceivedAnrRate: number | null;
+  excessiveWakeupRate: number | null;
+  stuckWakelockRate: number | null;
 }
 
 export interface PlayStoreListingInfo {
@@ -208,6 +212,10 @@ export async function fetchPlayMetrics(
     averageRating: null,
     crashRate: null,
     anrRate: null,
+    userPerceivedCrashRate: null,
+    userPerceivedAnrRate: null,
+    excessiveWakeupRate: null,
+    stuckWakelockRate: null,
   };
 
   // Fetch crash rate
@@ -247,6 +255,7 @@ export async function fetchPlayMetrics(
         const lastRow = rows[rows.length - 1];
         const crashMetrics = (lastRow.metrics ?? {}) as Record<string, Record<string, unknown>>;
         metrics.crashRate = (crashMetrics.crashRate?.decimalValue as number) ?? null;
+        metrics.userPerceivedCrashRate = (crashMetrics.userPerceivedCrashRate?.decimalValue as number) ?? null;
       }
     }
   } catch {
@@ -290,6 +299,93 @@ export async function fetchPlayMetrics(
         const lastRow = rows[rows.length - 1];
         const anrMetrics = (lastRow.metrics ?? {}) as Record<string, Record<string, unknown>>;
         metrics.anrRate = (anrMetrics.anrRate?.decimalValue as number) ?? null;
+        metrics.userPerceivedAnrRate = (anrMetrics.userPerceivedAnrRate?.decimalValue as number) ?? null;
+      }
+    }
+  } catch {
+    // Non-critical
+  }
+
+  // Fetch excessive wakeup rate
+  try {
+    const wakeupRes = await fetch(
+      `https://playdeveloperreporting.googleapis.com/v1beta1/apps/${encodeURIComponent(packageName)}/excessiveWakeupRateMetricSet:query`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          timelineSpec: {
+            aggregationPeriod: "DAILY",
+            startTime: {
+              year: new Date().getFullYear(),
+              month: new Date().getMonth(),
+              day: 1,
+            },
+            endTime: {
+              year: new Date().getFullYear(),
+              month: new Date().getMonth() + 1,
+              day: new Date().getDate(),
+            },
+          },
+          metrics: ["excessiveWakeupRate"],
+          dimensions: [],
+        }),
+      }
+    );
+
+    if (wakeupRes.ok) {
+      const wakeupData = await wakeupRes.json();
+      const rows = (wakeupData.rows ?? []) as Array<Record<string, unknown>>;
+      if (rows.length > 0) {
+        const lastRow = rows[rows.length - 1];
+        const wakeupMetrics = (lastRow.metrics ?? {}) as Record<string, Record<string, unknown>>;
+        metrics.excessiveWakeupRate = (wakeupMetrics.excessiveWakeupRate?.decimalValue as number) ?? null;
+      }
+    }
+  } catch {
+    // Non-critical
+  }
+
+  // Fetch stuck background wakelock rate
+  try {
+    const wakelockRes = await fetch(
+      `https://playdeveloperreporting.googleapis.com/v1beta1/apps/${encodeURIComponent(packageName)}/stuckBackgroundWakelockRateMetricSet:query`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          timelineSpec: {
+            aggregationPeriod: "DAILY",
+            startTime: {
+              year: new Date().getFullYear(),
+              month: new Date().getMonth(),
+              day: 1,
+            },
+            endTime: {
+              year: new Date().getFullYear(),
+              month: new Date().getMonth() + 1,
+              day: new Date().getDate(),
+            },
+          },
+          metrics: ["stuckBgWakelockRate"],
+          dimensions: [],
+        }),
+      }
+    );
+
+    if (wakelockRes.ok) {
+      const wakelockData = await wakelockRes.json();
+      const rows = (wakelockData.rows ?? []) as Array<Record<string, unknown>>;
+      if (rows.length > 0) {
+        const lastRow = rows[rows.length - 1];
+        const wakelockMetrics = (lastRow.metrics ?? {}) as Record<string, Record<string, unknown>>;
+        metrics.stuckWakelockRate = (wakelockMetrics.stuckBgWakelockRate?.decimalValue as number) ?? null;
       }
     }
   } catch {

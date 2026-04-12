@@ -48,7 +48,6 @@ import { StoreIntelTab } from "./tabs/store-intel-tab";
 import { LocalizationTab } from "./tabs/localization-tab";
 import { UpdateImpactTab } from "./tabs/update-impact-tab";
 import { VisibilityTab } from "./tabs/visibility-tab";
-
 import type { AppStoreListing, ComparisonTimeRange } from "@/types";
 import type {
   AppStoreRanking,

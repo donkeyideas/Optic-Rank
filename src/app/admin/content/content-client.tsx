@@ -8,6 +8,7 @@ import {
   Search,
   Brain,
   Share2,
+  Smartphone,
   ChevronDown,
   ChevronUp,
   Clock,
@@ -41,6 +42,7 @@ const PAGE_TABS = [
   { key: "features", label: "Features", icon: Search },
   { key: "search-ai", label: "Search & AI", icon: Brain },
   { key: "social-intelligence", label: "Social Intel", icon: Share2 },
+  { key: "app-store-optimization", label: "App Store", icon: Smartphone },
   { key: "global", label: "Global", icon: Settings },
 ] as const;
 
@@ -67,6 +69,7 @@ const SECTION_LABELS: Record<string, string> = {
   competitor_bench: "Competitor Benchmarking",
   growth_intel: "Growth Intelligence",
   mobile_app: "Mobile App Links",
+  stores: "App Stores Strip",
 };
 
 /* ── Friendly field labels ─────────────────────────────────────── */

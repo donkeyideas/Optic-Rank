@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { User, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { User, Mail, Lock, Eye, EyeOff, CheckCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { signUp } from "@/lib/actions/auth";
@@ -15,6 +15,8 @@ export function SignupForm() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState("");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -46,6 +48,9 @@ export function SignupForm() {
       const result = await signUp(formData);
       if (result && "error" in result) {
         setError(result.error);
+      } else if (result && "needsEmailConfirmation" in result) {
+        setSubmittedEmail(email);
+        setEmailSent(true);
       }
     });
   }
@@ -78,6 +83,37 @@ export function SignupForm() {
       setError(err instanceof Error ? err.message : "Google sign-up failed.");
       setOauthLoading(null);
     }
+  }
+
+  // Email confirmation sent — show success screen
+  if (emailSent) {
+    return (
+      <div className="flex flex-col items-center gap-6 text-center">
+        <div className="flex h-16 w-16 items-center justify-center border-2 border-editorial-green bg-editorial-green/10">
+          <CheckCircle className="h-8 w-8 text-editorial-green" />
+        </div>
+        <div>
+          <h1 className="font-serif text-2xl font-bold tracking-tight text-ink">
+            Check Your Email
+          </h1>
+          <p className="mt-2 text-sm text-ink-secondary">
+            We sent a confirmation link to
+          </p>
+          <p className="mt-1 text-sm font-semibold text-ink">
+            {submittedEmail}
+          </p>
+        </div>
+        <p className="text-sm text-ink-secondary">
+          Click the link in the email to activate your account, then sign in.
+        </p>
+        <Link
+          href="/login"
+          className="text-sm font-semibold text-editorial-red transition-colors hover:text-editorial-red/80"
+        >
+          Go to Sign In
+        </Link>
+      </div>
+    );
   }
 
   return (

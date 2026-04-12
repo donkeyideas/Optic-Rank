@@ -9,6 +9,7 @@ const PAGE_PATH_MAP: Record<string, string> = {
   features: "/features",
   "search-ai": "/search-ai",
   "social-intelligence": "/social-intelligence",
+  "app-store-optimization": "/app-store-optimization",
   global: "/",
 };
 

@@ -5,14 +5,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { sendEmail } from "@/lib/email/resend";
-import { welcomeEmail } from "@/lib/email/templates/welcome";
+import { emailConfirmationTemplate } from "@/lib/email/templates/supabase-auth";
 
 /**
  * Sign up a new user with email/password, create an organization, and link the profile.
  */
 export async function signUp(
   formData: FormData
-): Promise<{ error: string } | { success: true }> {
+): Promise<{ error: string } | { success: true; needsEmailConfirmation?: boolean }> {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const fullName = formData.get("full_name") as string;
@@ -25,11 +25,11 @@ export async function signUp(
   // Use admin client for the entire signup flow — bypasses RLS and email rate limits
   const admin = createAdminClient();
 
-  // 1. Create the auth user (auto-confirmed, no email needed)
+  // 1. Create the auth user (unconfirmed — requires email verification)
   const { data: authData, error: authError } = await admin.auth.admin.createUser({
     email,
     password,
-    email_confirm: true,
+    email_confirm: false,
     user_metadata: {
       full_name: fullName || undefined,
     },
@@ -82,23 +82,31 @@ export async function signUp(
     return { error: profileError.message };
   }
 
-  // Auto sign-in the newly created user so they go straight to the dashboard
-  const supabase = await createClient();
-  const { error: signInError } = await supabase.auth.signInWithPassword({
+  // Generate a confirmation link and send verification email
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://opticrank.com";
+  const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+    type: "signup",
     email,
     password,
+    options: {
+      redirectTo: `${appUrl}/auth/callback?next=/dashboard`,
+    },
   });
 
-  if (signInError) {
-    // Fallback: if auto sign-in fails, send them to login with a message
-    redirect("/login?message=Account created! Sign in to get started.");
+  if (linkData?.properties?.action_link) {
+    // Send branded confirmation email via Resend
+    const confirmHtml = emailConfirmationTemplate
+      .replace(/\{\{\s*\.ConfirmationURL\s*\}\}/g, linkData.properties.action_link)
+      .replace(/\{\{\s*\.SiteURL\s*\}\}/g, appUrl);
+
+    sendEmail(email, "Confirm your email — Optic Rank", confirmHtml).catch((err) => {
+      console.error("[Signup] Failed to send confirmation email:", err);
+    });
+  } else {
+    console.error("[Signup] Failed to generate confirmation link:", linkError?.message);
   }
 
-  // Send welcome email (fire-and-forget — don't block the redirect)
-  sendEmail(email, "Welcome to Optic Rank", welcomeEmail(fullName || email.split("@")[0])).catch(() => {});
-
-  revalidatePath("/", "layout");
-  redirect("/dashboard");
+  return { success: true, needsEmailConfirmation: true };
 }
 
 /**

@@ -109,9 +109,6 @@ export async function runAsoFullSync(
         }
       } catch { /* optional */ }
 
-      // Note: Store Intel, Optimizer, and Update Recommendations are auto-loaded
-      // on tab mount (useEffect) — no need to run them here since they don't persist.
-
       analyzed++;
     } catch {
       // Continue with next listing

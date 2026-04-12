@@ -106,6 +106,41 @@ export interface AppStoreLocalization {
   ai_translated: boolean;
 }
 
+export interface AppStoreCwv {
+  id: string;
+  listing_id: string;
+  strategy: "mobile" | "desktop";
+  url_tested: string;
+  performance_score: number | null;
+  accessibility_score: number | null;
+  lcp_ms: number | null;
+  fcp_ms: number | null;
+  cls: number | null;
+  inp_ms: number | null;
+  ttfb_ms: number | null;
+  speed_index: number | null;
+  total_blocking_time: number | null;
+  field_lcp_ms: number | null;
+  field_cls: number | null;
+  field_inp_ms: number | null;
+  field_fcp_ms: number | null;
+  field_ttfb_ms: number | null;
+  field_category: "FAST" | "AVERAGE" | "SLOW" | null;
+  tested_at: string;
+}
+
+export interface AppStoreVitals {
+  id: string;
+  listing_id: string;
+  crash_rate: number | null;
+  anr_rate: number | null;
+  user_perceived_crash_rate: number | null;
+  user_perceived_anr_rate: number | null;
+  excessive_wakeup_rate: number | null;
+  stuck_wakelock_rate: number | null;
+  snapshot_date: string;
+}
+
 /* ------------------------------------------------------------------
    Existing queries (enhanced)
    ------------------------------------------------------------------ */
@@ -285,4 +320,71 @@ export async function getLocalizations(
     .in("listing_id", listingIds)
     .order("opportunity_score", { ascending: false });
   return (data ?? []) as AppStoreLocalization[];
+}
+
+/* ------------------------------------------------------------------
+   Core Web Vitals (PageSpeed test history)
+   ------------------------------------------------------------------ */
+
+export async function getAppStoreCwv(
+  listingIds: string[],
+  days: number = 30
+): Promise<AppStoreCwv[]> {
+  if (listingIds.length === 0) return [];
+  const supabase = createAdminClient();
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+  const { data } = await supabase
+    .from("app_store_cwv")
+    .select("*")
+    .in("listing_id", listingIds)
+    .gte("tested_at", since.toISOString())
+    .order("tested_at", { ascending: true });
+  return (data ?? []) as AppStoreCwv[];
+}
+
+export async function getLatestCwvPerListing(
+  listingIds: string[]
+): Promise<AppStoreCwv[]> {
+  if (listingIds.length === 0) return [];
+  const supabase = createAdminClient();
+  // Fetch latest test per listing by getting recent results and deduplicating
+  const { data } = await supabase
+    .from("app_store_cwv")
+    .select("*")
+    .in("listing_id", listingIds)
+    .eq("strategy", "mobile")
+    .order("tested_at", { ascending: false });
+  if (!data?.length) return [];
+  // Deduplicate: keep only the first (most recent) per listing
+  const seen = new Set<string>();
+  const result: AppStoreCwv[] = [];
+  for (const row of data as AppStoreCwv[]) {
+    if (!seen.has(row.listing_id)) {
+      seen.add(row.listing_id);
+      result.push(row);
+    }
+  }
+  return result;
+}
+
+/* ------------------------------------------------------------------
+   Android Vitals (Google Play Console metrics history)
+   ------------------------------------------------------------------ */
+
+export async function getAppStoreVitals(
+  listingIds: string[],
+  days: number = 30
+): Promise<AppStoreVitals[]> {
+  if (listingIds.length === 0) return [];
+  const supabase = createAdminClient();
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+  const { data } = await supabase
+    .from("app_store_vitals")
+    .select("*")
+    .in("listing_id", listingIds)
+    .gte("snapshot_date", since.toISOString().split("T")[0])
+    .order("snapshot_date", { ascending: true });
+  return (data ?? []) as AppStoreVitals[];
 }
