@@ -55,7 +55,7 @@ export function VolumeNavigator({
   if (!hasVolumes && isLive) return null;
 
   return (
-    <div className="flex items-center justify-center gap-4 border-b border-rule bg-surface-card px-4 py-2">
+    <div className={`flex items-center justify-center gap-4 px-4 py-2 ${isLive ? "border-b border-rule bg-surface-card" : "border border-rule bg-surface-inset"}`}>
       <button
         onClick={() => {
           if (isLive) goTo(maxVolume);
@@ -76,7 +76,7 @@ export function VolumeNavigator({
         ) : (
           <div className="flex items-center gap-2">
             <span className="font-mono text-[11px] font-bold uppercase tracking-[0.15em] text-ink">
-              Vol. {currentVolume}
+              Archived Edition — Vol. {currentVolume}
             </span>
             {weekStart && weekEnd && (
               <span className="font-mono text-[10px] text-ink-muted">

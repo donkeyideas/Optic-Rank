@@ -179,12 +179,6 @@ export default async function DashboardPage({
             weekEnd={volume.week_end}
           />
 
-          <div className="border border-rule bg-surface-inset px-4 py-2 text-center">
-            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">
-              Archived Edition — Vol. {volume.volume_number}
-            </span>
-          </div>
-
           <HeadlineBar stats={snap.headlineStats} />
 
           <NewspaperGrid

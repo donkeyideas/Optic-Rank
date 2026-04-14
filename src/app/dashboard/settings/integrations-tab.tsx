@@ -340,6 +340,20 @@ export function IntegrationsTab({
       const result = await selectGooglePlayApp(projectId, packageName);
       if ("error" in result) {
         setError(result.error);
+        return;
+      }
+      // Auto-sync after selection to create the app listing
+      setGplaySyncStatus("syncing");
+      setGplaySyncMessage("Syncing app data...");
+      const syncResult = await syncGooglePlayData(projectId);
+      if ("error" in syncResult) {
+        setGplaySyncStatus("error");
+        setGplaySyncMessage(syncResult.error);
+      } else {
+        setGplaySyncStatus("success");
+        setGplaySyncMessage(
+          `Synced ${syncResult.synced} app(s). ${syncResult.reviewsImported} reviews imported.`
+        );
       }
     });
   }

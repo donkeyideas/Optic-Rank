@@ -35,6 +35,10 @@
     {
       "path": "/api/cron/ga4-sync",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/visibility-check",
+      "schedule": "0 4 * * 3"
     }
   ],
   "functions": {
@@ -83,6 +87,10 @@
       "memory": 512
     },
     "src/app/api/cron/ga4-sync/route.ts": {
+      "maxDuration": 300,
+      "memory": 512
+    },
+    "src/app/api/cron/visibility-check/route.ts": {
       "maxDuration": 300,
       "memory": 512
     }
