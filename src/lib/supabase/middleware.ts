@@ -111,5 +111,10 @@ export async function updateSession(request: NextRequest) {
   // Set pathname header for layout components to read (e.g., trial lockout bypass)
   supabaseResponse.headers.set("x-pathname", request.nextUrl.pathname);
 
+  // Add X-Robots-Tag: noindex to auth, dashboard, admin routes to prevent indexing
+  if (isAuthRoute || is2FARoute || isDashboardRoute || isAdminRoute) {
+    supabaseResponse.headers.set("X-Robots-Tag", "noindex, nofollow");
+  }
+
   return supabaseResponse;
 }

@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { headers } from "next/headers";
 import { Masthead } from "@/components/editorial/masthead";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 import { PaperHeader } from "@/components/editorial/paper-header";
 import { PaperNav } from "@/components/editorial/paper-nav";
 import { BottomBar } from "@/components/editorial/bottom-bar";

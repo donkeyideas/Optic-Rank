@@ -1,5 +1,10 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Shield, LogOut } from "lucide-react";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { signOut } from "@/lib/actions/auth";
