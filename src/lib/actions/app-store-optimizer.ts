@@ -136,6 +136,35 @@ async function getListingContext(listingId: string) {
 }
 
 /**
+ * Comprehensive store compliance rules for AI prompts.
+ * Covers ALL known Apple App Store Review Guidelines and Google Play
+ * Developer Policy metadata rejection reasons (2.3.7, 2.3.8, 2.3.10,
+ * 2.3.12, 4.1(a), 5.2, Impersonation, IP Policy).
+ */
+function getStoreComplianceRules(store: "apple" | "google"): string {
+  const isApple = store === "apple";
+  return `STORE COMPLIANCE — MANDATORY (violating ANY rule = IMMEDIATE REJECTION):
+
+ACCURATE METADATA (${isApple ? "Apple Guidelines 2.3.7 / 2.3.8 / 2.3.10 / 2.3.12" : "Google Play Metadata Policy"}):
+- The title MUST closely match the app name displayed on the device home screen (CFBundleDisplayName on iOS). A store title that is completely different from the device name is rejected under ${isApple ? "Guideline 2.3.8" : "Google Play's metadata policy"}. Always keep the app's core brand name as the foundation.
+- NEVER include pricing language anywhere in metadata: no "free", "$X", "discount", "sale", "% off", "limited time offer", "no subscription", "cheapest", "best value". ${isApple ? "Apple Guideline 2.3.7" : "Google Play"} explicitly bans price references in title, subtitle, ${isApple ? "keywords, " : ""}and screenshots.
+- Only include terms directly relevant to the app's ACTUAL functionality — no irrelevant trending keywords stuffed in for discoverability (${isApple ? "Guideline 2.3.10" : "Google keyword stuffing policy"}).
+- Describe the app's CURRENT, REAL features only — no aspirational, planned, or misleading claims (${isApple ? "Guideline 2.3.12" : "Google misrepresentation policy"}).
+
+INTELLECTUAL PROPERTY (${isApple ? "Apple 4.1(a) Copycats / 5.2 IP" : "Google Play Impersonation & IP Policy"}):
+- NEVER reference third-party brands, team names, leagues, organizations, celebrities, or trademarked content (e.g., NBA, ESPN, NFL, FIFA, NCAA, Apple, Google, Spotify, Netflix).
+- NEVER imply affiliation with, endorsement by, or partnership with any other company or organization.
+- NEVER use competitor app names in any metadata field.
+- Use ONLY generic terms to describe features (e.g., "live scores" NOT "NBA scores", "league standings" NOT "NFL standings", "stream music" NOT "Spotify alternative").
+
+FORMATTING:
+${isApple ? "- No emoji or special Unicode characters in title or subtitle.\n- No excessive ALL CAPS unless it is the app's registered brand name.\n- Keywords field: comma-separated, no spaces after commas, no app name, no category name." : "- No emoji in title or short description.\n- No excessive ALL CAPS or keyword stuffing in title.\n- No repeated keywords in the description."}
+- No unsubstantiated superlatives ("#1 app", "best in the world", "most popular") unless backed by verifiable data.
+
+PREVIOUS REJECTIONS: This app has been REJECTED before for metadata violations. Compliance is MANDATORY — when in doubt, use the safer, more generic wording.`;
+}
+
+/**
  * Score metadata in real-time (called on debounced keystrokes).
  * Returns a score 0-100 and specific recommendations.
  */
@@ -242,6 +271,22 @@ export async function scoreMetadata(
   if (avgSentenceLen >= 10 && avgSentenceLen <= 20) score += 10;
   else if (avgSentenceLen > 0) { score += 5; recs.push("Improve readability: aim for 10-20 words per sentence."); }
 
+  // Compliance checks (deductions for rejection risks)
+  const pricingPattern = /\bfree\b|\$\d|\b\d+%\s*off\b|\bdiscount\b|\bsale\b|\bcheap\b|\bpric(?:e|ing)\b|\blimited\s*time\b|\bno\s*(?:subscription|cost)\b|\bbest\s*value\b/i;
+  if (pricingPattern.test(title) || pricingPattern.test(subtitle)) {
+    score -= 15;
+    recs.unshift("REJECTION RISK (Guideline 2.3.7): Title or subtitle contains pricing language ('free', '$', 'discount', 'sale'). Remove all price references — Apple rejects these.");
+  }
+  if (pricingPattern.test(keywordsField)) {
+    score -= 5;
+    recs.push("Keywords contain pricing terms — remove them to avoid rejection.");
+  }
+  const emojiPattern = /[\u{1F300}-\u{1F9FF}\u{2600}-\u{27BF}]/u;
+  if (isApple && (emojiPattern.test(title) || emojiPattern.test(subtitle))) {
+    score -= 10;
+    recs.unshift("REJECTION RISK: Remove emoji and special characters from title/subtitle — Apple rejects these.");
+  }
+
   return { score: Math.min(100, Math.max(0, score)), recommendations: recs };
 }
 
@@ -303,13 +348,7 @@ For each title:
 - Score should reflect expected VISIBILITY IMPACT, not just quality
 - Each variant MUST be meaningfully different — vary word order, keyword selection, and phrasing
 
-STORE COMPLIANCE (CRITICAL — violating these causes app rejection):
-- NEVER reference third-party brand names, team names, league names, or trademarked content (e.g., NBA, ESPN, NFL, FIFA, Apple, Google)
-- NEVER imply the app is affiliated with, endorsed by, or an official product of any other company or organization
-- NEVER use competitor app names in the title
-- Focus ONLY on what YOUR app does — its own features, capabilities, and value
-- Avoid superlative claims you cannot substantiate (e.g., "#1", "Best in the world")
-- This is required by Apple Guideline 4.1(a) and Google Play Developer Policy on Impersonation
+${getStoreComplianceRules(listing.store === "apple" ? "apple" : "google")}
 
 Variation seed: ${Date.now()}
 
@@ -338,9 +377,9 @@ Return ONLY a JSON array: [{"title": "...", "score": 85, "reason": "Targets near
     const name = (listing.app_name as string).slice(0, maxLen);
     const cat = (listing.category as string ?? "App").toLowerCase();
     const fallbacks = [
-      { title: `${name} - Best ${cat}`, score: 70, reason: "Brand + category keyword" },
+      { title: `${name} - ${cat.charAt(0).toUpperCase() + cat.slice(1)}`, score: 70, reason: "Brand + category keyword" },
       { title: `${name}: ${cat.charAt(0).toUpperCase() + cat.slice(1)}`, score: 65, reason: "Brand + generic keyword" },
-      { title: `${name} — #1 ${cat}`, score: 60, reason: "Brand + ranking claim" },
+      { title: `${name} — Top ${cat}`, score: 60, reason: "Brand + category" },
     ];
     variants = fallbacks
       .map((v) => ({ ...v, title: v.title.slice(0, maxLen) }))
@@ -395,11 +434,7 @@ ${ctx.praises.length > 0 ? `- Highlight what users love: ${ctx.praises.slice(0, 
 - Every word must serve visibility or conversion — no filler words
 - Generate a FRESH and DIFFERENT result each time — do not repeat previous outputs
 
-STORE COMPLIANCE (CRITICAL — violating these causes app rejection):
-- NEVER reference third-party brand names, team names, league names, or trademarked content
-- NEVER imply affiliation with, or endorsement by, any other company or organization
-- Focus ONLY on the app's own features and value — no competitor names or third-party IP
-- Required by Apple Guideline 4.1(a) and Google Play Impersonation Policy
+${getStoreComplianceRules(listing.store === "apple" ? "apple" : "google")}
 
 Variation seed: ${Date.now()}
 
@@ -467,13 +502,7 @@ Requirements:
 - IMPORTANT: Return PLAIN TEXT only. Do NOT use markdown formatting (no **, no ##, no \`code\`). Use simple bullet characters (•) instead of markdown lists. Do NOT include emoji unicode characters.
 - Generate a FRESH and DIFFERENT version each time — vary structure, wording, and feature ordering
 
-STORE COMPLIANCE (CRITICAL — violating these causes app rejection):
-- NEVER reference third-party brand names, team names, league names, sports organizations, or trademarked content by name
-- NEVER imply the app is affiliated with, endorsed by, or an official product of any other company, league, or organization
-- NEVER use competitor app names
-- Describe ONLY what YOUR app does using generic terms (e.g., "live scores" not "NBA scores", "league standings" not "NFL standings")
-- If the app relates to a specific domain (sports, music, etc.), describe features generically without naming third-party entities
-- Required by Apple Guideline 4.1(a) and Google Play Impersonation Policy
+${getStoreComplianceRules(listing.store === "apple" ? "apple" : "google")}
 
 Variation seed: ${Date.now()}
 
@@ -558,11 +587,7 @@ Rules:
 - Use every character — don't waste space
 - Generate a FRESH set of keywords each time — vary selection and ordering
 
-STORE COMPLIANCE (CRITICAL):
-- NEVER include third-party brand names, team names, league names, or trademarked terms as keywords
-- NEVER include competitor app names — Apple rejects apps with competitor trademarks in keywords
-- Use ONLY generic, descriptive keywords that describe your app's features
-- Required by Apple Guideline 4.1(a) — using third-party trademarks causes rejection
+${getStoreComplianceRules("apple")}
 
 Variation seed: ${Date.now()}
 
@@ -678,15 +703,7 @@ ${isApple ? `6b. Promotional text max 170 chars — this appears ABOVE the descr
 12. KEYWORD OPPORTUNITIES are the highest-priority untapped keywords — integrate as many as possible into ${isApple ? "title, subtitle, and keywords field" : "title, short description, and full description"}. These represent the biggest growth potential for visibility.
 13. Generate a FRESH and UNIQUE listing each time — vary wording, structure, keyword selection, and phrasing
 
-STORE COMPLIANCE (CRITICAL — violating ANY of these causes IMMEDIATE app rejection):
-- NEVER reference third-party brand names, team names, league names, sports organizations, music labels, or ANY trademarked content by name anywhere in the listing (title, subtitle, description, keywords, or promotional text)
-- NEVER imply the app is affiliated with, endorsed by, or an official product of any other company or organization
-- NEVER use competitor app names in any field
-- Describe ONLY what YOUR app does using GENERIC terms (e.g., "live scores" NOT "NBA scores", "league standings" NOT "NFL standings", "music streaming" NOT "Spotify alternative")
-- If the app relates to a specific domain (sports, music, finance, etc.), describe features using generic category terms without naming third-party entities
-- Avoid unsubstantiated superlative claims ("#1 app", "best in the world") without data to back them up
-- These rules are required by Apple App Store Review Guideline 4.1(a) (Design - Copycats) and Google Play Developer Policy on Impersonation and Intellectual Property
-- Previous submissions were REJECTED for violating these rules — compliance is mandatory
+${getStoreComplianceRules(isApple ? "apple" : "google")}
 
 Variation seed: ${Date.now()}`;
 
@@ -788,11 +805,7 @@ Requirements:
 - NOT indexed for search — this is purely for CONVERSION
 - Generate a FRESH and DIFFERENT result each time
 
-STORE COMPLIANCE (CRITICAL — violating these causes app rejection):
-- NEVER reference third-party brand names, team names, league names, or trademarked content
-- NEVER imply affiliation with any other company or organization
-- Focus ONLY on the app's own features, updates, and value
-- Required by Apple Guideline 4.1(a)
+${getStoreComplianceRules("apple")}
 
 Variation seed: ${Date.now()}
 
