@@ -28,6 +28,7 @@ import {
   generateSubtitleVariant,
   generateDescriptionVariant,
   generateKeywordField,
+  generatePromotionalText,
   generateFullListingRecommendation,
 } from "@/lib/actions/app-store-optimizer";
 import type { AppStoreListing } from "@/types";
@@ -115,6 +116,7 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
   const [generatedSubtitle, setGeneratedSubtitle] = useState<string | null>(null);
   const [generatedDesc, setGeneratedDesc] = useState<string | null>(null);
   const [generatedKeywords, setGeneratedKeywords] = useState<string | null>(null);
+  const [generatedPromo, setGeneratedPromo] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   // Full AI recommendation
@@ -136,6 +138,7 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
       setGeneratedSubtitle(null);
       setGeneratedDesc(null);
       setGeneratedKeywords(null);
+      setGeneratedPromo(null);
       setRecommendation(null);
     }
   }, [listings]);
@@ -237,6 +240,18 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
       () => generateKeywordField(selectedListing)
     ).then((result) => {
       if (result && "keywords" in result) setGeneratedKeywords(result.keywords);
+      setActionId(null);
+    });
+  }
+
+  function handleGeneratePromo() {
+    if (!selectedListing) return;
+    setActionId("promo");
+    runAction(
+      { title: "Generating Promotional Text", description: "AI is crafting conversion-optimized promotional text", estimatedDuration: 12 },
+      () => generatePromotionalText(selectedListing)
+    ).then((result) => {
+      if (result && "promotionalText" in result) setGeneratedPromo(result.promotionalText);
       setActionId(null);
     });
   }
@@ -415,10 +430,18 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
                   {title.length}/{maxTitleLen}
                 </span>
               </div>
-              <Button variant="outline" size="sm" onClick={handleGenerateTitles} disabled={actionId === "titles"}>
-                {actionId === "titles" ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
-                AI Variants
-              </Button>
+              <div className="flex gap-2">
+                {title.length > 0 && (
+                  <button onClick={() => copyToClipboard(title, "title")} className="flex items-center gap-1 text-[10px] text-ink-muted hover:text-ink">
+                    {copiedField === "title" ? <Check size={10} /> : <Copy size={10} />}
+                    {copiedField === "title" ? "Copied" : "Copy"}
+                  </button>
+                )}
+                <Button variant="outline" size="sm" onClick={handleGenerateTitles} disabled={actionId === "titles"}>
+                  {actionId === "titles" ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                  AI Variants
+                </Button>
+              </div>
             </div>
             <input
               type="text"
@@ -461,10 +484,18 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
                   {subtitle.length}/{listing?.store === "apple" ? 30 : 80}
                 </span>
               </div>
-              <Button variant="outline" size="sm" onClick={handleGenerateSubtitle} disabled={actionId === "subtitle"}>
-                {actionId === "subtitle" ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
-                Generate
-              </Button>
+              <div className="flex gap-2">
+                {subtitle.length > 0 && (
+                  <button onClick={() => copyToClipboard(subtitle, "subtitle")} className="flex items-center gap-1 text-[10px] text-ink-muted hover:text-ink">
+                    {copiedField === "subtitle" ? <Check size={10} /> : <Copy size={10} />}
+                    {copiedField === "subtitle" ? "Copied" : "Copy"}
+                  </button>
+                )}
+                <Button variant="outline" size="sm" onClick={handleGenerateSubtitle} disabled={actionId === "subtitle"}>
+                  {actionId === "subtitle" ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                  Generate
+                </Button>
+              </div>
             </div>
             <input
               type="text"
@@ -542,10 +573,18 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
                     {keywordsField.length}/100
                   </span>
                 </div>
-                <Button variant="outline" size="sm" onClick={handleGenerateKeywords} disabled={actionId === "kw"}>
-                  {actionId === "kw" ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
-                  AI Optimize
-                </Button>
+                <div className="flex gap-2">
+                  {keywordsField.length > 0 && (
+                    <button onClick={() => copyToClipboard(keywordsField, "keywords")} className="flex items-center gap-1 text-[10px] text-ink-muted hover:text-ink">
+                      {copiedField === "keywords" ? <Check size={10} /> : <Copy size={10} />}
+                      {copiedField === "keywords" ? "Copied" : "Copy"}
+                    </button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={handleGenerateKeywords} disabled={actionId === "kw"}>
+                    {actionId === "kw" ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                    AI Optimize
+                  </Button>
+                </div>
               </div>
               <input
                 type="text"
@@ -577,6 +616,18 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
                     {promotionalText.length}/170
                   </span>
                 </div>
+                <div className="flex gap-2">
+                  {promotionalText.length > 0 && (
+                    <button onClick={() => copyToClipboard(promotionalText, "promo")} className="flex items-center gap-1 text-[10px] text-ink-muted hover:text-ink">
+                      {copiedField === "promo" ? <Check size={10} /> : <Copy size={10} />}
+                      {copiedField === "promo" ? "Copied" : "Copy"}
+                    </button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={handleGeneratePromo} disabled={actionId === "promo"}>
+                    {actionId === "promo" ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                    Generate
+                  </Button>
+                </div>
               </div>
               <textarea
                 value={promotionalText}
@@ -585,6 +636,15 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
                 placeholder="Highlight current promotions, seasonal content, or new features. This appears above your description and can be updated without submitting a new app version."
                 className="mt-2 w-full border border-rule bg-surface-raised px-3 py-2 font-sans text-[12px] leading-relaxed text-ink focus:border-editorial-red focus:outline-none"
               />
+              {generatedPromo && (
+                <div className="mt-2 flex items-center gap-2 border border-editorial-green/30 bg-editorial-green/5 px-3 py-2">
+                  <span className="flex-1 font-sans text-[12px] text-ink-secondary">{generatedPromo}</span>
+                  <span className="font-mono text-[10px] text-ink-muted">{generatedPromo.length}ch</span>
+                  <button onClick={() => { setPromotionalText(generatedPromo); setGeneratedPromo(null); }} className="text-[10px] font-bold text-editorial-red hover:underline">
+                    Use
+                  </button>
+                </div>
+              )}
               <span className="mt-1 block text-[9px] text-ink-muted">
                 Appears above your description. Can be changed anytime without a new release.
               </span>

@@ -301,11 +301,22 @@ For each title:
 - Pack remaining space with the highest-volume keywords that fit naturally
 - Differentiate from competitor titles listed above
 - Score should reflect expected VISIBILITY IMPACT, not just quality
+- Each variant MUST be meaningfully different — vary word order, keyword selection, and phrasing
+
+STORE COMPLIANCE (CRITICAL — violating these causes app rejection):
+- NEVER reference third-party brand names, team names, league names, or trademarked content (e.g., NBA, ESPN, NFL, FIFA, Apple, Google)
+- NEVER imply the app is affiliated with, endorsed by, or an official product of any other company or organization
+- NEVER use competitor app names in the title
+- Focus ONLY on what YOUR app does — its own features, capabilities, and value
+- Avoid superlative claims you cannot substantiate (e.g., "#1", "Best in the world")
+- This is required by Apple Guideline 4.1(a) and Google Play Developer Policy on Impersonation
+
+Variation seed: ${Date.now()}
 
 Return ONLY a JSON array: [{"title": "...", "score": 85, "reason": "Targets near-miss keyword X + high-volume keyword Y"}, ...]`;
 
   const result = await aiChat(prompt, {
-    temperature: 0.8,
+    temperature: 0.95,
     maxTokens: 600,
     context: { feature: "aso_optimizer", sub_type: "title_variants", metadata: { listingId } },
   });
@@ -382,11 +393,20 @@ Requirements:
 ${ctx.highValueKw.length > 0 ? `- PRIORITIZE these proven keywords: ${ctx.highValueKw.slice(0, 3).join(", ")}` : "- Include the most important keyword for discoverability"}
 ${ctx.praises.length > 0 ? `- Highlight what users love: ${ctx.praises.slice(0, 2).join(", ")}` : ""}
 - Every word must serve visibility or conversion — no filler words
+- Generate a FRESH and DIFFERENT result each time — do not repeat previous outputs
+
+STORE COMPLIANCE (CRITICAL — violating these causes app rejection):
+- NEVER reference third-party brand names, team names, league names, or trademarked content
+- NEVER imply affiliation with, or endorsement by, any other company or organization
+- Focus ONLY on the app's own features and value — no competitor names or third-party IP
+- Required by Apple Guideline 4.1(a) and Google Play Impersonation Policy
+
+Variation seed: ${Date.now()}
 
 Return ONLY the optimized ${fieldName} text (no quotes, no explanation).`;
 
   const result = await aiChat(prompt, {
-    temperature: 0.8,
+    temperature: 0.95,
     maxTokens: 100,
     context: { feature: "aso_optimizer", sub_type: "subtitle_variant", metadata: { listingId } },
   });
@@ -445,11 +465,22 @@ Requirements:
 - MUST be under 4000 characters total (hard limit for both stores)
 - 1000-2000 characters optimal
 - IMPORTANT: Return PLAIN TEXT only. Do NOT use markdown formatting (no **, no ##, no \`code\`). Use simple bullet characters (•) instead of markdown lists. Do NOT include emoji unicode characters.
+- Generate a FRESH and DIFFERENT version each time — vary structure, wording, and feature ordering
+
+STORE COMPLIANCE (CRITICAL — violating these causes app rejection):
+- NEVER reference third-party brand names, team names, league names, sports organizations, or trademarked content by name
+- NEVER imply the app is affiliated with, endorsed by, or an official product of any other company, league, or organization
+- NEVER use competitor app names
+- Describe ONLY what YOUR app does using generic terms (e.g., "live scores" not "NBA scores", "league standings" not "NFL standings")
+- If the app relates to a specific domain (sports, music, etc.), describe features generically without naming third-party entities
+- Required by Apple Guideline 4.1(a) and Google Play Impersonation Policy
+
+Variation seed: ${Date.now()}
 
 Return ONLY the optimized description text in plain text format.`;
 
   const result = await aiChat(prompt, {
-    temperature: 0.7,
+    temperature: 0.9,
     maxTokens: 2000,
     context: { feature: "aso_optimizer", sub_type: "description_variant", metadata: { listingId } },
   });
@@ -521,15 +552,24 @@ Rules:
 - Do NOT include the app name (Apple already indexes it)
 - Do NOT include the category name
 - PRIORITIZE high-volume keywords where you rank poorly (biggest opportunity)
-- Include competitor-related terms users might search
+- Include generic terms users might search to find apps like this
 - Include misspellings of common search terms
 - Mix singular and plural forms
 - Use every character — don't waste space
+- Generate a FRESH set of keywords each time — vary selection and ordering
+
+STORE COMPLIANCE (CRITICAL):
+- NEVER include third-party brand names, team names, league names, or trademarked terms as keywords
+- NEVER include competitor app names — Apple rejects apps with competitor trademarks in keywords
+- Use ONLY generic, descriptive keywords that describe your app's features
+- Required by Apple Guideline 4.1(a) — using third-party trademarks causes rejection
+
+Variation seed: ${Date.now()}
 
 Return ONLY the keyword string (e.g., "fitness,workout,exercise,gym,training,health").`;
 
   const result = await aiChat(prompt, {
-    temperature: 0.7,
+    temperature: 0.9,
     maxTokens: 200,
     context: { feature: "aso_optimizer", sub_type: "keyword_field", metadata: { listingId } },
   });
@@ -635,10 +675,23 @@ ${isApple ? `6b. Promotional text max 170 chars — this appears ABOVE the descr
 9. Differentiate from competitors — unique value props make users choose YOUR app
 10. Start description with a compelling hook (first 3 lines visible before "Read More") — this is your conversion moment
 11. End description with a clear call-to-action
-12. KEYWORD OPPORTUNITIES are the highest-priority untapped keywords — integrate as many as possible into ${isApple ? "title, subtitle, and keywords field" : "title, short description, and full description"}. These represent the biggest growth potential for visibility.`;
+12. KEYWORD OPPORTUNITIES are the highest-priority untapped keywords — integrate as many as possible into ${isApple ? "title, subtitle, and keywords field" : "title, short description, and full description"}. These represent the biggest growth potential for visibility.
+13. Generate a FRESH and UNIQUE listing each time — vary wording, structure, keyword selection, and phrasing
+
+STORE COMPLIANCE (CRITICAL — violating ANY of these causes IMMEDIATE app rejection):
+- NEVER reference third-party brand names, team names, league names, sports organizations, music labels, or ANY trademarked content by name anywhere in the listing (title, subtitle, description, keywords, or promotional text)
+- NEVER imply the app is affiliated with, endorsed by, or an official product of any other company or organization
+- NEVER use competitor app names in any field
+- Describe ONLY what YOUR app does using GENERIC terms (e.g., "live scores" NOT "NBA scores", "league standings" NOT "NFL standings", "music streaming" NOT "Spotify alternative")
+- If the app relates to a specific domain (sports, music, finance, etc.), describe features using generic category terms without naming third-party entities
+- Avoid unsubstantiated superlative claims ("#1 app", "best in the world") without data to back them up
+- These rules are required by Apple App Store Review Guideline 4.1(a) (Design - Copycats) and Google Play Developer Policy on Impersonation and Intellectual Property
+- Previous submissions were REJECTED for violating these rules — compliance is mandatory
+
+Variation seed: ${Date.now()}`;
 
   const result = await aiChat(prompt, {
-    temperature: 0.7,
+    temperature: 0.9,
     maxTokens: 3000,
     jsonMode: true,
     context: { feature: "aso_optimizer", sub_type: "full_recommendation", metadata: { listingId } },
@@ -691,4 +744,66 @@ ${isApple ? `6b. Promotional text max 170 chars — this appears ABOVE the descr
   } catch {
     return { error: "Failed to parse AI response. Please try again." };
   }
+}
+
+/**
+ * Generate optimized promotional text (iOS only, 170 chars max).
+ * Promotional text appears above the description and can be updated without a new app version.
+ */
+export async function generatePromotionalText(
+  listingId: string
+): Promise<{ error: string } | { success: true; promotionalText: string }> {
+  const userClient = await createClient();
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
+  const supabase = createAdminClient();
+  const { data: listing } = await supabase
+    .from("app_store_listings")
+    .select("app_name, store, category, description, promotional_text")
+    .eq("id", listingId)
+    .single();
+
+  if (!listing) return { error: "Listing not found." };
+  if (listing.store !== "apple") return { error: "Promotional text is only available for Apple App Store listings." };
+
+  const ctx = await getListingContext(listingId);
+
+  const prompt = `Generate optimized promotional text for this Apple App Store listing. GOAL: Maximize conversion — promotional text appears ABOVE the description and is the first thing users read. It can be updated anytime without a new app version, making it perfect for timely messaging.
+
+App: "${listing.app_name}"
+Category: ${listing.category ?? "Unknown"}
+Description: "${(listing.description as string)?.slice(0, 500) ?? "N/A"}"
+Current Promotional Text: "${listing.promotional_text ?? "none"}"
+
+${ctx.keywordsContext}
+${ctx.reviewContext ? `\n${ctx.reviewContext}` : ""}
+${ctx.praises.length > 0 ? `\nUsers love: ${ctx.praises.slice(0, 3).join(", ")}` : ""}
+
+Requirements:
+- MUST be 170 characters or fewer
+- Lead with the app's strongest value proposition or a timely hook
+- Mention key features users care about most (based on review data)
+- Create urgency or highlight what's new/seasonal
+- NOT indexed for search — this is purely for CONVERSION
+- Generate a FRESH and DIFFERENT result each time
+
+STORE COMPLIANCE (CRITICAL — violating these causes app rejection):
+- NEVER reference third-party brand names, team names, league names, or trademarked content
+- NEVER imply affiliation with any other company or organization
+- Focus ONLY on the app's own features, updates, and value
+- Required by Apple Guideline 4.1(a)
+
+Variation seed: ${Date.now()}
+
+Return ONLY the promotional text (no quotes, no explanation).`;
+
+  const result = await aiChat(prompt, {
+    temperature: 0.95,
+    maxTokens: 100,
+    context: { feature: "aso_optimizer", sub_type: "promotional_text", metadata: { listingId } },
+  });
+  const text = result?.text?.replace(/^["']|["']$/g, "").trim().slice(0, 170) ?? "";
+
+  return { success: true, promotionalText: text };
 }
