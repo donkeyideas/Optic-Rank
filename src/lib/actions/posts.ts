@@ -167,6 +167,16 @@ AEO (Answer Engine Optimization):
 - Write concise, direct answers that AI assistants can surface.
 - Use structured sections that map to common user queries.
 
+KEYWORD STRATEGY (CRITICAL FOR RANKING):
+- Target long-tail keywords (4+ words) that a newer site can realistically rank for.
+- Focus on comparison and alternative queries: "[tool] vs [tool]", "[tool] alternatives", "best [tool] for [use case]".
+- Target "how to" and tutorial queries related to the topic.
+- Do NOT target head terms like "SEO tools" or "keyword research" — these are dominated by DA 80+ sites (Ahrefs, Moz, SEMrush).
+- Instead target specific niche queries: "how to track keyword rankings for small business", "seo tool for startups", "ai seo platform comparison", etc.
+- Include the exact target long-tail keyword phrase in the first H2 and naturally in the first paragraph.
+- Use 2-3 semantic keyword variations throughout the body.
+- Include the brand name "Optic Rank" naturally 2-3 times to build branded search presence.
+
 CRO (Conversion Rate Optimization):
 - Include natural calls-to-action linking to Optic Rank features.
 - Mention how Optic Rank solves problems discussed in the article.

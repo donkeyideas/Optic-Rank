@@ -63,6 +63,25 @@ export function BlogClient({
 
   const posts = tab === "blog" ? blogPosts : guides;
 
+  // Publishing cadence stats
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0=Sun
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - ((dayOfWeek + 6) % 7)); // Monday
+  weekStart.setHours(0, 0, 0, 0);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 7);
+
+  const allPublished = [...blogPosts, ...guides].filter(
+    (p) => p.status === "published" && p.published_at
+  );
+  const publishedThisWeek = allPublished.filter((p) => {
+    const d = new Date(p.published_at!);
+    return d >= weekStart && d < weekEnd;
+  });
+  const WEEKLY_LIMIT = 2;
+  const BEST_DAYS = ["Monday", "Thursday"];
+
   /* ─── Toolbar helpers ─── */
   const wrapSelection = useCallback(
     (before: string, after: string) => {
@@ -150,10 +169,13 @@ export function BlogClient({
   }
 
   function generateSlug(text: string) {
-    return text
+    const STOP_WORDS = new Set(["a","an","the","and","or","but","in","on","at","to","for","of","with","by","from","is","it","that","this","was","are","be","has","had","have","will","can","your","you","we","our","its","do","does","what","how","why","when","where","which","who"]);
+    const words = text
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
+      .replace(/[^a-z0-9\s]+/g, "")
+      .split(/\s+/)
+      .filter(w => w && !STOP_WORDS.has(w));
+    return words.slice(0, 5).join("-") || "untitled";
   }
 
   async function handleGenerate() {
@@ -279,6 +301,51 @@ export function BlogClient({
             {t === "blog" ? "Blog Posts" : "Guides"}
           </button>
         ))}
+      </div>
+
+      {/* Publishing Schedule */}
+      <div className="mb-6 border border-rule bg-surface-card p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <span className="text-xs font-bold uppercase tracking-widest text-ink-muted">
+            Weekly Publishing Cadence
+          </span>
+          <span className="text-xs text-ink-muted">
+            Best days:{" "}
+            <strong className="text-ink">{BEST_DAYS.join(" & ")}</strong>
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="h-2 flex-1 overflow-hidden bg-surface-raised">
+            <div
+              className={`h-full transition-all ${
+                publishedThisWeek.length > WEEKLY_LIMIT
+                  ? "bg-editorial-red"
+                  : publishedThisWeek.length === WEEKLY_LIMIT
+                    ? "bg-editorial-green"
+                    : "bg-editorial-gold"
+              }`}
+              style={{
+                width: `${Math.min((publishedThisWeek.length / WEEKLY_LIMIT) * 100, 100)}%`,
+              }}
+            />
+          </div>
+          <span
+            className={`text-sm font-bold tabular-nums ${
+              publishedThisWeek.length > WEEKLY_LIMIT
+                ? "text-editorial-red"
+                : "text-ink"
+            }`}
+          >
+            {publishedThisWeek.length}/{WEEKLY_LIMIT}
+          </span>
+        </div>
+        <p className="mt-2 text-[10px] text-ink-muted">
+          {publishedThisWeek.length === 0
+            ? "No posts this week. Publish 1 quality post on Monday and 1 on Thursday for optimal SEO crawl frequency."
+            : publishedThisWeek.length <= WEEKLY_LIMIT
+              ? "On track. Consistent 2x/week publishing builds topical authority faster than batch publishing."
+              : "Over-publishing. Google's freshness signals work best with steady cadence, not bursts. Spread posts across weeks."}
+        </p>
       </div>
 
       {/* Create/Edit Form */}
