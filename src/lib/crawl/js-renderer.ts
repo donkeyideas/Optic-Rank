@@ -55,7 +55,7 @@ export function isJsRenderingAvailable(): boolean {
  */
 export async function fetchWithJsRendering(
   url: string,
-  options: { waitMs?: number; timeoutMs?: number } = {}
+  options: { waitMs?: number; timeoutMs?: number; premiumProxy?: boolean } = {}
 ): Promise<JsRenderResult | null> {
   const renderer = getRenderer();
 
@@ -137,13 +137,13 @@ async function fetchViaChromium(
 
 async function fetchViaScrapingBee(
   url: string,
-  options: { waitMs?: number; timeoutMs?: number }
+  options: { waitMs?: number; timeoutMs?: number; premiumProxy?: boolean }
 ): Promise<JsRenderResult> {
   const start = Date.now();
   const result = await fetchWithScrapingBee(url, {
     renderJs: true,
     waitMs: options.waitMs ?? 5000,
-    premiumProxy: false,
+    premiumProxy: options.premiumProxy ?? false,
     timeoutMs: options.timeoutMs ?? 30000,
     blockAds: true,
   });

@@ -257,12 +257,13 @@ function extractMetaDescription(html: string): string | null {
 /**
  * Fetch a LinkedIn profile by username/slug or URL.
  *
- * Strategy order:
+ * Strategy order (for each URL type):
  * 1. Basic fetch — LinkedIn's static HTML often contains OG/meta tags and
  *    JSON-LD even when JS execution would hit an auth wall. Fast + free.
- * 2. Headless Chrome — Only tried when basic fetch fails to extract data.
- *    JS rendering can sometimes get past auth walls that block basic fetch,
- *    but can also trigger them, so it's a fallback.
+ * 2. Headless Chrome / ScrapingBee with premium proxy — LinkedIn blocks
+ *    regular proxies, so premium is required.
+ *
+ * If the URL type is guessed (bare handle), tries both /in/ and /company/.
  */
 export async function fetchLinkedInProfile(input: string): Promise<SocialFetchResult> {
   const { slug, type } = extractSlug(input);
@@ -270,63 +271,102 @@ export async function fetchLinkedInProfile(input: string): Promise<SocialFetchRe
     return { success: false, error: "Invalid LinkedIn username." };
   }
 
-  const profileUrl = buildProfileUrl(slug, type);
+  // If a full URL was given, we know the type. If bare handle, try both.
+  const isExplicitUrl = input.trim().includes("linkedin.com");
+  const typesToTry: Array<"personal" | "company"> = isExplicitUrl
+    ? [type]
+    : type === "company"
+      ? ["company", "personal"]
+      : ["company", "personal"]; // Try company first — pages have more public data
 
-  // --- Primary: basic fetch (static HTML often has meta/OG/JSON-LD) ---
-  try {
-    const res = await fetch(profileUrl, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Cache-Control": "no-cache",
-        "sec-ch-ua": '"Chromium";v="131", "Not_A Brand";v="24"',
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": '"Windows"',
-        "sec-fetch-dest": "document",
-        "sec-fetch-mode": "navigate",
-        "sec-fetch-site": "none",
-        "sec-fetch-user": "?1",
-        "upgrade-insecure-requests": "1",
-      },
-      redirect: "follow",
-      next: { revalidate: 3600 },
-    });
+  let bestPartial: SocialFetchResult | null = null;
 
-    if (res.ok) {
-      const html = await res.text();
-      const extracted = extractProfileFromHtml(html, slug, type);
-      if (extracted.success) return extracted;
-      // Extraction failed (auth wall or no data) — fall through to headless Chrome
-    } else if (res.status === 404) {
-      return { success: false, error: "LinkedIn profile not found." };
-    }
-    // For 999, 403, etc. — fall through to headless Chrome
-  } catch {
-    // Network error — fall through to headless Chrome
-  }
+  for (const urlType of typesToTry) {
+    const profileUrl = buildProfileUrl(slug, urlType);
+    console.log(`[linkedin] Trying ${urlType}: ${profileUrl}`);
 
-  // --- Fallback: Headless Chrome via js-renderer ---
-  if (isJsRenderingAvailable()) {
+    // --- Primary: basic fetch (static HTML often has meta/OG/JSON-LD) ---
     try {
-      const result = await fetchWithJsRendering(profileUrl, {
-        waitMs: 3000,
-        timeoutMs: 20000,
+      const res = await fetch(profileUrl, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+          Accept:
+            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+          "Cache-Control": "no-cache",
+          "sec-ch-ua": '"Chromium";v="131", "Not_A Brand";v="24"',
+          "sec-ch-ua-mobile": "?0",
+          "sec-ch-ua-platform": '"Windows"',
+          "sec-fetch-dest": "document",
+          "sec-fetch-mode": "navigate",
+          "sec-fetch-site": "none",
+          "sec-fetch-user": "?1",
+          "upgrade-insecure-requests": "1",
+        },
+        redirect: "follow",
+        next: { revalidate: 3600 },
       });
 
-      if (result && result.html) {
-        const extracted = extractProfileFromHtml(result.html, slug, type);
-        if (extracted.success) return extracted;
+      if (res.ok) {
+        const html = await res.text();
+        console.log(`[linkedin] Basic fetch OK (${html.length} bytes), extracting...`);
+        const extracted = extractProfileFromHtml(html, slug, urlType);
+        if (extracted.success) {
+          // If we got real follower data, return immediately
+          if (extracted.data.followers_count > 0) {
+            console.log(`[linkedin] Got followers: ${extracted.data.followers_count}`);
+            return extracted;
+          }
+          // Save partial result (has name/bio but no followers)
+          if (!bestPartial) bestPartial = extracted;
+        }
+      } else if (res.status === 404) {
+        console.log(`[linkedin] 404 for ${urlType}, trying next type...`);
+        continue; // Try next URL type
       }
-    } catch {
-      // Renderer failed
+      // For 999, 403, etc. — fall through to headless Chrome
+    } catch (err) {
+      console.warn(`[linkedin] Basic fetch failed for ${urlType}:`, err);
     }
+
+    // --- Fallback: Headless Chrome / ScrapingBee with premium proxy ---
+    if (isJsRenderingAvailable()) {
+      try {
+        console.log(`[linkedin] Trying JS rendering (premium proxy) for ${urlType}...`);
+        const result = await fetchWithJsRendering(profileUrl, {
+          waitMs: 4000,
+          timeoutMs: 25000,
+          premiumProxy: true, // LinkedIn requires premium proxy
+        });
+
+        if (result && result.html) {
+          console.log(`[linkedin] JS render OK (${result.html.length} bytes), extracting...`);
+          const extracted = extractProfileFromHtml(result.html, slug, urlType);
+          if (extracted.success) {
+            if (extracted.data.followers_count > 0) {
+              console.log(`[linkedin] Got followers via JS render: ${extracted.data.followers_count}`);
+              return extracted;
+            }
+            if (!bestPartial) bestPartial = extracted;
+          }
+        }
+      } catch (err) {
+        console.warn(`[linkedin] JS rendering failed for ${urlType}:`, err);
+      }
+    }
+  }
+
+  // Return best partial result if we got name/bio but no followers
+  if (bestPartial) {
+    console.log("[linkedin] Returning partial result (no follower count found)");
+    return bestPartial;
   }
 
   return {
     success: false,
-    error: "LinkedIn blocked the request. Please enter stats manually.",
+    error:
+      "LinkedIn blocked the request. Try adding the full URL (e.g. linkedin.com/company/name) or enter stats manually.",
   };
 }
 
