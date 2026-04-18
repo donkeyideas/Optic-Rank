@@ -49,3 +49,19 @@ next-env.d.ts
 # test artifacts
 /test-results
 uat-test.html
+
+# mobile app (optic-rank-mobile)
+optic-rank-mobile/node_modules/
+optic-rank-mobile/.expo/
+optic-rank-mobile/dist/
+optic-rank-mobile/web-build/
+optic-rank-mobile/expo-env.d.ts
+optic-rank-mobile/android/
+optic-rank-mobile/ios/
+optic-rank-mobile/build/
+optic-rank-mobile/*.jks
+optic-rank-mobile/*.p8
+optic-rank-mobile/*.p12
+optic-rank-mobile/*.key
+optic-rank-mobile/*.mobileprovision
+optic-rank-mobile/.metro-health-check*

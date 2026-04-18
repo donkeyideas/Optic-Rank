@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Review Screenshot - 640x960</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600&family=Playfair+Display:wght@700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 640px;
+    height: 960px;
+    overflow: hidden;
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: #f5f2ed;
+    color: #1a1a1a;
+  }
+
+  .status-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 20px 6px; font-size: 14px; font-weight: 600;
+  }
+
+  .header {
+    display: flex; align-items: center;
+    padding: 4px 16px 12px; gap: 10px;
+  }
+  .back-arrow { font-size: 22px; }
+  .header-title { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; }
+
+  .section-label {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 1.5px; color: #888; padding: 10px 16px 6px;
+  }
+
+  .card {
+    background: #fff; margin: 0 16px 8px; padding: 12px; border: 1px solid #e0dcd6;
+  }
+  .card.highlighted { background: #faf8f5; border: 2px solid #c0392b; }
+
+  .current-plan-name { font-family: 'Playfair Display', serif; font-size: 14px; font-weight: 700; }
+  .current-plan-billing { font-size: 9px; color: #888; margin-top: 2px; }
+  .price-row { display: flex; align-items: baseline; margin-top: 6px; }
+  .price-amount { font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 700; }
+  .price-period { font-size: 10px; color: #888; margin-left: 2px; }
+  .plan-details { font-size: 9px; color: #555; margin-top: 4px; }
+
+  .btn {
+    display: block; width: 100%; padding: 8px; text-align: center;
+    font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; font-weight: 600;
+    border: none; cursor: pointer; margin-top: 10px;
+  }
+  .btn-outline { background: transparent; border: 1.5px solid #1a1a1a; color: #1a1a1a; }
+  .btn-red { background: #c0392b; color: #fff; }
+  .btn-disabled { opacity: 0.5; }
+
+  .plan-card-name { font-family: 'Playfair Display', serif; font-size: 14px; font-weight: 700; }
+  .plan-price-row { display: flex; align-items: baseline; margin-top: 4px; margin-bottom: 10px; }
+  .plan-price-amount { font-family: 'IBM Plex Mono', monospace; font-size: 22px; font-weight: 700; }
+
+  .feature-list { margin-bottom: 10px; }
+  .feature-row { display: flex; align-items: center; margin-bottom: 3px; gap: 6px; }
+  .feature-check { color: #27ae60; font-weight: 700; font-size: 12px; }
+  .feature-text { font-size: 9px; color: #555; }
+
+  .badge {
+    display: inline-block; padding: 2px 8px; font-size: 8px;
+    font-weight: 700; letter-spacing: 0.5px; background: #c0392b; color: #fff;
+  }
+  .popular-badge { position: absolute; top: 10px; right: 10px; }
+  .card-relative { position: relative; }
+
+  .restore-btn {
+    display: block; width: calc(100% - 32px); margin: 0 16px; padding: 8px;
+    text-align: center; font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 11px; font-weight: 600;
+    background: transparent; border: 1.5px solid #1a1a1a; color: #1a1a1a;
+  }
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <span>9:41 AM</span>
+  <span style="font-size:12px;">&#9679;&#9679;&#9679;&#9675; &nbsp;&#128267;</span>
+</div>
+
+<div class="header">
+  <span class="back-arrow">&#8249;</span>
+  <span class="header-title">Billing</span>
+</div>
+
+<div class="section-label">Current Plan</div>
+<div class="card highlighted">
+  <div class="current-plan-name">Starter Plan</div>
+  <div class="current-plan-billing">Billed monthly &middot; Next: May 9, 2026</div>
+  <div class="price-row">
+    <span class="price-amount">$29.99</span>
+    <span class="price-period">/mo</span>
+  </div>
+  <div class="plan-details">3 projects &middot; 500 keywords &middot; 2 users</div>
+  <button class="btn btn-outline">Manage in App Store</button>
+</div>
+
+<div class="section-label">Available Plans</div>
+
+<div class="card highlighted card-relative" style="border:2px solid #c0392b;">
+  <div class="plan-card-name">Starter</div>
+  <div class="plan-price-row">
+    <span class="plan-price-amount">$29.99</span>
+    <span class="price-period">/mo</span>
+  </div>
+  <div class="feature-list">
+    <div class="feature-row"><span class="feature-check">&#10003;</span><span class="feature-text">3 projects</span></div>
+    <div class="feature-row"><span class="feature-check">&#10003;</span><span class="feature-text">500 keywords</span></div>
+    <div class="feature-row"><span class="feature-check">&#10003;</span><span class="feature-text">2 team members</span></div>
+    <div class="feature-row"><span class="feature-check">&#10003;</span><span class="feature-text">Daily rank tracking</span></div>
+  </div>
+  <button class="btn btn-outline btn-disabled">Current Plan</button>
+</div>
+
+<div class="card card-relative">
+  <div class="popular-badge"><span class="badge">POPULAR</span></div>
+  <div class="plan-card-name">Pro</div>
+  <div class="plan-price-row">
+    <span class="plan-price-amount">$79.99</span>
+    <span class="price-period">/mo</span>
+  </div>
+  <div class="feature-list">
+    <div class="feature-row"><span class="feature-check">&#10003;</span><span class="feature-text">10 projects</span></div>
+    <div class="feature-row"><span class="feature-check">&#10003;</span><span class="feature-text">2,000 keywords</span></div>
+    <div class="feature-row"><span class="feature-check">&#10003;</span><span class="feature-text">5 team members</span></div>
+    <div class="feature-row"><span class="feature-check">&#10003;</span><span class="feature-text">AI-powered insights</span></div>
+  </div>
+  <button class="btn btn-red">Upgrade</button>
+</div>
+
+<button class="restore-btn">Restore Purchases</button>
+
+</body>
+</html>

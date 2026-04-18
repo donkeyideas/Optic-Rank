@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "58364644510",
+    "project_id": "optic-rank-d8ae7",
+    "storage_bucket": "optic-rank-d8ae7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:58364644510:android:26f21a42d04920e21aff8f",
+        "android_client_info": {
+          "package_name": "com.opticrank.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDKfU1l_ozevvFscOi1y0ul-KeuX6mgm64"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
