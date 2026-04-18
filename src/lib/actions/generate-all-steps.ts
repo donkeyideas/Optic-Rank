@@ -48,7 +48,7 @@ export const GENERATE_ALL_STEPS: StepDef[] = [
   { key: "social-intel", name: "Social Intelligence", phase: 4 },
 
   // Phase 5: Intelligence Reports (parallel, depends on all above)
-  { key: "insights", name: "AI Insights", phase: 5 },
+  { key: "insights", name: "Insights", phase: 5 },
   { key: "brief", name: "AI Intelligence Brief", phase: 5 },
   { key: "recommendations", name: "Smart Recommendations", phase: 5 },
 ] as const;

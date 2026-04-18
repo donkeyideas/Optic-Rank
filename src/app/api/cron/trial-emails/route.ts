@@ -62,7 +62,8 @@ export async function GET(request: Request) {
         await sendEmail(
           email,
           `Your trial ends in 3 days — Optic Rank`,
-          trialExpiringEmail(ownerName, 3)
+          trialExpiringEmail(ownerName, 3),
+          { userId: owner.id, emailType: "trial_warning" }
         );
         await supabase
           .from("organizations")
@@ -87,7 +88,8 @@ export async function GET(request: Request) {
         await sendEmail(
           email,
           `Your free trial has ended — Optic Rank`,
-          trialExpiredEmail(ownerName)
+          trialExpiredEmail(ownerName),
+          { userId: owner.id, emailType: "trial_expired" }
         );
         await supabase
           .from("organizations")

@@ -39,7 +39,7 @@ const CATEGORY_CONFIG: Record<
   content: { label: "Content", icon: FileText, color: "text-blue-500" },
   technical: { label: "Technical", icon: Wrench, color: "text-editorial-red" },
   backlinks: { label: "Backlinks", icon: Link2, color: "text-purple-500" },
-  ai_visibility: { label: "AI Visibility", icon: Eye, color: "text-cyan-500" },
+  ai_visibility: { label: "Visibility", icon: Eye, color: "text-cyan-500" },
   revenue: { label: "Revenue", icon: DollarSign, color: "text-editorial-green" },
   competitive: { label: "Competitive", icon: Users, color: "text-orange-500" },
   performance: { label: "Performance", icon: Gauge, color: "text-pink-500" },

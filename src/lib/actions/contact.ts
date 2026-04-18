@@ -34,7 +34,8 @@ export async function submitContact(formData: {
   sendEmail(
     formData.email,
     "We received your message — Optic Rank",
-    contactConfirmationEmail(formData.name, formData.subject ?? null, formData.message)
+    contactConfirmationEmail(formData.name, formData.subject ?? null, formData.message),
+    { emailType: "contact_confirmation" }
   ).catch(() => {});
 
   // Notify all admin users about the new submission

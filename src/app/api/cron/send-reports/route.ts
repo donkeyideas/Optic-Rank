@@ -103,7 +103,8 @@ export async function GET(request: Request) {
           recipients,
           `${report.name} — Optic Rank Report`,
           html,
-          [{ filename, content: buffer }]
+          [{ filename, content: buffer }],
+          { emailType: "report" }
         );
 
         console.log(`[send-reports cron] Emailed report to ${recipients.length} recipient(s)`);

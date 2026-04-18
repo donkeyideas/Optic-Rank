@@ -37,11 +37,11 @@ import { PeriodComparisonBar } from "@/components/editorial/period-comparison-ba
    ------------------------------------------------------------------ */
 
 const TABS = [
-  { id: "insights", label: "AI Insights", icon: Lightbulb },
+  { id: "insights", label: "Insights", icon: Lightbulb },
   { id: "visibility", label: "LLM Visibility", icon: Eye },
   { id: "predictions", label: "Predictions", icon: TrendingUp },
   { id: "entities", label: "Entities", icon: Network },
-  { id: "briefs", label: "AI Briefs", icon: FileText },
+  { id: "briefs", label: "Briefs", icon: FileText },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -108,44 +108,47 @@ export function AdvancedAIClient({
   function handleGenerateAll() {
     runAction(
       {
-        title: "Generating All AI Modules",
-        description: "Running all 5 AI intelligence modules for your project...",
+        title: "Generating All Modules",
+        description: "Running all 5 intelligence modules in parallel...",
         steps: [
-          "Generating AI Insights",
-          "Running LLM Visibility Check",
+          "Generating Insights",
+          "Running Visibility Check",
           "Generating Rank Predictions",
           "Extracting Entities",
-          "Generating AI Brief",
+          "Generating Intelligence Brief",
           "Finalizing results",
         ],
         estimatedDuration: 90,
       },
       async () => {
-        const results: string[] = [];
+        const labels = ["Insights", "Visibility", "Predictions", "Entities", "Brief"];
+        const settled = await Promise.allSettled([
+          generateInsightsForProject(projectId),
+          runVisibilityCheck(projectId),
+          generatePredictions(projectId),
+          extractProjectEntities(projectId),
+          generateBrief(projectId, "on_demand"),
+        ]);
 
-        const r1 = await generateInsightsForProject(projectId);
-        results.push("error" in r1 ? `Insights: ${r1.error}` : `Insights: ${r1.generated} generated`);
+        const messages = settled.map((result, i) => {
+          if (result.status === "fulfilled") {
+            const val = result.value;
+            if (val && typeof val === "object" && "error" in val) {
+              return `${labels[i]}: ${(val as { error: string }).error}`;
+            }
+            return `${labels[i]}: done`;
+          }
+          return `${labels[i]}: failed`;
+        });
 
-        const r2 = await runVisibilityCheck(projectId);
-        results.push("error" in r2 ? `Visibility: ${r2.error}` : `Visibility: ${r2.checksRun} checks`);
-
-        const r3 = await generatePredictions(projectId);
-        results.push("error" in r3 ? `Predictions: ${r3.error}` : `Predictions: ${r3.predicted} generated`);
-
-        const r4 = await extractProjectEntities(projectId);
-        results.push("error" in r4 ? `Entities: ${r4.error}` : `Entities: ${r4.extracted} extracted`);
-
-        const r5 = await generateBrief(projectId, "on_demand");
-        results.push("error" in r5 ? `Brief: ${r5.error}` : "Brief: generated");
-
-        return { message: results.join(" · ") };
+        return { message: messages.join(" · ") };
       }
     );
   }
 
   const headlineStats = [
     {
-      label: "AI Features",
+      label: "Modules",
       value: "5",
       delta: "Advanced modules",
       direction: "neutral" as const,
@@ -185,10 +188,10 @@ export function AdvancedAIClient({
             <Brain size={24} className="text-editorial-red" />
             <div>
               <h1 className="font-serif text-2xl font-bold text-ink">
-                Advanced AI
+                Command Center
               </h1>
               <p className="mt-1 font-sans text-sm text-ink-secondary">
-                AI-powered intelligence modules for{" "}
+                Intelligence modules for{" "}
                 <span className="font-semibold">{projectDomain}</span> &mdash;
                 insights, visibility tracking, rank predictions, entity
                 optimization &amp; automated briefings
@@ -282,7 +285,7 @@ export function AdvancedAIClient({
       <div className="border-t border-rule pt-4">
         <div className="flex items-center gap-2 text-[10px] text-ink-muted">
           <Sparkles size={10} />
-          DeepSeek is the default AI provider. You can add your own API keys for OpenAI, Claude, or Gemini in{" "}
+          DeepSeek is the default intelligence engine. You can add your own API keys for OpenAI, Claude, or Gemini in{" "}
           <a
             href="/dashboard/settings"
             className="font-semibold text-editorial-red hover:underline"

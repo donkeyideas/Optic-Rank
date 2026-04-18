@@ -19,6 +19,7 @@ import { RankVolumeScatterChart } from "@/components/charts/rank-volume-scatter-
 import { TopTrafficKeywordsChart } from "@/components/charts/top-traffic-keywords-chart";
 import { AppStoreDispatch } from "@/components/editorial/app-store-dispatch";
 import { OnboardingChecklist } from "@/components/shared/onboarding-checklist";
+import { WhatsNextCard } from "@/components/shared/whats-next-card";
 import { OrganicTrafficTrendChart } from "@/components/charts/organic-traffic-trend-chart";
 import { KeywordPositionHeatmap } from "@/components/charts/keyword-position-heatmap";
 import { VolumeDifficultyMatrix } from "@/components/charts/volume-difficulty-matrix";
@@ -618,6 +619,11 @@ export default async function DashboardPage({
 
   return (
     <div className="flex flex-col gap-6">
+      {/* What's Next guidance card (shown after onboarding, dismissible) */}
+      {profile.onboarding_completed && !profile.whats_next_dismissed && (
+        <WhatsNextCard />
+      )}
+
       {/* Volume Navigator */}
       <VolumeNavigator
         currentVolume={null}

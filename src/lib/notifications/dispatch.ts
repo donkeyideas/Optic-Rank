@@ -114,7 +114,8 @@ export async function dispatchNotification(
           await sendEmail(
             authUser.user.email,
             `${payload.title} — Optic Rank`,
-            notificationEmail(payload.type, payload.title, payload.message, payload.actionUrl)
+            notificationEmail(payload.type, payload.title, payload.message, payload.actionUrl),
+            { userId: payload.userId, emailType: "notification" }
           );
         }
       }

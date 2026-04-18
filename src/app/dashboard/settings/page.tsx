@@ -11,6 +11,7 @@ import { getGA4ConnectionStatus } from "@/lib/actions/ga4-import";
 import { getGSCConnectionStatus } from "@/lib/actions/gsc";
 import { getGooglePlayConnectionStatus } from "@/lib/actions/google-play-console";
 import { getMFAStatus } from "@/lib/actions/two-fa";
+import { getUserTickets } from "@/lib/actions/support";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -225,6 +226,9 @@ export default async function SettingsPage() {
     }
   }
 
+  // Fetch support tickets
+  const tickets = await getUserTickets();
+
   return (
     <SettingsClient
       profile={profile}
@@ -252,6 +256,7 @@ export default async function SettingsPage() {
       gplayPackageName={gplayPackageName}
       gplayOAuthConfigured={gplayOAuthConfigured}
       activeProjectId={activeProjectId}
+      tickets={tickets}
     />
   );
 }

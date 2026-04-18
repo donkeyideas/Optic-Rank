@@ -208,3 +208,23 @@ export async function completeOnboarding(): Promise<{ error: string } | { succes
   revalidatePath("/dashboard");
   return { success: true };
 }
+
+/**
+ * Dismiss the "What's Next" guidance card on the dashboard.
+ */
+export async function dismissWhatsNext(): Promise<{ error: string } | { success: true }> {
+  const userClient = await createClient();
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ whats_next_dismissed: true })
+    .eq("id", user.id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard");
+  return { success: true };
+}

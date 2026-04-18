@@ -165,7 +165,7 @@ Return ONLY JSON: { "title": "...", "summary": "...", "sections": [{"title": "..
 Where type is one of: summary, keywords, rankings, backlinks, visibility, technical, competitors, predictions, entities, actions.
 No markdown, no extra text. Just the JSON object.`;
 
-  const result = await aiChat(prompt, { temperature: 0.5, maxTokens: 4096, timeout: 120000 });
+  const result = await aiChat(prompt, { temperature: 0.5, maxTokens: 4096, timeout: 55000 });
   if (!result?.text) return null;
 
   // 4. Parse response

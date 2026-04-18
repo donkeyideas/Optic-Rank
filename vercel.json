@@ -51,7 +51,15 @@
       "memory": 1024
     },
     "src/app/api/mobile/route.ts": {
-      "maxDuration": 60,
+      "maxDuration": 300,
+      "memory": 1024
+    },
+    "src/app/dashboard/advanced-ai/page.tsx": {
+      "maxDuration": 300,
+      "memory": 1024
+    },
+    "src/app/dashboard/predictions/page.tsx": {
+      "maxDuration": 120,
       "memory": 512
     },
     "src/app/api/cron/rank-check/route.ts": {

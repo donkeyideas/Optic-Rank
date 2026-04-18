@@ -41,7 +41,7 @@ export async function runVisibilityCheck(
       .from("keywords")
       .select("id, keyword")
       .eq("project_id", projectId)
-      .limit(20); // Limit to avoid excessive API calls
+      .limit(10); // Reduced from 20 to avoid Vercel timeout
 
     if (keywordIds && keywordIds.length > 0) {
       keywordQuery = keywordQuery.in("id", keywordIds);

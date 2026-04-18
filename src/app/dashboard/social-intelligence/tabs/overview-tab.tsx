@@ -42,7 +42,7 @@ const ALL_ANALYSIS_TYPES: { key: SocialAnalysisType; label: string }[] = [
   { key: "content_strategy", label: "Content Strategy" },
   { key: "hashtags", label: "Hashtags" },
   { key: "competitors", label: "Competitors" },
-  { key: "insights", label: "AI Insights" },
+  { key: "insights", label: "Insights" },
   { key: "earnings_forecast", label: "Earnings Forecast" },
   { key: "thirty_day_plan", label: "30-Day Plan" },
 ];

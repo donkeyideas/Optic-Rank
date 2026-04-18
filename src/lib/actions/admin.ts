@@ -127,6 +127,22 @@ export async function getUserDetails(userId: string) {
     billingEvents = data ?? [];
   }
 
+  // Fetch email log for this user
+  const { data: emailLog } = await admin
+    .from("email_log")
+    .select("id, subject, email_type, status, error_message, sent_at, delivered_at, opened_at")
+    .eq("user_id", userId)
+    .order("sent_at", { ascending: false })
+    .limit(20);
+
+  const emails = emailLog ?? [];
+  const emailStats = {
+    sent: emails.length,
+    delivered: emails.filter((e) => e.status === "delivered").length,
+    bounced: emails.filter((e) => e.status === "bounced" || e.status === "complained").length,
+    opened: emails.filter((e) => e.opened_at != null).length,
+  };
+
   return {
     data: {
       profile: {
@@ -144,6 +160,8 @@ export async function getUserDetails(userId: string) {
       },
       recentActivity: recentActivity ?? [],
       billingEvents,
+      emailLog: emails,
+      emailStats,
     },
   };
 }
@@ -304,4 +322,43 @@ export async function toggleCompAccount(
 
   revalidatePath("/admin/users");
   return { success: true };
+}
+
+/**
+ * Fetch email log for a specific user (admin only).
+ */
+export async function getUserEmailLog(userId: string) {
+  const { error, admin } = await requireAdminCaller();
+  if (error || !admin) return [];
+
+  const { data } = await admin
+    .from("email_log")
+    .select("id, recipient_email, subject, email_type, status, error_message, sent_at, delivered_at, opened_at, clicked_at")
+    .eq("user_id", userId)
+    .order("sent_at", { ascending: false })
+    .limit(50);
+
+  return data ?? [];
+}
+
+/**
+ * Fetch email stats summary for a user (admin only).
+ */
+export async function getUserEmailStats(userId: string) {
+  const { error, admin } = await requireAdminCaller();
+  if (error || !admin) return { sent: 0, delivered: 0, bounced: 0, opened: 0 };
+
+  const { data } = await admin
+    .from("email_log")
+    .select("status, opened_at")
+    .eq("user_id", userId);
+
+  if (!data) return { sent: 0, delivered: 0, bounced: 0, opened: 0 };
+
+  return {
+    sent: data.length,
+    delivered: data.filter((e) => e.status === "delivered").length,
+    bounced: data.filter((e) => e.status === "bounced" || e.status === "complained").length,
+    opened: data.filter((e) => e.opened_at != null).length,
+  };
 }

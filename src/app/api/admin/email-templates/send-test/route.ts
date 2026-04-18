@@ -53,7 +53,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Template not found. Auth templates cannot be sent as test emails — configure those in Supabase Dashboard." }, { status: 400 });
   }
 
-  const result = await sendEmail(email, `[TEST] ${template.subject}`, template.html);
+  const result = await sendEmail(email, `[TEST] ${template.subject}`, template.html, {
+    emailType: "test_template",
+  });
 
   if (!result.success) {
     return NextResponse.json({ error: result.error ?? "Send failed" }, { status: 500 });

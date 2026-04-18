@@ -110,6 +110,22 @@ interface UserDetailsData {
     amount_cents: number | null;
     created_at: string;
   }>;
+  emailLog: Array<{
+    id: string;
+    subject: string;
+    email_type: string;
+    status: string;
+    error_message: string | null;
+    sent_at: string;
+    delivered_at: string | null;
+    opened_at: string | null;
+  }>;
+  emailStats: {
+    sent: number;
+    delivered: number;
+    bounced: number;
+    opened: number;
+  };
 }
 
 /* ------------------------------------------------------------------
@@ -147,6 +163,36 @@ function ProviderIcon({ provider }: { provider: string }) {
         </span>
       );
   }
+}
+
+/* ------------------------------------------------------------------
+   Email Status Helpers
+   ------------------------------------------------------------------ */
+
+function emailStatusColor(status: string) {
+  switch (status) {
+    case "delivered": return "text-editorial-green";
+    case "bounced":
+    case "complained":
+    case "failed": return "text-editorial-red";
+    case "sent": return "text-editorial-gold";
+    default: return "text-ink-muted";
+  }
+}
+
+function emailTypeBadge(type: string) {
+  const labels: Record<string, string> = {
+    signup_confirmation: "Signup",
+    notification: "Notification",
+    trial_warning: "Trial Warning",
+    trial_expired: "Trial Expired",
+    report: "Report",
+    contact_confirmation: "Contact",
+    support_reply: "Support",
+    test_template: "Test",
+    general: "General",
+  };
+  return labels[type] ?? type;
 }
 
 /* ------------------------------------------------------------------
@@ -868,6 +914,64 @@ export function AdminUsersClient({
                     </div>
                   </div>
                 )}
+
+                {/* Email Delivery Log */}
+                <div className="border border-rule bg-surface-card p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Mail size={14} className="text-ink-muted" />
+                    <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+                      Email Delivery
+                    </span>
+                  </div>
+
+                  {/* Email stats summary */}
+                  {userDetails.emailStats && userDetails.emailStats.sent > 0 && (
+                    <div className="mb-3 flex items-center gap-3 text-xs">
+                      <span className="font-mono text-[11px] text-ink">
+                        {userDetails.emailStats.sent} sent
+                      </span>
+                      <span className="font-mono text-[11px] text-editorial-green">
+                        {userDetails.emailStats.delivered} delivered
+                      </span>
+                      {userDetails.emailStats.bounced > 0 && (
+                        <span className="font-mono text-[11px] text-editorial-red">
+                          {userDetails.emailStats.bounced} bounced
+                        </span>
+                      )}
+                      {userDetails.emailStats.opened > 0 && (
+                        <span className="font-mono text-[11px] text-ink-secondary">
+                          {userDetails.emailStats.opened} opened
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Email log table */}
+                  {userDetails.emailLog && userDetails.emailLog.length > 0 ? (
+                    <div className="space-y-2">
+                      {userDetails.emailLog.map((email) => (
+                        <div key={email.id} className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className={`shrink-0 font-mono text-[10px] font-bold uppercase ${emailStatusColor(email.status)}`}>
+                              {email.status}
+                            </span>
+                            <span className="shrink-0 border border-rule bg-surface-raised px-1.5 py-0.5 font-mono text-[9px] text-ink-muted">
+                              {emailTypeBadge(email.email_type)}
+                            </span>
+                            <span className="truncate text-ink" title={email.subject}>
+                              {email.subject}
+                            </span>
+                          </div>
+                          <span className="shrink-0 ml-2 font-mono text-[10px] text-ink-muted">
+                            {timeAgo(email.sent_at)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-ink-muted">No emails sent to this user yet.</p>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="py-20 text-center text-sm text-ink-muted">

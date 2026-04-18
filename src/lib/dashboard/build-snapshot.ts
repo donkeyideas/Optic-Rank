@@ -430,7 +430,7 @@ export async function buildDashboardData(
       direction: keywordsUp > 0 ? "up" : "neutral",
     },
     {
-      label: "AI Visibility",
+      label: "Visibility",
       value: visibilityStats.avgScore > 0 ? `${Math.round(visibilityStats.avgScore)}%` : "--",
       delta: visibilityStats.totalChecks > 0
         ? `${visibilityStats.totalChecks} checks · ${visibilityStats.keywordsChecked} keywords`

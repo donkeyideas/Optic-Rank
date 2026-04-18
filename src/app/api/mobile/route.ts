@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { mobileTokenStorage } from "@/lib/supabase/mobile-context";
 
-// Site audits and other actions can take a while — extend timeout
-export const maxDuration = 60;
+// Mobile actions (AI calls, site audits, content briefs) can take a while
+export const maxDuration = 300;
 
 // Server actions — these use createClient() which will detect the mobile token via AsyncLocalStorage
 import { generateKeywordsAI, importKeywordsCSV, enrichProjectKeywords } from "@/lib/actions/keywords";

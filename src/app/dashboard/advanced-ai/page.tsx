@@ -14,6 +14,8 @@ import { getBriefs } from "@/lib/dal/briefs";
 import { getAIInsights } from "@/lib/dal/ai-insights";
 import { computeAllComparisons, type MetricDef } from "@/lib/utils/period-comparison";
 
+export const maxDuration = 300;
+
 export default async function AdvancedAIPage() {
   const supabase = await createClient();
   const {

@@ -132,7 +132,7 @@ export function AIInsightsClient({
         <div className="flex items-end justify-between border-b border-rule pb-4">
           <div>
             <h1 className="font-serif text-2xl font-bold text-ink">
-              AI Intelligence Hub
+              Intelligence Hub
             </h1>
             <p className="mt-1 font-sans text-sm text-ink-secondary">
               Machine-learning powered insights, predictions, and recommendations for your SEO strategy
@@ -196,7 +196,7 @@ export function AIInsightsClient({
       <div className="flex items-end justify-between border-b border-rule pb-4">
         <div>
           <h1 className="font-serif text-2xl font-bold text-ink">
-            AI Intelligence Hub
+            Intelligence Hub
           </h1>
           <p className="mt-1 font-sans text-sm text-ink-secondary">
             Machine-learning powered insights, predictions, and recommendations for your SEO strategy

@@ -36,7 +36,7 @@ export function ExecutiveSection({ data }: { data: ExecutiveSummary }) {
       <View style={[s.row, s.gap8, s.mb16]}>
         <PDFStatCard label="Total Backlinks" value={data.totalBacklinks.toLocaleString()} />
         <PDFStatCard label="Referring Domains" value={data.referringDomains.toLocaleString()} />
-        <PDFStatCard label="AI Visibility" value={`${data.aiVisibilityAvg.toFixed(0)}%`} />
+        <PDFStatCard label="Visibility" value={`${data.aiVisibilityAvg.toFixed(0)}%`} />
         <PDFStatCard label="High Priority" value={data.highPriorityInsights} />
       </View>
 

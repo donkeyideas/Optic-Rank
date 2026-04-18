@@ -29,6 +29,7 @@ import {
   Search,
   ChevronDown,
   ChevronUp,
+  MessageSquare,
 } from "lucide-react";
 import { ColumnHeader } from "@/components/editorial/column-header";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -66,6 +67,7 @@ import { ApiKeysTab } from "./api-keys-tab";
 import { IntegrationsTab } from "./integrations-tab";
 import { SecurityTab } from "./security-tab";
 import { NotificationsTab } from "./notifications-tab";
+import { SupportTab } from "./support-tab";
 import type { ApiKeyPublic } from "@/lib/actions/api-keys";
 import type { IntegrationSettings } from "@/lib/actions/integrations";
 import type { Profile, Organization } from "@/types";
@@ -182,6 +184,15 @@ interface SettingsClientProps {
   gplayPackageName?: string | null;
   gplayOAuthConfigured?: boolean;
   activeProjectId?: string;
+  tickets?: Array<{
+    id: string;
+    subject: string;
+    message: string;
+    status: string;
+    category: string;
+    created_at: string;
+    replyCount: number;
+  }>;
 }
 
 /* ------------------------------------------------------------------
@@ -253,6 +264,7 @@ export function SettingsClient({
   gplayPackageName,
   gplayOAuthConfigured,
   activeProjectId,
+  tickets,
 }: SettingsClientProps) {
   const timezone = useTimezone();
   const searchParams = useSearchParams();
@@ -423,6 +435,10 @@ export function SettingsClient({
           <TabsTrigger value="notifications">
             <Bell size={12} className="mr-1.5" />
             Notifications
+          </TabsTrigger>
+          <TabsTrigger value="support">
+            <MessageSquare size={12} className="mr-1.5" />
+            Support
           </TabsTrigger>
           <TabsTrigger value="extension">
             <Globe size={14} className="mr-1.5" />
@@ -1118,6 +1134,13 @@ export function SettingsClient({
             ============================================================ */}
         <TabsContent value="notifications">
           <NotificationsTab profile={profile} />
+        </TabsContent>
+
+        {/* ============================================================
+            TAB: Support
+            ============================================================ */}
+        <TabsContent value="support">
+          <SupportTab tickets={tickets ?? []} />
         </TabsContent>
 
         {/* ============================================================

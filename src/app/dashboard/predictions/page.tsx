@@ -5,6 +5,8 @@ import { TrendingUp } from "lucide-react";
 import { PredictionsClient } from "./predictions-client";
 import { getPredictions, getPredictionStats } from "@/lib/dal/predictions";
 
+export const maxDuration = 120;
+
 export default async function PredictionsPage() {
   const supabase = await createClient();
   const {

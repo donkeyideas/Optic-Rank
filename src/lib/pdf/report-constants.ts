@@ -14,5 +14,5 @@ export const ALL_SECTIONS: { id: ReportSection; label: string }[] = [
   { id: "backlinks", label: "Backlinks" },
   { id: "audit", label: "Site Audit" },
   { id: "competitors", label: "Competitors" },
-  { id: "insights", label: "AI Insights" },
+  { id: "insights", label: "Insights" },
 ];

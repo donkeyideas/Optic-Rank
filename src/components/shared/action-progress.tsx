@@ -8,6 +8,7 @@ import {
   useRef,
   useEffect,
 } from "react";
+import { useRouter } from "next/navigation";
 import { Check, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -75,6 +76,8 @@ export function ActionProgressProvider({
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoCloseRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const runningRef = useRef(false);
+  const router = useRouter();
 
   // Elapsed time counter
   useEffect(() => {
@@ -109,8 +112,12 @@ export function ActionProgressProvider({
       config: ActionConfig,
       fn: () => Promise<T>
     ): Promise<T | undefined> => {
+      // Synchronous guard — prevents double execution from rapid clicks
+      if (runningRef.current) return undefined;
+      runningRef.current = true;
+
       setTitle(config.title);
-      setDescription(config.description ?? "AI is processing your data");
+      setDescription(config.description ?? "Processing your data");
       setSteps(config.steps ?? []);
       setEstimatedDuration(config.estimatedDuration ?? 30);
       setResultMessage("");
@@ -129,6 +136,7 @@ export function ActionProgressProvider({
           const err = (result as Record<string, unknown>).error as string;
           setErrorMessage(err);
           setStatus("error");
+          router.refresh();
           return result;
         }
 
@@ -161,16 +169,21 @@ export function ActionProgressProvider({
 
         setResultMessage(successMsg);
         setStatus("success");
+        // Re-fetch server component data so the UI updates with new results
+        router.refresh();
         return result;
       } catch (err) {
         setErrorMessage(
           err instanceof Error ? err.message : "An unexpected error occurred"
         );
         setStatus("error");
+        router.refresh();
         return undefined;
+      } finally {
+        runningRef.current = false;
       }
     },
-    []
+    [router]
   );
 
   const isRunning = status === "running";

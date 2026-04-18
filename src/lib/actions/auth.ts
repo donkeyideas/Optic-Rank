@@ -52,34 +52,40 @@ export async function signUp(
   const trialEndsAt = new Date();
   trialEndsAt.setDate(trialEndsAt.getDate() + 14);
 
-  const { data: org, error: orgError } = await admin
-    .from("organizations")
-    .insert({
-      name: orgName || `${fullName || email.split("@")[0]}'s Organization`,
-      slug: `${slug}-${Date.now().toString(36)}`,
-      plan: "free",
-      subscription_status: "trialing",
-      trial_ends_at: trialEndsAt.toISOString(),
-    })
-    .select("id")
-    .single();
+  // 2. Create organization (non-blocking — signup succeeds even if this fails)
+  try {
+    const { data: org, error: orgError } = await admin
+      .from("organizations")
+      .insert({
+        name: orgName || `${fullName || email.split("@")[0]}'s Organization`,
+        slug: `${slug}-${Date.now().toString(36)}`,
+        plan: "free",
+        subscription_status: "trialing",
+        trial_ends_at: trialEndsAt.toISOString(),
+      })
+      .select("id")
+      .single();
 
-  if (orgError) {
-    return { error: orgError.message };
-  }
-
-  // 3. Link the profile to the organization with owner role
-  const { error: profileError } = await admin
-    .from("profiles")
-    .update({
-      organization_id: org.id,
-      full_name: fullName || null,
-      role: "owner",
-    })
-    .eq("id", authData.user.id);
-
-  if (profileError) {
-    return { error: profileError.message };
+    if (!orgError && org) {
+      // 3. Link the profile to the organization with owner role
+      await admin
+        .from("profiles")
+        .update({
+          organization_id: org.id,
+          full_name: fullName || null,
+          role: "owner",
+        })
+        .eq("id", authData.user.id);
+    } else {
+      console.error("[Signup] Org creation failed (non-blocking):", orgError?.message);
+      // Still update the profile name even without an org
+      await admin
+        .from("profiles")
+        .update({ full_name: fullName || null })
+        .eq("id", authData.user.id);
+    }
+  } catch (err) {
+    console.error("[Signup] Org setup error (non-blocking):", err);
   }
 
   // Generate a confirmation link and send verification email
@@ -99,7 +105,10 @@ export async function signUp(
       .replace(/\{\{\s*\.ConfirmationURL\s*\}\}/g, linkData.properties.action_link)
       .replace(/\{\{\s*\.SiteURL\s*\}\}/g, appUrl);
 
-    sendEmail(email, "Confirm your email — Optic Rank", confirmHtml).catch((err) => {
+    sendEmail(email, "Confirm your email — Optic Rank", confirmHtml, {
+      userId: authData.user.id,
+      emailType: "signup_confirmation",
+    }).catch((err) => {
       console.error("[Signup] Failed to send confirmation email:", err);
     });
   } else {
