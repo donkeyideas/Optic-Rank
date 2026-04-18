@@ -15,6 +15,7 @@ import { TrialBanner } from "@/components/shared/trial-banner";
 import { TrialHeaderIndicator } from "@/components/shared/trial-header-indicator";
 import { PushToolbarAction } from "@/components/shared/push-toolbar-action";
 import { WhatsNextToolbarAction } from "@/components/shared/whats-next-toolbar-action";
+import { NotificationBell } from "@/components/shared/notification-bell";
 import { Notepad } from "@/components/shared/notepad";
 import { TimezoneProvider } from "@/lib/context/timezone-context";
 import { formatDateLine } from "@/lib/utils/format-date";
@@ -86,6 +87,7 @@ export default async function DashboardLayout({
   let plan: string | null = null;
   let userTimezone = "UTC";
   let isCompAccount = false;
+  let unreadNotificationCount = 0;
 
   // Fetch mobile app links from global content
   const globalSections = await getSiteContent("global");
@@ -109,6 +111,14 @@ export default async function DashboardLayout({
 
     userTimezone = profile?.timezone || "UTC";
     isCompAccount = profile?.comp_account === true;
+
+    // Fetch unread notification count
+    const { count: notifCount } = await supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("is_read", false);
+    unreadNotificationCount = notifCount ?? 0;
 
     if (profile?.organization_id) {
       const [projectsRes, orgRes] = await Promise.all([
@@ -179,7 +189,7 @@ export default async function DashboardLayout({
               )}
             </div>
           }
-          actions={<><WhatsNextToolbarAction /><PushToolbarAction /></>}
+          actions={<><WhatsNextToolbarAction /><NotificationBell initialCount={unreadNotificationCount} /><PushToolbarAction /></>}
         />
 
         <PaperHeader

@@ -231,6 +231,24 @@ export async function adminReplyToTicket(
     });
   }
 
+  // Create in-app notification for the user
+  if (ticket.user_id) {
+    admin
+      .from("notifications")
+      .insert({
+        user_id: ticket.user_id,
+        type: "support.reply",
+        title: "New reply to your support ticket",
+        message: `Re: ${ticket.subject || "Support Request"} — ${message.trim().slice(0, 120)}`,
+        action_url: "/dashboard/settings?tab=support",
+        is_read: false,
+      })
+      .then(() => {})
+      .catch((err: unknown) => {
+        console.error("[Support] Failed to create in-app notification:", err);
+      });
+  }
+
   revalidatePath("/admin/contacts");
   return { success: true };
 }
@@ -244,4 +262,69 @@ export async function getTicketReplies(ticketId: string) {
     .order("created_at", { ascending: true });
 
   return replies ?? [];
+}
+
+/* ------------------------------------------------------------------
+   User notification helpers
+   ------------------------------------------------------------------ */
+
+export async function getUserUnreadCount(): Promise<number> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return 0;
+
+  const admin = createAdminClient();
+  const { count } = await admin
+    .from("notifications")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("is_read", false);
+
+  return count ?? 0;
+}
+
+export async function getUserNotifications(limit = 20) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("notifications")
+    .select("id, type, title, message, action_url, is_read, created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  return data ?? [];
+}
+
+export async function markNotificationsRead(ids: string[]) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const admin = createAdminClient();
+  await admin
+    .from("notifications")
+    .update({ is_read: true })
+    .in("id", ids)
+    .eq("user_id", user.id);
+
+  revalidatePath("/dashboard");
+}
+
+export async function markAllNotificationsRead() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const admin = createAdminClient();
+  await admin
+    .from("notifications")
+    .update({ is_read: true })
+    .eq("user_id", user.id)
+    .eq("is_read", false);
+
+  revalidatePath("/dashboard");
 }
