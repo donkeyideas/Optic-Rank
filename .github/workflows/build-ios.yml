@@ -47,18 +47,18 @@ jobs:
       - name: List available Xcode versions
         run: ls -d /Applications/Xcode*.app 2>/dev/null || true
 
-      - name: Select Xcode
+      - name: Select Xcode 26 (required by Expo SDK 55)
         run: |
-          # Try Xcode 16.x first, fall back to latest available
-          XCODE_PATH=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -n 1)
-          if [ -z "$XCODE_PATH" ]; then
-            XCODE_PATH=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -n 1)
-          fi
-          if [ -n "$XCODE_PATH" ]; then
-            echo "Using $XCODE_PATH"
-            sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
-          fi
+          # Expo SDK 55 requires Xcode 26 — Xcode 16.x is not supported
+          for ver in 26.3 26.2 26.1.1 26.1 26.0.1 26.0; do
+            if [ -d "/Applications/Xcode_${ver}.app" ]; then
+              echo "Using Xcode ${ver}"
+              sudo xcode-select -s "/Applications/Xcode_${ver}.app/Contents/Developer"
+              break
+            fi
+          done
           xcodebuild -version
+          swift --version
 
       - name: Fix TMPDIR symlink
         run: |
