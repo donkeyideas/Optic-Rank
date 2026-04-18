@@ -903,7 +903,12 @@ Return ONLY valid JSON in this format:
       context: { feature: "content-gap-analysis" },
     });
 
-    if (!result?.text) return { error: "AI analysis returned no results." };
+    if (!result?.text) {
+      // Soft fail — don't block Generate All for an empty AI response
+      console.warn("[detectContentGaps] AI returned no results — returning empty gaps");
+      revalidatePath("/dashboard/content");
+      return { success: true, gaps: [] };
+    }
 
     const parsed = JSON.parse(result.text);
 
