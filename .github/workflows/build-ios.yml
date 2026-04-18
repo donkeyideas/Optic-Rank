@@ -112,6 +112,7 @@ jobs:
             eas.submit = eas.submit || {};
             eas.submit.production = eas.submit.production || {};
             eas.submit.production.ios = {
+              ascAppId: '6760938335',
               ascApiKeyId: process.env.APPLE_API_KEY_ID,
               ascApiKeyIssuerId: process.env.APPLE_API_ISSUER_ID,
               ascApiKeyPath: process.env.HOME + '/private_keys/AuthKey_' + process.env.APPLE_API_KEY_ID + '.p8'
