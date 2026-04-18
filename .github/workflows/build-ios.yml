@@ -45,16 +45,16 @@ jobs:
           cache-dependency-path: optic-rank-mobile/package-lock.json
 
       - name: List available Xcode versions
-        run: ls /Applications | grep -i xcode || true
+        run: ls -d /Applications/Xcode*.app 2>/dev/null || true
 
-      - name: Pin Xcode 16
+      - name: Select Xcode
         run: |
+          # Try Xcode 16.x first, fall back to latest available
           XCODE_PATH=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -n 1)
           if [ -z "$XCODE_PATH" ]; then
-            echo "Available Xcode versions:"
-            ls /Applications | grep -i xcode || true
-            echo "::warning::No Xcode 16.x found, using default"
-          else
+            XCODE_PATH=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -n 1)
+          fi
+          if [ -n "$XCODE_PATH" ]; then
             echo "Using $XCODE_PATH"
             sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
           fi
@@ -62,52 +62,68 @@ jobs:
 
       - name: Fix TMPDIR symlink
         run: |
-          REAL_TMP=$(python3 -c "import os; print(os.path.realpath(os.environ.get('TMPDIR', '/tmp')))")
+          REAL_TMP=$(python3 -c "import os, tempfile; print(os.path.realpath(tempfile.gettempdir()))")
           echo "TMPDIR=$REAL_TMP" >> "$GITHUB_ENV"
+        working-directory: .
 
       - name: Install npm dependencies
         run: npm ci
 
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Run EAS local build
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          mkdir -p build
           eas build \
             --local \
             --non-interactive \
             --platform ios \
             --profile ${{ github.event.inputs.profile }} \
-            --output ./build/opticrank-${{ github.event.inputs.profile }}.ipa
+            --output ${{ github.workspace }}/opticrank-${{ github.event.inputs.profile }}.ipa
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: opticrank-ios-${{ github.event.inputs.profile }}-${{ github.run_number }}
-          path: optic-rank-mobile/build/*.ipa
+          path: ${{ github.workspace }}/opticrank-*.ipa
           retention-days: 14
 
-      - name: Decode App Store Connect API key
+      - name: Write App Store Connect API key
+        if: ${{ github.event.inputs.submit == 'true' }}
+        run: |
+          mkdir -p ~/private_keys
+          printf '%s' "$APPLE_API_KEY_P8" > ~/private_keys/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8
+        working-directory: .
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_BASE64 }}
+
+      - name: Configure EAS submit with API key
         if: ${{ github.event.inputs.submit == 'true' }}
         env:
-          APPLE_ASC_KEY_P8_BASE64: ${{ secrets.APPLE_ASC_KEY_P8_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
         run: |
-          if [ -z "$APPLE_ASC_KEY_P8_BASE64" ]; then
-            echo "::error::Missing secret APPLE_ASC_KEY_P8_BASE64"
-            exit 1
-          fi
-          echo "$APPLE_ASC_KEY_P8_BASE64" | base64 --decode > asc-api-key.p8
+          node -e "
+            const fs = require('fs');
+            const eas = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
+            eas.submit = eas.submit || {};
+            eas.submit.production = eas.submit.production || {};
+            eas.submit.production.ios = {
+              ascApiKeyId: process.env.APPLE_API_KEY_ID,
+              ascApiKeyIssuerId: process.env.APPLE_API_ISSUER_ID,
+              ascApiKeyPath: process.env.HOME + '/private_keys/AuthKey_' + process.env.APPLE_API_KEY_ID + '.p8'
+            };
+            fs.writeFileSync('eas.json', JSON.stringify(eas, null, 2));
+            console.log('Updated eas.json submit config:', JSON.stringify(eas.submit, null, 2));
+          "
 
       - name: Submit to TestFlight
         if: ${{ github.event.inputs.submit == 'true' }}
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           eas submit \
-            --non-interactive \
             --platform ios \
-            --profile ${{ github.event.inputs.profile }} \
-            --path ./build/opticrank-${{ github.event.inputs.profile }}.ipa
+            --path ${{ github.workspace }}/opticrank-${{ github.event.inputs.profile }}.ipa \
+            --non-interactive
