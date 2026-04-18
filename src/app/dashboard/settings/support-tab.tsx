@@ -73,7 +73,6 @@ function formatDate(dateStr: string) {
 export function SupportTab({ tickets: initialTickets }: { tickets: Ticket[] }) {
   const router = useRouter();
   const [view, setView] = useState<"list" | "new" | "detail">("list");
-  const [tickets] = useState(initialTickets);
   const [selectedTicket, setSelectedTicket] = useState<TicketDetail | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -310,7 +309,7 @@ export function SupportTab({ tickets: initialTickets }: { tickets: Ticket[] }) {
         </Button>
       </div>
 
-      {tickets.length === 0 ? (
+      {initialTickets.length === 0 ? (
         <div className="flex flex-col items-center justify-center border border-dashed border-rule p-12 text-center">
           <MessageSquare size={32} className="text-ink-muted mb-3" />
           <h4 className="font-serif text-base font-bold text-ink mb-1">
@@ -326,7 +325,7 @@ export function SupportTab({ tickets: initialTickets }: { tickets: Ticket[] }) {
         </div>
       ) : (
         <div className="border border-rule divide-y divide-rule">
-          {tickets.map((ticket) => (
+          {initialTickets.map((ticket) => (
             <button
               key={ticket.id}
               onClick={() => handleOpenTicket(ticket.id)}

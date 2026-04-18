@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
-import { BellRing, BellOff, Check } from "lucide-react";
+import { BellRing } from "lucide-react";
 
 const DISMISS_KEY = "opticrank_push_banner_dismissed";
 

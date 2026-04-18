@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Bell,
   UserPlus,
@@ -9,6 +9,7 @@ import {
   Clock,
   Mail,
   X,
+  Send,
 } from "lucide-react";
 import { BroadcastPanel } from "./broadcast-panel";
 import { PushStatsPanel } from "./push-stats-panel";
@@ -18,6 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { updateContactStatus } from "@/lib/actions/contact";
+import { adminReplyToTicket, getTicketReplies } from "@/lib/actions/support";
 
 /* ------------------------------------------------------------------
    Types
@@ -30,7 +32,15 @@ interface ContactData {
   subject: string | null;
   message: string;
   status: string;
+  user_id: string | null;
 }
+
+type Reply = {
+  id: string;
+  sender_role: string;
+  message: string;
+  created_at: string;
+};
 
 interface Notification {
   id: string;
@@ -142,21 +152,53 @@ function ContactModal({
   onClose: () => void;
 }) {
   const [status, setStatus] = useState(contact.status);
+  const [replies, setReplies] = useState<Reply[]>([]);
+  const [replyText, setReplyText] = useState("");
+  const [sending, setSending] = useState(false);
+  const [loadingReplies, setLoadingReplies] = useState(false);
+
+  // Load existing replies on mount
+  useEffect(() => {
+    setLoadingReplies(true);
+    getTicketReplies(contact.id)
+      .then((r) => setReplies(r))
+      .finally(() => setLoadingReplies(false));
+  }, [contact.id]);
 
   async function handleStatusChange(newStatus: "new" | "read" | "replied") {
     setStatus(newStatus);
     await updateContactStatus(contact.id, newStatus);
   }
 
+  async function handleSendReply() {
+    if (!replyText.trim() || sending) return;
+    setSending(true);
+    const result = await adminReplyToTicket(contact.id, replyText);
+    if ("success" in result) {
+      const updated = await getTicketReplies(contact.id);
+      setReplies(updated);
+      setReplyText("");
+      setStatus("replied");
+    }
+    setSending(false);
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="relative mx-4 w-full max-w-lg border border-rule bg-surface-card shadow-xl">
+      <div className="relative mx-4 flex w-full max-w-lg flex-col border border-rule bg-surface-card shadow-xl" style={{ maxHeight: "85vh" }}>
         {/* Header */}
         <div className="flex items-start justify-between border-b border-rule px-6 py-4">
           <div className="min-w-0 flex-1">
-            <h3 className="font-serif text-lg font-bold text-ink">
-              {contact.subject || "No subject"}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-serif text-lg font-bold text-ink">
+                {contact.subject || "No subject"}
+              </h3>
+              {contact.user_id && (
+                <span className="text-[10px] font-bold uppercase tracking-wider text-editorial-green">
+                  User
+                </span>
+              )}
+            </div>
             <p className="mt-0.5 text-sm text-ink-secondary">
               From {contact.name} &lt;{contact.email}&gt;
             </p>
@@ -169,11 +211,86 @@ function ContactModal({
           </button>
         </div>
 
-        {/* Body */}
-        <div className="px-6 py-5">
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink-secondary">
-            {contact.message}
-          </p>
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          {/* Original message */}
+          <div className="mb-4">
+            <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+              Original Message
+            </span>
+            <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-ink-secondary">
+              {contact.message}
+            </p>
+          </div>
+
+          {/* Conversation thread */}
+          {loadingReplies ? (
+            <p className="text-xs text-ink-muted">Loading replies...</p>
+          ) : replies.length > 0 ? (
+            <div className="border-t border-rule pt-3">
+              <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+                Conversation
+              </span>
+              <div className="mt-2 flex flex-col gap-2">
+                {replies.map((reply) => (
+                  <div
+                    key={reply.id}
+                    className={`p-3 text-sm ${
+                      reply.sender_role === "admin"
+                        ? "border-l-2 border-editorial-green bg-editorial-green/5"
+                        : "border-l-2 border-ink/20 bg-surface-raised"
+                    }`}
+                  >
+                    <div className="mb-1 flex items-center gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+                        {reply.sender_role === "admin" ? "Admin" : "User"}
+                      </span>
+                      <span className="text-[10px] text-ink-muted">
+                        {new Date(reply.created_at).toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="whitespace-pre-wrap text-ink-secondary">
+                      {reply.message}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {/* Reply form (only for tickets from logged-in users) */}
+          {contact.user_id && (
+            <div className="mt-4 border-t border-rule pt-3">
+              <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+                Reply
+              </span>
+              <div className="mt-2 flex gap-2">
+                <textarea
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  placeholder="Type your reply..."
+                  rows={3}
+                  className="flex-1 resize-y border border-rule bg-surface-card p-2 text-sm text-ink placeholder:text-ink-muted"
+                />
+                <button
+                  onClick={handleSendReply}
+                  disabled={sending || !replyText.trim()}
+                  className="self-end bg-editorial-red px-3 py-2 text-white transition-colors hover:bg-editorial-red/90 disabled:opacity-50"
+                >
+                  <Send size={14} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Public contact — no reply option */}
+          {!contact.user_id && (
+            <div className="mt-4 border-t border-rule pt-3">
+              <p className="text-xs text-ink-muted">
+                This is a public contact submission. Reply via email to {contact.email}.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Footer */}

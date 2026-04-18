@@ -498,7 +498,7 @@ export async function getAdminNotifications(limit = 30) {
       .limit(limit),
     admin
       .from("contact_submissions")
-      .select("id, name, email, subject, message, status, created_at")
+      .select("id, name, email, subject, message, status, user_id, created_at")
       .order("created_at", { ascending: false })
       .limit(limit),
   ]);
@@ -536,6 +536,7 @@ export async function getAdminNotifications(limit = 30) {
       subject: string | null;
       message: string;
       status: string;
+      user_id: string | null;
     };
   };
 
@@ -598,6 +599,7 @@ export async function getAdminNotifications(limit = 30) {
         subject: c.subject,
         message: c.message,
         status: c.status,
+        user_id: c.user_id ?? null,
       },
     });
   });

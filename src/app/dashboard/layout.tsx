@@ -12,7 +12,9 @@ import { BottomBar } from "@/components/editorial/bottom-bar";
 import { ProjectSelector } from "@/components/shared/project-selector";
 
 import { TrialBanner } from "@/components/shared/trial-banner";
+import { TrialHeaderIndicator } from "@/components/shared/trial-header-indicator";
 import { PushToolbarAction } from "@/components/shared/push-toolbar-action";
+import { WhatsNextToolbarAction } from "@/components/shared/whats-next-toolbar-action";
 import { Notepad } from "@/components/shared/notepad";
 import { TimezoneProvider } from "@/lib/context/timezone-context";
 import { formatDateLine } from "@/lib/utils/format-date";
@@ -169,8 +171,15 @@ export default async function DashboardLayout({
       <div className="flex min-h-screen flex-col bg-surface-cream">
         <Masthead
           showLogout
-          leftSlot={projects.length > 0 ? <ProjectSelector projects={projects} /> : undefined}
-          actions={<PushToolbarAction />}
+          leftSlot={
+            <div className="flex items-center gap-2">
+              {projects.length > 0 && <ProjectSelector projects={projects} />}
+              {!isCompAccount && subscriptionStatus === "trialing" && trialEndsAt && (
+                <TrialHeaderIndicator trialEndsAt={trialEndsAt} isExpired={!!isTrialExpired} />
+              )}
+            </div>
+          }
+          actions={<><WhatsNextToolbarAction /><PushToolbarAction /></>}
         />
 
         <PaperHeader
@@ -193,11 +202,6 @@ export default async function DashboardLayout({
               variant="dashboard"
             />
           </div>
-        )}
-
-        {/* Trial banner — shown during trial or when expired (never for comp accounts) */}
-        {!isCompAccount && subscriptionStatus === "trialing" && trialEndsAt && (
-          <TrialBanner trialEndsAt={trialEndsAt} isExpired={!!isTrialExpired} />
         )}
 
         <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 md:px-6 lg:px-8">
