@@ -243,10 +243,12 @@ export async function adminReplyToTicket(
         action_url: "/dashboard/settings?tab=support",
         is_read: false,
       })
-      .then(() => {})
-      .catch((err: unknown) => {
-        console.error("[Support] Failed to create in-app notification:", err);
-      });
+      .then(
+        () => {},
+        (err: unknown) => {
+          console.error("[Support] Failed to create in-app notification:", err);
+        }
+      );
   }
 
   revalidatePath("/admin/contacts");
