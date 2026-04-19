@@ -2,7 +2,6 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -87,13 +86,13 @@ export function PaperHeader({
         <DropdownMenu>
           <DropdownMenuTrigger
             className={cn(
-              "mx-auto h-auto border-0 bg-transparent p-0 font-serif text-[28px] sm:text-[36px] md:text-[44px] lg:text-[52px] font-black leading-none tracking-tight text-ink",
-              "inline-flex items-center gap-2 hover:text-ink/80 transition-colors",
+              "group mx-auto h-auto border-0 bg-transparent p-0 font-serif text-[28px] sm:text-[36px] md:text-[44px] lg:text-[52px] font-black leading-none tracking-tight text-ink",
+              "inline-flex items-center gap-2 hover:bg-transparent hover:text-ink/80 transition-colors",
+              "[&>svg]:h-6 [&>svg]:w-6 [&>svg]:animate-bounce [&>svg]:text-editorial-red",
               isPending && "opacity-60",
             )}
           >
             {isPending ? "Switching…" : renderTitle()}
-            <ChevronDown size={24} className="text-ink-muted shrink-0" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="center" className="min-w-[260px]">
             <DropdownMenuLabel>Switch Project</DropdownMenuLabel>
