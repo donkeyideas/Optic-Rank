@@ -182,21 +182,20 @@ export default async function DashboardLayout({
         <Masthead
           showLogout
           leftSlot={
-            <div className="flex items-center gap-2">
-              {projects.length > 0 && <ProjectSelector projects={projects} />}
+            <>
               {!isCompAccount && subscriptionStatus === "trialing" && trialEndsAt && (
                 <TrialHeaderIndicator trialEndsAt={trialEndsAt} isExpired={!!isTrialExpired} />
               )}
-            </div>
+            </>
           }
           actions={<><WhatsNextToolbarAction /><NotificationBell initialCount={unreadNotificationCount} /><PushToolbarAction /></>}
         />
 
         <PaperHeader
           dateLine={`${today} — Weekly Edition`}
-          title="Optic Rank"
-          accentText="Pulse"
+          title={activeProject?.name ?? "Optic Rank"}
           tagline="AI-Powered SEO Intelligence · Competitive Analysis · Revenue Attribution"
+          projects={projects}
         />
 
         <PaperNav items={dashboardNavItems} />

@@ -1,16 +1,37 @@
 "use client";
 
+import { useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { switchProject } from "@/lib/actions/projects";
+
+interface Project {
+  id: string;
+  name: string;
+  domain: string | null;
+  is_active: boolean;
+}
 
 export interface PaperHeaderProps {
   /** Date line text, e.g. "Saturday, March 15, 2026" */
   dateLine: string;
-  /** The main brand title. Use `accentText` to highlight part of it in red. */
+  /** The main title — defaults to active project name */
   title: string;
   /** The portion of the title to render in editorial red */
   accentText?: string;
   /** Italic tagline below the title */
   tagline?: string;
+  /** Projects for the switcher dropdown */
+  projects?: Project[];
   className?: string;
 }
 
@@ -19,13 +40,14 @@ export function PaperHeader({
   title,
   accentText,
   tagline,
+  projects,
   className,
 }: PaperHeaderProps) {
-  /**
-   * Renders the title with an optional red accent span.
-   * If accentText is provided and found within title, that substring is wrapped
-   * in a red-colored span while the rest remains in the default ink color.
-   */
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  const hasMultipleProjects = projects && projects.length > 1;
+
   function renderTitle() {
     if (!accentText) {
       return <>{title}</>;
@@ -60,10 +82,55 @@ export function PaperHeader({
         {dateLine}
       </p>
 
-      {/* Title */}
-      <h1 className="font-serif text-[28px] sm:text-[36px] md:text-[44px] lg:text-[52px] font-black leading-none tracking-tight text-ink">
-        {renderTitle()}
-      </h1>
+      {/* Title — with project switcher if multiple projects */}
+      {hasMultipleProjects ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className={cn(
+              "mx-auto h-auto border-0 bg-transparent p-0 font-serif text-[28px] sm:text-[36px] md:text-[44px] lg:text-[52px] font-black leading-none tracking-tight text-ink",
+              "inline-flex items-center gap-2 hover:text-ink/80 transition-colors",
+              isPending && "opacity-60",
+            )}
+          >
+            {isPending ? "Switching…" : renderTitle()}
+            <ChevronDown size={24} className="text-ink-muted shrink-0" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center" className="min-w-[260px]">
+            <DropdownMenuLabel>Switch Project</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {projects.map((project) => (
+              <DropdownMenuItem
+                key={project.id}
+                disabled={project.is_active}
+                onClick={() => {
+                  if (project.is_active) return;
+                  startTransition(async () => {
+                    await switchProject(project.id);
+                    router.refresh();
+                  });
+                }}
+                className={project.is_active ? "font-bold" : ""}
+              >
+                <span className="flex flex-col">
+                  <span className="text-[13px]">
+                    {project.name}
+                    {project.is_active && (
+                      <span className="ml-2 text-[10px] text-editorial-green">Active</span>
+                    )}
+                  </span>
+                  {project.domain && (
+                    <span className="text-[10px] text-ink-muted">{project.domain}</span>
+                  )}
+                </span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <h1 className="font-serif text-[28px] sm:text-[36px] md:text-[44px] lg:text-[52px] font-black leading-none tracking-tight text-ink">
+          {renderTitle()}
+        </h1>
+      )}
 
       {/* Tagline */}
       {tagline && (
