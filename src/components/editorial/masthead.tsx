@@ -10,9 +10,11 @@ export interface MastheadProps {
   text?: string;
   className?: string;
   showLogout?: boolean;
-  /** Optional left-side slot (e.g., project selector) */
+  /** Optional left-side slot (e.g., trial indicator) */
   leftSlot?: React.ReactNode;
-  /** Optional extra actions rendered before theme toggle / sign-out */
+  /** Actions rendered on the left side of the masthead (after leftSlot) */
+  leftActions?: React.ReactNode;
+  /** Actions rendered on the right side of the masthead (before theme toggle / sign-out) */
   actions?: React.ReactNode;
 }
 
@@ -21,22 +23,31 @@ export function Masthead({
   className,
   showLogout = false,
   leftSlot,
+  leftActions,
   actions,
 }: MastheadProps) {
   return (
     <div
       className={cn(
-        "flex items-center justify-between bg-ink px-3 sm:px-4 py-2",
+        "grid grid-cols-3 items-center bg-ink px-3 sm:px-4 py-2",
         className,
       )}
     >
-      <div className="min-w-0 sm:min-w-[120px]">{leftSlot}</div>
+      {/* Left column */}
+      <div className="flex items-center gap-3">
+        {leftSlot}
+        {leftActions}
+      </div>
+
+      {/* Center column */}
       <span
-        className="hidden sm:inline font-sans text-[11px] font-medium uppercase tracking-[3px] text-surface-cream"
+        className="hidden sm:block text-center font-sans text-[11px] font-medium uppercase tracking-[3px] text-surface-cream"
       >
         {text}
       </span>
-      <div className="flex min-w-0 sm:min-w-[120px] items-center justify-end gap-3">
+
+      {/* Right column */}
+      <div className="flex items-center justify-end gap-3">
         {actions}
         <ThemeToggle className="h-7 w-7 border-surface-cream/20 bg-transparent text-surface-cream/70 hover:bg-surface-cream/10 hover:text-surface-cream" />
         {showLogout && (

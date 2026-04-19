@@ -189,7 +189,8 @@ export default async function DashboardLayout({
               )}
             </>
           }
-          actions={<><FreeConsultAction /><WhatsNextToolbarAction /><NotificationBell initialCount={unreadNotificationCount} /><PushToolbarAction /></>}
+          leftActions={<><FreeConsultAction /><WhatsNextToolbarAction /></>}
+          actions={<><NotificationBell initialCount={unreadNotificationCount} /><PushToolbarAction /></>}
         />
 
         <PaperHeader
