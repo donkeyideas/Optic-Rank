@@ -12,6 +12,8 @@ export interface NavItem {
   active?: boolean;
   /** Additional path prefixes that should also highlight this nav item */
   matchPaths?: string[];
+  /** Custom color class override for this item (default & hover & active) */
+  colorClass?: string;
 }
 
 export interface PaperNavProps {
@@ -61,27 +63,35 @@ export function PaperNav({ items, onNavigate, className }: PaperNavProps) {
           className,
         )}
       >
-        {items.map((item) => (
-          <a
-            key={item.href}
-            href={item.href}
-            onClick={(e) => {
-              if (onNavigate) {
-                e.preventDefault();
-                onNavigate(item.href);
-              }
-            }}
-            className={cn(
-              "relative font-sans text-[12px] font-semibold uppercase tracking-[1.5px] transition-colors",
-              "hover:text-editorial-red",
-              isActive(item)
-                ? "text-editorial-red after:absolute after:-bottom-3 after:left-0 after:right-0 after:h-[2px] after:bg-editorial-red after:content-['']"
-                : "text-ink-secondary",
-            )}
-          >
-            {item.label}
-          </a>
-        ))}
+        {items.map((item) => {
+          const hasCustomColor = !!item.colorClass;
+          return (
+            <a
+              key={item.href}
+              href={item.href}
+              onClick={(e) => {
+                if (onNavigate) {
+                  e.preventDefault();
+                  onNavigate(item.href);
+                }
+              }}
+              className={cn(
+                "relative font-sans text-[12px] font-semibold uppercase tracking-[1.5px] transition-colors",
+                hasCustomColor
+                  ? item.colorClass
+                  : cn(
+                      "hover:text-editorial-red",
+                      isActive(item)
+                        ? "text-editorial-red after:absolute after:-bottom-3 after:left-0 after:right-0 after:h-[2px] after:bg-editorial-red after:content-['']"
+                        : "text-ink-secondary",
+                    ),
+                hasCustomColor && isActive(item) && "after:absolute after:-bottom-3 after:left-0 after:right-0 after:h-[2px] after:bg-current after:content-['']",
+              )}
+            >
+              {item.label}
+            </a>
+          );
+        })}
       </nav>
 
       {/* ── Mobile hamburger bar ── */}
@@ -136,28 +146,33 @@ export function PaperNav({ items, onNavigate, className }: PaperNavProps) {
 
         {/* Drawer nav items */}
         <nav className="flex flex-col py-2">
-          {items.map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              onClick={(e) => {
-                if (onNavigate) {
-                  e.preventDefault();
-                  onNavigate(item.href);
-                }
-                setDrawerOpen(false);
-              }}
-              className={cn(
-                "px-5 py-3 font-sans text-[12px] font-semibold uppercase tracking-[1.5px] transition-colors",
-                "border-l-2",
-                isActive(item)
-                  ? "text-editorial-red border-l-editorial-red bg-surface-raised"
-                  : "text-ink-secondary border-l-transparent hover:text-ink hover:bg-surface-raised",
-              )}
-            >
-              {item.label}
-            </a>
-          ))}
+          {items.map((item) => {
+            const hasCustomColor = !!item.colorClass;
+            return (
+              <a
+                key={item.href}
+                href={item.href}
+                onClick={(e) => {
+                  if (onNavigate) {
+                    e.preventDefault();
+                    onNavigate(item.href);
+                  }
+                  setDrawerOpen(false);
+                }}
+                className={cn(
+                  "px-5 py-3 font-sans text-[12px] font-semibold uppercase tracking-[1.5px] transition-colors",
+                  "border-l-2",
+                  hasCustomColor
+                    ? cn(item.colorClass, isActive(item) ? "border-l-current bg-surface-raised" : "border-l-transparent")
+                    : isActive(item)
+                      ? "text-editorial-red border-l-editorial-red bg-surface-raised"
+                      : "text-ink-secondary border-l-transparent hover:text-ink hover:bg-surface-raised",
+                )}
+              >
+                {item.label}
+              </a>
+            );
+          })}
         </nav>
       </div>
     </>

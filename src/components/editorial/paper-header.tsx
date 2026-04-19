@@ -105,6 +105,7 @@ export function PaperHeader({
                   if (project.is_active) return;
                   startTransition(async () => {
                     await switchProject(project.id);
+                    router.push("/dashboard");
                     router.refresh();
                   });
                 }}

@@ -15,6 +15,7 @@ import { TrialBanner } from "@/components/shared/trial-banner";
 import { TrialHeaderIndicator } from "@/components/shared/trial-header-indicator";
 import { PushToolbarAction } from "@/components/shared/push-toolbar-action";
 import { WhatsNextToolbarAction } from "@/components/shared/whats-next-toolbar-action";
+import { FreeConsultAction } from "@/components/shared/free-consult-action";
 import { NotificationBell } from "@/components/shared/notification-bell";
 import { Notepad } from "@/components/shared/notepad";
 import { TimezoneProvider } from "@/lib/context/timezone-context";
@@ -65,8 +66,8 @@ const dashboardNavItems = [
   { href: "/dashboard/advanced-ai",   label: "Command Center", matchPaths: ["/dashboard/ai-visibility", "/dashboard/predictions", "/dashboard/entities", "/dashboard/ai-briefs", "/dashboard/ai-insights"] },
   { href: "/dashboard/search-ai",     label: "SEO & Analytics", matchPaths: ["/dashboard/optimization"] },
   { href: "/dashboard/app-store",     label: "App Store" },
-  { href: "/dashboard/social-intelligence", label: "Social Intel" },
   { href: "/dashboard/reports",       label: "Reports" },
+  { href: "/dashboard/sop",           label: "SOP Guide", colorClass: "text-editorial-gold hover:text-editorial-gold/80" },
   { href: "/dashboard/settings",      label: "Settings" },
 ];
 
@@ -188,7 +189,7 @@ export default async function DashboardLayout({
               )}
             </>
           }
-          actions={<><WhatsNextToolbarAction /><NotificationBell initialCount={unreadNotificationCount} /><PushToolbarAction /></>}
+          actions={<><FreeConsultAction /><WhatsNextToolbarAction /><NotificationBell initialCount={unreadNotificationCount} /><PushToolbarAction /></>}
         />
 
         <PaperHeader
