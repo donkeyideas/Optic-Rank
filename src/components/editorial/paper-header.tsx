@@ -1,7 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -42,8 +41,7 @@ export function PaperHeader({
   projects,
   className,
 }: PaperHeaderProps) {
-  const [isPending, startTransition] = useTransition();
-  const router = useRouter();
+  const [isSwitching, setIsSwitching] = useState(false);
 
   const hasMultipleProjects = projects && projects.length > 1;
 
@@ -89,10 +87,10 @@ export function PaperHeader({
               "group mx-auto h-auto border-0 bg-transparent p-0 font-serif text-[28px] sm:text-[36px] md:text-[44px] lg:text-[52px] font-black leading-none tracking-tight text-ink",
               "inline-flex items-center gap-2 hover:bg-transparent hover:text-ink/80 transition-colors",
               "[&>svg]:h-6 [&>svg]:w-6 [&>svg]:animate-bounce [&>svg]:text-editorial-red",
-              isPending && "opacity-60",
+              isSwitching && "opacity-60 pointer-events-none",
             )}
           >
-            {isPending ? "Switching…" : renderTitle()}
+            {isSwitching ? "Switching…" : renderTitle()}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="center" className="min-w-[260px]">
             <DropdownMenuLabel>Switch Project</DropdownMenuLabel>
@@ -102,11 +100,11 @@ export function PaperHeader({
                 key={project.id}
                 disabled={project.is_active}
                 onClick={() => {
-                  if (project.is_active) return;
-                  startTransition(async () => {
-                    await switchProject(project.id);
-                    // Hard navigation avoids client-side transition lag on heavy pages
-                    window.location.href = "/dashboard";
+                  if (project.is_active || isSwitching) return;
+                  setIsSwitching(true);
+                  switchProject(project.id).then(() => {
+                    // Hard reload stays on the current page with the new active project
+                    window.location.reload();
                   });
                 }}
                 className={project.is_active ? "font-bold" : ""}
