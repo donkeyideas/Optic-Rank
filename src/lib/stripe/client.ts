@@ -129,10 +129,21 @@ export async function fetchPlanLimits(planKey: string): Promise<PlanLimits> {
   return fallback ?? FALLBACK_LIMITS.free;
 }
 
+/** Map plan keys to their env-var price overrides. */
+const ENV_PRICE_OVERRIDES: Partial<Record<PlanId, string | undefined>> = {
+  starter: process.env.STRIPE_PRICE_STARTER,
+  pro: process.env.STRIPE_PRICE_PRO,
+  business: process.env.STRIPE_PRICE_BUSINESS,
+};
+
 /**
  * Fetch full plan config (with price and Stripe ID) from the database.
+ * Env-var STRIPE_PRICE_* always wins for stripePriceId so that each
+ * deployment (test vs live) uses its own Stripe prices automatically.
  */
 export async function fetchPlanConfig(planKey: string): Promise<PlanConfig> {
+  const envPriceId = ENV_PRICE_OVERRIDES[planKey as PlanId];
+
   try {
     const supabase = createAdminClient();
     const { data } = await supabase
@@ -145,7 +156,7 @@ export async function fetchPlanConfig(planKey: string): Promise<PlanConfig> {
       return {
         name: data.name,
         priceMonthly: data.price_monthly,
-        stripePriceId: data.stripe_price_id,
+        stripePriceId: envPriceId ?? data.stripe_price_id,
         maxProjects: data.max_projects,
         maxKeywords: data.max_keywords,
         maxPagesCrawl: data.max_pages_crawl,
