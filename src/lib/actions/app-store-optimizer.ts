@@ -5,6 +5,67 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { aiChat } from "@/lib/ai/ai-provider";
 import { findKeywordOpportunities } from "@/lib/actions/app-store-intel";
 
+export type OptimizationGoal = "balanced" | "visibility" | "keyword_opportunities" | "conversion" | "competitive_edge";
+
+/**
+ * Returns goal-specific prompt instructions that steer AI generation
+ * toward the user's chosen optimization priority.
+ */
+function getGoalDirective(goal: OptimizationGoal): string {
+  switch (goal) {
+    case "visibility":
+      return `OPTIMIZATION PRIORITY: VISIBILITY & RANKINGS
+Your #1 objective is to maximize organic search visibility. Every word must target high-impact keywords.
+- Prioritize near-miss keywords (positions 4-10) — pushing these to top 3 gives the largest visibility score jump
+- Pack title and subtitle with the highest-volume keywords that fit
+- Repeat high-volume keywords naturally across fields for maximum indexing
+- Position improvement is more important than compelling copy — optimize for the algorithm first
+- Target keywords where even a small ranking improvement yields large volume capture`;
+
+    case "keyword_opportunities":
+      return `OPTIMIZATION PRIORITY: KEYWORD OPPORTUNITIES
+Your #1 objective is to capture UNTAPPED and UNDERPERFORMING keywords — the biggest growth opportunities.
+- Focus heavily on UNRANKED high-volume keywords — these are zero-visibility terms with massive upside
+- Target weak keywords (ranked >50) that have high search volume — weave them prominently into the listing
+- Prioritize long-tail keyword combinations that competitors are missing
+- Include emerging/trending search terms the app isn't ranking for yet
+- Sacrifice established keyword positions if needed to make room for higher-opportunity terms
+- Think about synonyms, alternate phrasings, and related searches users might try`;
+
+    case "conversion":
+      return `OPTIMIZATION PRIORITY: CONVERSION & DOWNLOADS
+Your #1 objective is to maximize the conversion rate — turn every store page view into a download.
+- Lead with the most compelling value proposition in the first 3 lines (visible before "Read More")
+- Use social proof: highlight user praise, ratings, review counts, download milestones
+- Address common objections and complaints proactively
+- Write benefit-focused copy (what users GET) not feature-focused (what the app DOES)
+- Create urgency with timely messaging and seasonal relevance
+- Include clear calls-to-action throughout
+- Use emotional triggers and power words that drive action
+- Keywords matter less here — persuasive copy matters most`;
+
+    case "competitive_edge":
+      return `OPTIMIZATION PRIORITY: COMPETITIVE DIFFERENTIATION
+Your #1 objective is to make this app stand out from competitors and win users who are comparison shopping.
+- Analyze competitor titles, descriptions, and positioning — then deliberately differentiate
+- Highlight unique features and capabilities competitors DON'T have
+- Position against competitor weaknesses (without naming them directly)
+- Use distinctive language and framing that competitors aren't using
+- Address gaps in the market that competitor listings ignore
+- Emphasize exclusive value props, unique selling points, and what makes this app the BEST choice
+- Target keywords competitors rank poorly for — find the gaps in their coverage`;
+
+    case "balanced":
+    default:
+      return `OPTIMIZATION PRIORITY: BALANCED
+Apply equal weight to visibility, keyword opportunities, conversion, and competitive differentiation.
+- Include high-impact keywords for search visibility
+- Target untapped keyword opportunities where possible
+- Write compelling copy that converts views into downloads
+- Differentiate from competitors with unique positioning`;
+  }
+}
+
 /**
  * Fetch full context for a listing: keywords, competitors, review topics.
  * Used by AI generators to produce data-informed suggestions.
@@ -295,7 +356,8 @@ export async function scoreMetadata(
  */
 export async function generateTitleVariants(
   listingId: string,
-  targetKeywords: string[] = []
+  targetKeywords: string[] = [],
+  goal: OptimizationGoal = "balanced"
 ): Promise<{ error: string } | { success: true; variants: Array<{ title: string; score: number; reason: string }> }> {
   const userClient = await createClient();
   const { data: { user } } = await userClient.auth.getUser();
@@ -322,7 +384,11 @@ export async function generateTitleVariants(
 
   const descText = (listing.description as string)?.slice(0, 300) ?? "N/A";
 
-  const prompt = `Generate 5 optimized app store titles for this app. GOAL: Maximize organic visibility — the title is the #1 ranking factor. Every character must target high-impact keywords.
+  const goalDirective = getGoalDirective(goal);
+
+  const prompt = `Generate 5 optimized app store titles for this app. The title is the #1 ranking factor in app stores.
+
+${goalDirective}
 
 App: "${listing.app_name}"
 Store: ${listing.store === "apple" ? "Apple App Store" : "Google Play"}
@@ -393,7 +459,8 @@ Return ONLY a JSON array: [{"title": "...", "score": 85, "reason": "Targets near
  * Generate optimized subtitle / short description using AI — informed by keyword data and competitor intel.
  */
 export async function generateSubtitleVariant(
-  listingId: string
+  listingId: string,
+  goal: OptimizationGoal = "balanced"
 ): Promise<{ error: string } | { success: true; subtitle: string }> {
   const userClient = await createClient();
   const { data: { user } } = await userClient.auth.getUser();
@@ -413,7 +480,11 @@ export async function generateSubtitleVariant(
   const maxLen = isApple ? 30 : 80;
   const fieldName = isApple ? "Subtitle" : "Short Description";
 
-  const prompt = `Generate an optimized ${fieldName} for this ${isApple ? "Apple App Store" : "Google Play"} listing. GOAL: Maximize organic visibility — the ${fieldName.toLowerCase()} is a key ranking signal.${isApple ? " Apple indexes every word in the subtitle for search." : " Google shows this in search results — it must be keyword-rich AND compelling."}
+  const goalDirective = getGoalDirective(goal);
+
+  const prompt = `Generate an optimized ${fieldName} for this ${isApple ? "Apple App Store" : "Google Play"} listing. The ${fieldName.toLowerCase()} is a key ranking signal.${isApple ? " Apple indexes every word in the subtitle for search." : " Google shows this in search results — it must be keyword-rich AND compelling."}
+
+${goalDirective}
 
 App: "${listing.app_name}"
 Category: ${listing.category ?? "Unknown"}
@@ -454,7 +525,8 @@ Return ONLY the optimized ${fieldName} text (no quotes, no explanation).`;
  * Generate optimized description using AI — incorporating keyword gaps, competitor intel, and user reviews.
  */
 export async function generateDescriptionVariant(
-  listingId: string
+  listingId: string,
+  goal: OptimizationGoal = "balanced"
 ): Promise<{ error: string } | { success: true; description: string }> {
   const userClient = await createClient();
   const { data: { user } } = await userClient.auth.getUser();
@@ -471,7 +543,11 @@ export async function generateDescriptionVariant(
 
   const ctx = await getListingContext(listingId);
 
-  const prompt = `Rewrite this app store description to MAXIMIZE VISIBILITY AND DOWNLOADS.${listing.store === "google" ? " Google Play indexes the FULL description for keyword ranking — every keyword mention matters." : " Apple does NOT index the description for search — this is purely for CONVERSION. Convince users to download."}
+  const goalDirective = getGoalDirective(goal);
+
+  const prompt = `Rewrite this app store description.${listing.store === "google" ? " Google Play indexes the FULL description for keyword ranking — every keyword mention matters." : " Apple does NOT index the description for search — this is purely for CONVERSION. Convince users to download."}
+
+${goalDirective}
 
 App: "${listing.app_name}"
 Store: ${listing.store === "apple" ? "Apple App Store" : "Google Play"}
@@ -536,7 +612,8 @@ Return ONLY the optimized description text in plain text format.`;
  * Generate optimized iOS keyword field (100 chars max) — using tracked rankings, competitor data, and gap analysis.
  */
 export async function generateKeywordField(
-  listingId: string
+  listingId: string,
+  goal: OptimizationGoal = "balanced"
 ): Promise<{ error: string } | { success: true; keywords: string }> {
   const userClient = await createClient();
   const { data: { user } } = await userClient.auth.getUser();
@@ -560,7 +637,11 @@ export async function generateKeywordField(
     .filter((k) => (k.position == null || k.position > 50) && (k.search_volume ?? 0) >= 1000)
     .map((k) => k.keyword);
 
-  const prompt = `Generate an optimized iOS App Store keyword field for this app:
+  const goalDirective = getGoalDirective(goal);
+
+  const prompt = `Generate an optimized iOS App Store keyword field for this app.
+
+${goalDirective}
 
 App: "${listing.app_name}"
 Category: ${listing.category ?? "Unknown"}
@@ -609,7 +690,8 @@ Return ONLY the keyword string (e.g., "fitness,workout,exercise,gym,training,hea
  * and writes the ideal title, subtitle, description, and keywords for the store.
  */
 export async function generateFullListingRecommendation(
-  listingId: string
+  listingId: string,
+  goal: OptimizationGoal = "balanced"
 ): Promise<{ error: string } | {
   success: true;
   recommendation: {
@@ -652,9 +734,13 @@ export async function generateFullListingRecommendation(
 ${opps.map((o) => `  - "${o.keyword}" | volume: ${o.estimated_volume} | competition: ${o.competition} | score: ${o.opportunity_score} | ${o.reason}`).join("\n")}`;
   }
 
-  const prompt = `You are a world-class ASO strategist. Your PRIMARY OBJECTIVE is to MAXIMIZE ORGANIC VISIBILITY — get this app discovered by the most people and drive downloads.
+  const goalDirective = getGoalDirective(goal);
 
-Visibility Score measures how discoverable the app is across all tracked keywords, weighted by search volume and position. A higher visibility score = more people see the app = more downloads. Every word in this listing must serve that goal.
+  const prompt = `You are a world-class ASO strategist.
+
+${goalDirective}
+
+Visibility Score measures how discoverable the app is across all tracked keywords, weighted by search volume and position. A higher visibility score = more people see the app = more downloads.
 
 APP: "${listing.app_name}"
 STORE: ${store}
@@ -768,7 +854,8 @@ Variation seed: ${Date.now()}`;
  * Promotional text appears above the description and can be updated without a new app version.
  */
 export async function generatePromotionalText(
-  listingId: string
+  listingId: string,
+  goal: OptimizationGoal = "balanced"
 ): Promise<{ error: string } | { success: true; promotionalText: string }> {
   const userClient = await createClient();
   const { data: { user } } = await userClient.auth.getUser();
@@ -786,7 +873,11 @@ export async function generatePromotionalText(
 
   const ctx = await getListingContext(listingId);
 
-  const prompt = `Generate optimized promotional text for this Apple App Store listing. GOAL: Maximize conversion — promotional text appears ABOVE the description and is the first thing users read. It can be updated anytime without a new app version, making it perfect for timely messaging.
+  const goalDirective = getGoalDirective(goal);
+
+  const prompt = `Generate optimized promotional text for this Apple App Store listing. Promotional text appears ABOVE the description and is the first thing users read. It can be updated anytime without a new app version, making it perfect for timely messaging.
+
+${goalDirective}
 
 App: "${listing.app_name}"
 Category: ${listing.category ?? "Unknown"}

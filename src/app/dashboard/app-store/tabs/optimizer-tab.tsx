@@ -15,6 +15,11 @@ import {
   MessageSquare,
   Globe,
   Megaphone,
+  Eye,
+  TrendingUp,
+  Download,
+  Swords,
+  LayoutGrid,
 } from "lucide-react";
 import { ColumnHeader } from "@/components/editorial/column-header";
 import { AppSelectorStrip } from "@/components/app-store/app-selector-strip";
@@ -32,6 +37,15 @@ import {
   generateFullListingRecommendation,
 } from "@/lib/actions/app-store-optimizer";
 import type { AppStoreListing } from "@/types";
+import type { OptimizationGoal } from "@/lib/actions/app-store-optimizer";
+
+const OPTIMIZATION_GOALS: Array<{ id: OptimizationGoal; label: string; description: string; icon: typeof Eye }> = [
+  { id: "balanced", label: "Balanced", description: "Equal weight across all factors", icon: LayoutGrid },
+  { id: "visibility", label: "Visibility & Rankings", description: "Maximize search positions and impressions", icon: Eye },
+  { id: "keyword_opportunities", label: "Keyword Opportunities", description: "Target untapped high-volume keywords", icon: TrendingUp },
+  { id: "conversion", label: "Conversion & Downloads", description: "Optimize copy to convert views into installs", icon: Download },
+  { id: "competitive_edge", label: "Competitive Edge", description: "Differentiate from competitor listings", icon: Swords },
+];
 
 interface OptimizerTabProps {
   listings: AppStoreListing[];
@@ -49,6 +63,7 @@ type FullRecommendation = {
 
 export function OptimizerTab({ listings }: OptimizerTabProps) {
   const [selectedListing, setSelectedListing] = useState<string>(listings[0]?.id ?? "");
+  const [optimizationGoal, setOptimizationGoal] = useState<OptimizationGoal>("balanced");
   const [, startTransition] = useTransition();
   const [actionId, setActionId] = useState<string | null>(null);
   const { runAction } = useActionProgress();
@@ -176,7 +191,7 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
         ],
         estimatedDuration: 25,
       },
-      () => generateFullListingRecommendation(selectedListing)
+      () => generateFullListingRecommendation(selectedListing, optimizationGoal)
     ).then((result) => {
       if (result && "recommendation" in result) setRecommendation(result.recommendation);
       setRecLoading(false);
@@ -201,7 +216,7 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
     const keywords = keywordsField.split(",").map((k) => k.trim()).filter(Boolean);
     runAction(
       { title: "Generating Title Variants", description: "AI is crafting visibility-optimized titles", estimatedDuration: 15 },
-      () => generateTitleVariants(selectedListing, keywords)
+      () => generateTitleVariants(selectedListing, keywords, optimizationGoal)
     ).then((result) => {
       if (result && "variants" in result) setTitleVariants(result.variants);
       setActionId(null);
@@ -213,7 +228,7 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
     setActionId("subtitle");
     runAction(
       { title: "Generating Subtitle", description: "AI is optimizing subtitle for keyword ranking", estimatedDuration: 12 },
-      () => generateSubtitleVariant(selectedListing)
+      () => generateSubtitleVariant(selectedListing, optimizationGoal)
     ).then((result) => {
       if (result && "subtitle" in result) setGeneratedSubtitle(result.subtitle);
       setActionId(null);
@@ -225,7 +240,7 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
     setActionId("desc");
     runAction(
       { title: "Generating Description", description: "AI is writing a visibility-optimized description", estimatedDuration: 20 },
-      () => generateDescriptionVariant(selectedListing)
+      () => generateDescriptionVariant(selectedListing, optimizationGoal)
     ).then((result) => {
       if (result && "description" in result) setGeneratedDesc(result.description);
       setActionId(null);
@@ -237,7 +252,7 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
     setActionId("kw");
     runAction(
       { title: "Generating Keywords", description: "AI is selecting highest-impact keywords for visibility", estimatedDuration: 12 },
-      () => generateKeywordField(selectedListing)
+      () => generateKeywordField(selectedListing, optimizationGoal)
     ).then((result) => {
       if (result && "keywords" in result) setGeneratedKeywords(result.keywords);
       setActionId(null);
@@ -249,7 +264,7 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
     setActionId("promo");
     runAction(
       { title: "Generating Promotional Text", description: "AI is crafting conversion-optimized promotional text", estimatedDuration: 12 },
-      () => generatePromotionalText(selectedListing)
+      () => generatePromotionalText(selectedListing, optimizationGoal)
     ).then((result) => {
       if (result && "promotionalText" in result) setGeneratedPromo(result.promotionalText);
       setActionId(null);
@@ -277,6 +292,39 @@ export function OptimizerTab({ listings }: OptimizerTabProps) {
         </p>
       </div>
       <AppSelectorStrip listings={listings} selected={selectedListing} onSelect={handleListingChange} />
+
+      {/* Optimization Goal Selector */}
+      <div className="border border-rule bg-surface-card">
+        <div className="border-b border-rule px-4 py-3">
+          <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Optimization Goal</span>
+          <p className="mt-0.5 text-[11px] text-ink-secondary">
+            Choose what to prioritize — AI will tailor all generated content to this goal.
+          </p>
+        </div>
+        <div className="grid grid-cols-5 gap-0 divide-x divide-rule">
+          {OPTIMIZATION_GOALS.map((goal) => {
+            const Icon = goal.icon;
+            const isActive = optimizationGoal === goal.id;
+            return (
+              <button
+                key={goal.id}
+                onClick={() => setOptimizationGoal(goal.id)}
+                className={`flex flex-col items-center gap-1.5 px-3 py-3 transition-colors ${
+                  isActive
+                    ? "bg-editorial-red/10 text-editorial-red"
+                    : "text-ink-muted hover:bg-surface-raised hover:text-ink"
+                }`}
+              >
+                <Icon size={16} className={isActive ? "text-editorial-red" : ""} />
+                <span className={`text-[10px] font-bold leading-tight ${isActive ? "text-editorial-red" : ""}`}>
+                  {goal.label}
+                </span>
+                <span className="text-[9px] leading-tight text-ink-muted">{goal.description}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* AI Full Listing Recommendation */}
       <div className="border border-rule bg-surface-card">
