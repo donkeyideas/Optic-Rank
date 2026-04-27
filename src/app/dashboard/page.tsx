@@ -22,6 +22,7 @@ import { OnboardingChecklist } from "@/components/shared/onboarding-checklist";
 import { OrganicTrafficTrendChart } from "@/components/charts/organic-traffic-trend-chart";
 import { KeywordPositionHeatmap } from "@/components/charts/keyword-position-heatmap";
 import { VolumeDifficultyMatrix } from "@/components/charts/volume-difficulty-matrix";
+import { WebsitePreview } from "@/components/editorial/website-preview";
 import { buildDashboardData, formatEstTraffic } from "@/lib/dashboard/build-snapshot";
 import { getKeywordRanksBatch } from "@/lib/dal/keywords";
 import { getVolume, getVolumeNav } from "@/lib/dal/volumes";
@@ -596,6 +597,24 @@ export default async function DashboardPage({
     ga4,
   } = data;
 
+  // Check if the site allows iframe embedding (X-Frame-Options / CSP)
+  let canFrame = true;
+  try {
+    const headResp = await fetch(`https://${projectDomain}`, {
+      method: "HEAD",
+      redirect: "follow",
+      signal: AbortSignal.timeout(4000),
+    });
+    const xfo = (headResp.headers.get("x-frame-options") || "").toLowerCase();
+    if (xfo === "deny" || xfo === "sameorigin") canFrame = false;
+    const csp = headResp.headers.get("content-security-policy") || "";
+    if (csp.includes("frame-ancestors 'none'") || csp.includes("frame-ancestors 'self'")) {
+      canFrame = false;
+    }
+  } catch {
+    // If check fails, optimistically assume frameable
+  }
+
   // Fetch rank history for heatmap (top 20 keywords)
   const heatmapKwIds = chartKeywords.slice(0, 20).map((kw) => kw.id);
   const rankHistoryMap = heatmapKwIds.length > 0
@@ -713,6 +732,9 @@ export default async function DashboardPage({
                 </span>
               </Link>
             )}
+
+            {/* Website Homepage Preview */}
+            <WebsitePreview domain={projectDomain} canFrame={canFrame} />
 
             {/* Performance Analytics Carousel */}
             {chartKeywords.length > 0 ? (
@@ -1172,6 +1194,7 @@ export default async function DashboardPage({
           </Link>
         </div>
       </div>
+
     </div>
   );
 }

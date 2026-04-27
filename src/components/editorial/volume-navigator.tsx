@@ -52,8 +52,6 @@ export function VolumeNavigator({
     }
   }
 
-  if (!hasVolumes && isLive) return null;
-
   return (
     <div className={`flex items-center justify-center gap-4 px-4 py-2 ${isLive ? "border-b border-rule bg-surface-card" : "border border-rule bg-surface-inset"}`}>
       <button

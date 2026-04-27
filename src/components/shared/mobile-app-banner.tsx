@@ -22,12 +22,14 @@ export function MobileAppBanner({
   googlePlayUrl,
   variant = "marketing",
 }: MobileAppBannerProps) {
-  const [dismissed, setDismissed] = useState(() => {
-    if (typeof window !== "undefined" && variant === "dashboard") {
-      return localStorage.getItem(BANNER_DISMISSED_KEY) === "true";
+  const [dismissed, setDismissed] = useState(false);
+
+  // Read localStorage after mount to avoid SSR/client hydration mismatch
+  useEffect(() => {
+    if (variant === "dashboard") {
+      setDismissed(localStorage.getItem(BANNER_DISMISSED_KEY) === "true");
     }
-    return false;
-  });
+  }, [variant]);
   const hasLinks = appStoreUrl || googlePlayUrl;
   if (!hasLinks) return null;
 
