@@ -27,14 +27,14 @@ import {
 } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = {
-  title: "AI-Powered SEO & Social Intelligence Platform",
+  title: "AI-Powered SEO Dashboard Tool | Search Engine Ranking Software",
   description:
-    "Track keyword rankings, monitor competitors, audit your site, and unlock AI-driven insights. The all-in-one SEO intelligence platform.",
+    "Track SEO performance, check keyword rankings, and monitor competitors with AI-powered SEO insights. The all-in-one SEO analytics software and website ranking tracker.",
   alternates: { canonical: "/" },
   openGraph: {
-    title: "AI-Powered SEO & Social Intelligence Platform",
+    title: "AI-Powered SEO Dashboard Tool | Search Engine Ranking Software",
     description:
-      "Track keyword rankings, monitor competitors, audit your site, analyze social media, and unlock AI-driven insights.",
+      "Track keyword rankings, analyze competitors, audit your site, and unlock AI-driven SEO insights. The best SEO dashboard tool for search engine ranking and analytics.",
     images: OG_IMAGES,
   },
 };
@@ -55,10 +55,10 @@ function getSection<T>(sections: { section: string; content: unknown }[], key: s
 /* ── Defaults ──────────────────────────────────────────────────── */
 
 const DEFAULT_FEATURES = [
-  { icon: "Search", title: "Keyword Intelligence", description: "Track thousands of keywords across search engines with daily rank updates, SERP feature monitoring, and historical trend analysis." },
-  { icon: "Users", title: "Competitor Surveillance", description: "Monitor your competitors' every move. See their ranking changes, new content, backlink acquisitions, and strategic shifts before they impact you." },
-  { icon: "Shield", title: "Technical Site Audit", description: "Comprehensive crawl-based audits that uncover critical issues: broken links, thin content, Core Web Vitals failures, and indexability problems." },
-  { icon: "Sparkles", title: "AI-Powered Insights", description: "Our AI analyzes your data continuously, surfacing actionable recommendations and predicting ranking opportunities before your competitors see them." },
+  { icon: "Search", title: "Keyword Rank Checker", description: "Track thousands of keywords across search engines with daily rank updates, SERP feature monitoring, and historical trend analysis. The website ranking tracker built for SEO professionals." },
+  { icon: "Users", title: "SEO Competitor Analysis Tool", description: "Monitor your competitors' every move. See their ranking changes, new content, backlink acquisitions, and strategic shifts -- the SEO competitor analysis tool that keeps you ahead." },
+  { icon: "Shield", title: "Technical Site Audit", description: "Comprehensive crawl-based audits that uncover critical issues: broken links, thin content, Core Web Vitals failures, and indexability problems across local and global pages." },
+  { icon: "Sparkles", title: "AI-Powered SEO Insights", description: "AI content analysis that surfaces actionable recommendations and predicts ranking opportunities. Track SEO performance with insights your competitors wish they had." },
   { icon: "Share2", title: "Social Intelligence", description: "AI-powered analytics for Instagram, TikTok, YouTube, Twitter, and LinkedIn. Earnings forecasts, growth strategies, competitor benchmarking, and content optimization." },
   { icon: "Smartphone", title: "App Store Optimization", description: "Track your app's keyword rankings, monitor competitor apps, analyze reviews, and get AI-powered ASO recommendations for the App Store and Google Play." },
 ];
@@ -143,10 +143,13 @@ export default async function MarketingHomePage() {
       />
       <JsonLd
         data={faqJsonLd([
-          { question: "What is Optic Rank?", answer: "Optic Rank is an AI-powered SEO intelligence platform that tracks keyword rankings, monitors competitors, performs technical site audits, analyzes backlinks, and provides actionable AI insights to help grow organic traffic." },
+          { question: "What is Optic Rank?", answer: "Optic Rank is an AI-powered SEO dashboard tool and search engine ranking software that tracks keyword rankings, monitors competitors, performs technical site audits, analyzes backlinks, and provides actionable AI insights to help grow organic traffic." },
           { question: "How much does Optic Rank cost?", answer: "Optic Rank offers a free starter plan, with paid plans starting at $29/month for small teams up to $199/month for businesses. All paid plans include a 14-day free trial with no credit card required." },
-          { question: "What makes Optic Rank different from other SEO tools?", answer: "Optic Rank unifies SEO, AEO (Answer Engine Optimization), GEO (Generative Engine Optimization), and CRO (Conversion Rate Optimization) in one platform, with AI that continuously analyzes data and surfaces actionable recommendations." },
+          { question: "What makes Optic Rank different from other SEO tools?", answer: "Optic Rank unifies SEO, AEO (Answer Engine Optimization), GEO (Generative Engine Optimization), and CRO (Conversion Rate Optimization) in one SEO analytics software platform, with AI content analysis that continuously surfaces actionable recommendations." },
           { question: "Does Optic Rank offer a free trial?", answer: "Yes, Optic Rank offers a free 14-day trial on all paid plans with no credit card required. You can also use the free starter plan indefinitely with limited features." },
+          { question: "Is Optic Rank a keyword rank checker and website ranking tracker?", answer: "Yes. Optic Rank is a full keyword rank checker that tracks your positions daily across Google, Bing, and local search results. As a website ranking tracker, it monitors ranking changes over time, alerts you to drops, and highlights new opportunities." },
+          { question: "Does Optic Rank support local SEO tools and competitor analysis?", answer: "Absolutely. Optic Rank includes local SEO tools to track location-specific rankings and Google Business Profile visibility. The built-in SEO competitor analysis tool lets you compare rankings, backlinks, and content strategies against any competitor." },
+          { question: "How does AI content analysis work in Optic Rank?", answer: "Optic Rank uses AI content analysis to evaluate your pages for keyword coverage, readability, and search intent alignment. It compares your content against top-ranking competitors and provides specific recommendations to improve your search engine rankings." },
         ])}
       />
 
@@ -172,7 +175,7 @@ export default async function MarketingHomePage() {
 
           <p className="mt-6 max-w-2xl font-serif text-xl leading-relaxed text-ink-secondary md:text-2xl">
             {hero?.subheadline ??
-              "Optic Rank transforms raw SEO data into editorial-grade intelligence briefs. Track keywords, surveil competitors, and receive AI-curated insights -- all presented with newspaper clarity."}
+              "The SEO dashboard tool that transforms raw ranking data into editorial-grade intelligence. Track SEO performance, check keyword rankings, analyze competitors, and act on AI-powered insights -- your all-in-one search engine ranking software."}
           </p>
 
           <div className="mt-10 flex flex-col gap-4 sm:flex-row">
@@ -217,11 +220,11 @@ export default async function MarketingHomePage() {
             </span>
             <h2 className="mt-4 font-serif text-4xl font-bold leading-tight tracking-tight text-ink md:text-5xl">
               {featuresHeader?.title ??
-                "What tools does an SEO strategist need?"}
+                "The best SEO dashboard tool for every strategist"}
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-ink-secondary">
               {featuresHeader?.description ??
-                "Six pillars of search and social intelligence, sharpened by AI and unified in one platform."}
+                "Six pillars of search engine ranking software and social intelligence, sharpened by AI content analysis and unified in one SEO analytics platform."}
             </p>
           </div>
 
@@ -314,6 +317,18 @@ export default async function MarketingHomePage() {
             <div className="py-6">
               <h3 className="font-serif text-lg font-bold text-ink">Does Optic Rank offer a free trial?</h3>
               <p className="mt-2 text-sm leading-relaxed text-ink-secondary">Yes, Optic Rank offers a free 14-day trial on all paid plans with no credit card required. You can also use the free starter plan indefinitely with limited features.</p>
+            </div>
+            <div className="py-6">
+              <h3 className="font-serif text-lg font-bold text-ink">Is Optic Rank a keyword rank checker and website ranking tracker?</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">Yes. Optic Rank is a full keyword rank checker that tracks your positions daily across Google, Bing, and local search results. As a website ranking tracker, it monitors ranking changes over time, alerts you to drops, and highlights new opportunities to improve.</p>
+            </div>
+            <div className="py-6">
+              <h3 className="font-serif text-lg font-bold text-ink">Does Optic Rank support local SEO tools and competitor analysis?</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">Absolutely. Optic Rank includes local SEO tools to track location-specific rankings and Google Business Profile visibility. The built-in SEO competitor analysis tool lets you compare rankings, backlinks, and content strategies against any competitor in your market.</p>
+            </div>
+            <div className="py-6">
+              <h3 className="font-serif text-lg font-bold text-ink">How does AI content analysis work in Optic Rank?</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">Optic Rank uses AI content analysis to evaluate your pages for keyword coverage, readability, and search intent alignment. It compares your content against top-ranking competitors and provides specific recommendations to improve your SEO analytics and search engine rankings.</p>
             </div>
           </div>
         </div>

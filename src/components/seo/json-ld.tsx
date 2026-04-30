@@ -64,7 +64,7 @@ export function softwareApplicationJsonLd() {
     operatingSystem: "Web",
     url: BASE_URL,
     description:
-      "AI-powered SEO intelligence platform. Track keywords, monitor competitors, audit sites, and get AI-driven insights.",
+      "AI-powered SEO dashboard tool and search engine ranking software. Track keyword rankings, monitor competitors, audit sites, and get AI content analysis insights. The SEO analytics software for tracking SEO performance.",
     offers: {
       "@type": "AggregateOffer",
       lowPrice: "0",
@@ -73,14 +73,17 @@ export function softwareApplicationJsonLd() {
       offerCount: "4",
     },
     featureList: [
-      "Keyword Rank Tracking",
-      "Competitor Analysis",
+      "Keyword Rank Checker",
+      "Website Ranking Tracker",
+      "SEO Competitor Analysis Tool",
       "Technical Site Audit",
       "Backlink Monitoring",
-      "AI-Powered Insights",
+      "AI-Powered SEO Insights",
+      "AI Content Analysis",
+      "Local SEO Tools",
       "App Store Optimization",
       "Social Media Intelligence",
-      "Content Optimization",
+      "SEO Analytics Software",
     ],
   };
 }
