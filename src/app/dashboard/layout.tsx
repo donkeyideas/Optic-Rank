@@ -45,7 +45,7 @@ function TrialExpiredLockout() {
           Upgrade Now
         </a>
         <a
-          href="/pricing"
+          href="/dashboard/settings?tab=billing"
           className="inline-flex items-center gap-2 border border-rule px-6 py-3 font-sans text-sm font-semibold uppercase tracking-wider text-ink transition-colors hover:bg-surface-card"
         >
           View Plans

@@ -344,6 +344,8 @@ export async function switchProject(
 
 /**
  * Delete a project by ID.
+ * If the deleted project was the active one, activates another project in the
+ * same organization so the dashboard never ends up with projects but no active one.
  */
 export async function deleteProject(
   id: string
@@ -353,9 +355,36 @@ export async function deleteProject(
   if (!user) return { error: "Not authenticated." };
 
   const supabase = createAdminClient();
-  const { error } = await supabase.from("projects").delete().eq("id", id);
 
+  // Check if the project being deleted is the active one, and find the org
+  const { data: project } = await supabase
+    .from("projects")
+    .select("organization_id, is_active")
+    .eq("id", id)
+    .single();
+
+  const wasActive = project?.is_active === true;
+  const orgId = project?.organization_id;
+
+  const { error } = await supabase.from("projects").delete().eq("id", id);
   if (error) return { error: error.message };
+
+  // If the deleted project was active, activate the next available project
+  if (wasActive && orgId) {
+    const { data: remaining } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("organization_id", orgId)
+      .order("created_at", { ascending: true })
+      .limit(1);
+
+    if (remaining && remaining.length > 0) {
+      await supabase
+        .from("projects")
+        .update({ is_active: true })
+        .eq("id", remaining[0].id);
+    }
+  }
 
   revalidatePath("/dashboard", "layout");
   return { success: true };

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   Settings,
   FolderKanban,
@@ -268,6 +268,7 @@ export function SettingsClient({
 }: SettingsClientProps) {
   const timezone = useTimezone();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") ?? "general");
   const [showAddProject, setShowAddProject] = useState(false);
   const [projectError, setProjectError] = useState<string | null>(null);
@@ -765,6 +766,8 @@ export function SettingsClient({
                       setDeleteConfirmId(null);
                       if (result && "error" in result) {
                         setProjectError(result.error);
+                      } else {
+                        router.refresh();
                       }
                     });
                   }}
