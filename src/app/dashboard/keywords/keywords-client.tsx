@@ -59,6 +59,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { addKeywords, deleteKeyword, importKeywordsCSV, getKeywordRankHistory, generateKeywordsAI } from "@/lib/actions/keywords";
+import { findWebsiteKeywordOpportunities, type KeywordOpportunity } from "@/lib/actions/keyword-opportunities";
 import { importFromGoogleAnalytics } from "@/lib/actions/ga4-import";
 import { importKeywordsFromGSC } from "@/lib/actions/gsc";
 import { useActionProgress } from "@/components/shared/action-progress";
@@ -385,6 +386,24 @@ export function KeywordsPageClient({
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedRecId, setCopiedRecId] = useState<string | null>(null);
+  const [opportunities, setOpportunities] = useState<KeywordOpportunity[]>([]);
+  const opportunitiesLoaded = useRef(false);
+  const [activeTab, setActiveTab] = useState("all");
+
+  type OppSortKey = "keyword" | "estimated_volume" | "competition" | "opportunity_score";
+  const { sortKey: oppSortKey, sortDir: oppSortDir, toggleSort: toggleOppSort, sort: oppSort } = useTableSort<OppSortKey>("opportunity_score", "desc");
+  const sortedOpportunities = useMemo(
+    () => oppSort(opportunities, (opp, key) => {
+      switch (key) {
+        case "keyword": return opp.keyword;
+        case "estimated_volume": return opp.estimated_volume;
+        case "competition": return opp.competition;
+        case "opportunity_score": return opp.opportunity_score;
+        default: return null;
+      }
+    }),
+    [opportunities, oppSort]
+  );
 
   // Generate recommendations from keyword data
   const recommendations = useMemo(() => generateRecommendations(keywords), [keywords]);
@@ -536,11 +555,12 @@ export function KeywordsPageClient({
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="all">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="all">All Keywords</TabsTrigger>
           <TabsTrigger value="traffic">Traffic Intelligence</TabsTrigger>
           <TabsTrigger value="sov">Share of Voice</TabsTrigger>
+          <TabsTrigger value="opportunities">Opportunities</TabsTrigger>
           <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
           <TabsTrigger value="strategy">Strategy Guide</TabsTrigger>
         </TabsList>
@@ -1268,6 +1288,112 @@ export function KeywordsPageClient({
         </TabsContent>
 
         {/* ============================================================
+            TAB: Opportunities
+            ============================================================ */}
+        <TabsContent value="opportunities">
+          <div className="flex flex-col gap-4">
+            <div className="border-b border-rule pb-4">
+              <h2 className="font-serif text-xl font-bold text-ink">Keyword Opportunities</h2>
+              <p className="mt-1 max-w-2xl font-sans text-[13px] text-ink-secondary">
+                AI-discovered low-competition keywords with high relevance to your site.
+                Find untapped search terms your competitors are missing.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 border-b border-rule pb-3">
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={isPending || isActionRunning}
+                onClick={() => {
+                  runAction(
+                    {
+                      title: "Finding Keyword Opportunities",
+                      description: "Analyzing your site and discovering untapped keywords...",
+                      steps: ["Analyzing site niche", "Evaluating competition", "Scoring opportunities", "Ranking results"],
+                      estimatedDuration: 20,
+                    },
+                    async () => {
+                      const result = await findWebsiteKeywordOpportunities(projectId);
+                      if ("opportunities" in result) {
+                        setOpportunities(result.opportunities);
+                        opportunitiesLoaded.current = true;
+                      }
+                      return "error" in result ? result : { message: `Found ${result.opportunities.length} opportunities` };
+                    }
+                  );
+                }}
+              >
+                <Zap size={12} />
+                Find Opportunities
+              </Button>
+              {opportunities.length > 0 && (
+                <span className="text-[11px] text-ink-muted">
+                  {opportunities.length} opportunities found
+                </span>
+              )}
+            </div>
+
+            {opportunities.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-16 text-center">
+                <Zap size={28} className="text-ink-muted" />
+                <h3 className="font-serif text-base font-bold text-ink">No Opportunities Yet</h3>
+                <p className="max-w-sm text-[12px] text-ink-muted">
+                  Click &quot;Find Opportunities&quot; to discover low-competition, high-relevance keywords for your site.
+                </p>
+              </div>
+            ) : (
+              <div className="border border-rule bg-surface-card p-4">
+                <ColumnHeader title="Keyword Opportunities" subtitle="Low competition + high relevance keywords" />
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <SortableHeader label="Keyword" sortKey="keyword" currentSort={oppSortKey} currentDir={oppSortDir} onSort={toggleOppSort} />
+                      <SortableHeader label="Volume" sortKey="estimated_volume" currentSort={oppSortKey} currentDir={oppSortDir} onSort={toggleOppSort} />
+                      <SortableHeader label="Competition" sortKey="competition" currentSort={oppSortKey} currentDir={oppSortDir} onSort={toggleOppSort} />
+                      <SortableHeader label="Score" sortKey="opportunity_score" currentSort={oppSortKey} currentDir={oppSortDir} onSort={toggleOppSort} />
+                      <TableHead className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Intent</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedOpportunities.map((opp, i) => (
+                      <TableRow key={i}>
+                        <TableCell>
+                          <div>
+                            <span className="font-sans text-sm font-semibold text-ink">{opp.keyword}</span>
+                            <span className="block text-[10px] text-ink-muted">{opp.reason}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={opp.estimated_volume === "high" ? "success" : opp.estimated_volume === "medium" ? "warning" : "muted"}>
+                            {opp.estimated_volume}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={opp.competition === "low" ? "success" : opp.competition === "medium" ? "warning" : "danger"}>
+                            {opp.competition}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span className={`font-mono text-sm font-bold ${opp.opportunity_score >= 80 ? "text-editorial-green" : opp.opportunity_score >= 60 ? "text-editorial-gold" : "text-ink-secondary"}`}>
+                            {opp.opportunity_score}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={opp.intent === "transactional" || opp.intent === "commercial" ? "default" : "muted"}>
+                            {opp.intent}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ============================================================
             TAB: Recommendations
             ============================================================ */}
         <TabsContent value="recommendations">
@@ -1324,6 +1450,49 @@ export function KeywordsPageClient({
                     {keywords.filter((k) => k.current_position !== null && k.current_position <= 3).length}
                   </div>
                   <div className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Already Top 3</div>
+                </div>
+              </div>
+            )}
+
+            {/* Keyword Opportunities (from AI) */}
+            {opportunities.length > 0 && (
+              <div className="border border-rule bg-surface-card p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">
+                      Keyword Opportunities
+                    </span>
+                    <p className="mt-0.5 text-[11px] text-ink-muted">
+                      Top AI-discovered opportunities for your site
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab("opportunities")}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-editorial-red transition-colors hover:underline"
+                  >
+                    View all <ArrowRight size={12} />
+                  </button>
+                </div>
+                <div className="flex flex-col gap-0">
+                  {opportunities
+                    .sort((a, b) => b.opportunity_score - a.opportunity_score)
+                    .slice(0, 5)
+                    .map((opp, i) => (
+                      <div key={i} className={`flex items-center justify-between py-2.5 ${i < 4 ? "border-b border-rule" : ""}`}>
+                        <div className="flex-1 min-w-0 mr-3">
+                          <span className="font-sans text-[13px] font-semibold text-ink">{opp.keyword}</span>
+                          <span className="ml-2 text-[10px] text-ink-muted">{opp.reason}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge variant={opp.competition === "low" ? "success" : opp.competition === "medium" ? "warning" : "danger"}>
+                            {opp.competition}
+                          </Badge>
+                          <span className={`font-mono text-sm font-bold ${opp.opportunity_score >= 80 ? "text-editorial-green" : opp.opportunity_score >= 60 ? "text-editorial-gold" : "text-ink-secondary"}`}>
+                            {opp.opportunity_score}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                 </div>
               </div>
             )}
