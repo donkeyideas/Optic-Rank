@@ -89,6 +89,7 @@ interface KeywordsPageClientProps {
   };
   comparisons: Record<ComparisonTimeRange, GenericPeriodComparison>;
   ga4Data?: GA4DashboardData | null;
+  initialOpportunities?: KeywordOpportunity[];
 }
 
 /* ------------------------------------------------------------------
@@ -366,6 +367,7 @@ export function KeywordsPageClient({
   stats,
   comparisons,
   ga4Data,
+  initialOpportunities = [],
 }: KeywordsPageClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [deviceFilter, setDeviceFilter] = useState<"all" | "desktop" | "mobile">("all");
@@ -386,17 +388,17 @@ export function KeywordsPageClient({
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedRecId, setCopiedRecId] = useState<string | null>(null);
-  const [opportunities, setOpportunities] = useState<KeywordOpportunity[]>([]);
-  const opportunitiesLoaded = useRef(false);
+  const [opportunities, setOpportunities] = useState<KeywordOpportunity[]>(initialOpportunities);
+  const opportunitiesLoaded = useRef(initialOpportunities.length > 0);
   const [activeTab, setActiveTab] = useState("all");
 
-  type OppSortKey = "keyword" | "estimated_volume" | "competition" | "opportunity_score";
+  type OppSortKey = "keyword" | "estimated_searches" | "competition" | "opportunity_score";
   const { sortKey: oppSortKey, sortDir: oppSortDir, toggleSort: toggleOppSort, sort: oppSort } = useTableSort<OppSortKey>("opportunity_score", "desc");
   const sortedOpportunities = useMemo(
     () => oppSort(opportunities, (opp, key) => {
       switch (key) {
         case "keyword": return opp.keyword;
-        case "estimated_volume": return opp.estimated_volume;
+        case "estimated_searches": return opp.estimated_searches ?? 0;
         case "competition": return opp.competition;
         case "opportunity_score": return opp.opportunity_score;
         default: return null;
@@ -1349,7 +1351,7 @@ export function KeywordsPageClient({
                   <TableHeader>
                     <TableRow>
                       <SortableHeader label="Keyword" sortKey="keyword" currentSort={oppSortKey} currentDir={oppSortDir} onSort={toggleOppSort} />
-                      <SortableHeader label="Volume" sortKey="estimated_volume" currentSort={oppSortKey} currentDir={oppSortDir} onSort={toggleOppSort} />
+                      <SortableHeader label="Volume" sortKey="estimated_searches" currentSort={oppSortKey} currentDir={oppSortDir} onSort={toggleOppSort} />
                       <SortableHeader label="Competition" sortKey="competition" currentSort={oppSortKey} currentDir={oppSortDir} onSort={toggleOppSort} />
                       <SortableHeader label="Score" sortKey="opportunity_score" currentSort={oppSortKey} currentDir={oppSortDir} onSort={toggleOppSort} />
                       <TableHead className="text-[9px] font-bold uppercase tracking-[0.15em] text-ink-muted">Intent</TableHead>
@@ -1365,9 +1367,16 @@ export function KeywordsPageClient({
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={opp.estimated_volume === "high" ? "success" : opp.estimated_volume === "medium" ? "warning" : "muted"}>
-                            {opp.estimated_volume}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-sm tabular-nums text-ink">
+                              {(opp.estimated_searches ?? 0) >= 1000
+                                ? `${((opp.estimated_searches ?? 0) / 1000).toFixed(1)}K`
+                                : (opp.estimated_searches ?? 0).toLocaleString()}
+                            </span>
+                            <Badge variant={opp.estimated_volume === "high" ? "success" : opp.estimated_volume === "medium" ? "warning" : "muted"}>
+                              {opp.estimated_volume}
+                            </Badge>
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Badge variant={opp.competition === "low" ? "success" : opp.competition === "medium" ? "warning" : "danger"}>
@@ -1483,7 +1492,12 @@ export function KeywordsPageClient({
                           <span className="font-sans text-[13px] font-semibold text-ink">{opp.keyword}</span>
                           <span className="ml-2 text-[10px] text-ink-muted">{opp.reason}</span>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className="font-mono text-[11px] tabular-nums text-ink-muted">
+                            {(opp.estimated_searches ?? 0) >= 1000
+                              ? `${((opp.estimated_searches ?? 0) / 1000).toFixed(1)}K`
+                              : opp.estimated_searches ?? 0}
+                          </span>
                           <Badge variant={opp.competition === "low" ? "success" : opp.competition === "medium" ? "warning" : "danger"}>
                             {opp.competition}
                           </Badge>

@@ -215,6 +215,15 @@ export default async function KeywordsPage() {
     // GA4 not connected or fetch failed
   }
 
+  // Fetch saved keyword opportunities
+  let savedOpportunities: import("@/lib/actions/keyword-opportunities").KeywordOpportunity[] = [];
+  try {
+    const { getKeywordOpportunities } = await import("@/lib/actions/keyword-opportunities");
+    savedOpportunities = await getKeywordOpportunities(project.id);
+  } catch {
+    // Table may not exist yet
+  }
+
   return (
     <KeywordsPageClient
       projectId={project.id}
@@ -229,6 +238,7 @@ export default async function KeywordsPage() {
       }}
       comparisons={kwComparisons}
       ga4Data={ga4Data}
+      initialOpportunities={savedOpportunities}
     />
   );
 }
