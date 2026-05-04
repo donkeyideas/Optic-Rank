@@ -890,6 +890,43 @@ export async function getAllChangelog() {
   return data ?? [];
 }
 
+// ─── Glossary ─────────────────────────────────────────────────
+
+export async function getPublishedGlossaryTerms() {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("glossary_terms")
+    .select("*")
+    .eq("status", "published")
+    .order("term", { ascending: true });
+
+  return data ?? [];
+}
+
+export async function getGlossaryTermBySlug(slug: string) {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("glossary_terms")
+    .select("*")
+    .eq("slug", slug)
+    .eq("status", "published")
+    .single();
+
+  return data;
+}
+
+export async function getRelatedGlossaryTerms(slugs: string[]) {
+  if (slugs.length === 0) return [];
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("glossary_terms")
+    .select("term, slug, short_definition, category")
+    .eq("status", "published")
+    .in("slug", slugs);
+
+  return data ?? [];
+}
+
 // ─── Roadmap ──────────────────────────────────────────────────
 
 export async function getPublishedRoadmap() {

@@ -28,6 +28,10 @@ const footerSections = [
     links: [
       { href: "/blog", label: "Blog" },
       { href: "/guides", label: "Guides" },
+      { href: "/glossary", label: "SEO Glossary" },
+      { href: "/tools", label: "Free Tools" },
+      { href: "/compare", label: "Compare" },
+      { href: "/seo-for", label: "Industries" },
     ],
   },
   {

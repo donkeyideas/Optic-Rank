@@ -146,6 +146,20 @@ export function breadcrumbJsonLd(
   };
 }
 
+export function definitionJsonLd(term: string, definition: string) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "DefinedTerm",
+    name: term,
+    description: definition,
+    inDefinedTermSet: {
+      "@type": "DefinedTermSet",
+      name: "SEO Glossary",
+      url: `${BASE_URL}/glossary`,
+    },
+  };
+}
+
 export function faqJsonLd(
   faqs: { question: string; answer: string }[]
 ) {

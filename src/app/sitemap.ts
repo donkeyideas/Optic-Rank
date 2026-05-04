@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { COMPETITORS } from "./(marketing)/compare/_data/competitors";
+import { INDUSTRIES } from "./(marketing)/seo-for/_data/industries";
 
 const BASE = process.env.NEXT_PUBLIC_APP_URL || "https://opticrank.com";
 
@@ -17,18 +19,46 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/roadmap`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${BASE}/search-ai`, changeFrequency: "monthly", priority: 0.8 },
     { url: `${BASE}/social-intelligence`, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${BASE}/app-store-optimization`, changeFrequency: "monthly", priority: 0.8 },
     { url: `${BASE}/press`, changeFrequency: "monthly", priority: 0.4 },
     { url: `${BASE}/careers`, changeFrequency: "monthly", priority: 0.4 },
     { url: `${BASE}/privacy`, changeFrequency: "yearly", priority: 0.2 },
     { url: `${BASE}/terms`, changeFrequency: "yearly", priority: 0.2 },
     { url: `${BASE}/cookies`, changeFrequency: "yearly", priority: 0.2 },
+
+    // Comparison pages
+    { url: `${BASE}/compare`, changeFrequency: "monthly", priority: 0.8 },
+    ...COMPETITORS.map((c) => ({
+      url: `${BASE}/compare/${c.slug}`,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
+
+    // Free tool pages
+    { url: `${BASE}/tools`, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${BASE}/tools/meta-tag-analyzer`, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${BASE}/tools/keyword-density-checker`, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${BASE}/tools/serp-checker`, changeFrequency: "monthly", priority: 0.7 },
+
+    // Glossary landing
+    { url: `${BASE}/glossary`, changeFrequency: "weekly", priority: 0.8 },
+
+    // Industry pages
+    { url: `${BASE}/seo-for`, changeFrequency: "monthly", priority: 0.8 },
+    ...INDUSTRIES.map((i) => ({
+      url: `${BASE}/seo-for/${i.slug}`,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
   ];
 
-  // Dynamic blog & guide pages from Supabase
+  // Dynamic pages from Supabase
   const dynamicPages: MetadataRoute.Sitemap = [];
 
   try {
     const admin = createAdminClient();
+
+    // Blog & guide posts
     const { data: posts } = await admin
       .from("posts")
       .select("slug, type, published_at, updated_at")
@@ -43,6 +73,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           lastModified: post.updated_at || post.published_at,
           changeFrequency: "weekly",
           priority: 0.7,
+        });
+      }
+    }
+
+    // Glossary terms
+    const { data: glossaryTerms } = await admin
+      .from("glossary_terms")
+      .select("slug, updated_at")
+      .eq("status", "published");
+
+    if (glossaryTerms) {
+      for (const term of glossaryTerms) {
+        dynamicPages.push({
+          url: `${BASE}/glossary/${term.slug}`,
+          lastModified: term.updated_at,
+          changeFrequency: "monthly",
+          priority: 0.6,
         });
       }
     }

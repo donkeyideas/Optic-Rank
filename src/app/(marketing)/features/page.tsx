@@ -15,6 +15,7 @@ import {
   Share2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { FeatureIllustration } from "@/components/editorial/feature-illustration";
 import { getSiteContent } from "@/lib/dal/admin";
 import { JsonLd, OG_IMAGES, breadcrumbJsonLd, faqJsonLd, speakableJsonLd, howToJsonLd } from "@/components/seo/json-ld";
 
@@ -194,16 +195,9 @@ export default async function FeaturesPage() {
                   </div>
                 </div>
 
-                {/* Image Placeholder */}
+                {/* Feature Illustration */}
                 <div className="flex flex-1 items-center justify-center">
-                  <div className="flex h-72 w-full items-center justify-center border-2 border-dashed border-rule bg-surface-raised md:h-80 lg:h-96">
-                    <div className="text-center">
-                      <Icon size={36} strokeWidth={1} className="mx-auto text-ink-muted" />
-                      <p className="mt-3 text-xs font-medium uppercase tracking-widest text-ink-muted">
-                        Screenshot Coming Soon
-                      </p>
-                    </div>
-                  </div>
+                  <FeatureIllustration icon={feature.icon} featureIndex={index} />
                 </div>
               </div>
             </div>
