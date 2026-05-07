@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { COMPETITORS } from "./(marketing)/compare/_data/competitors";
 import { INDUSTRIES } from "./(marketing)/seo-for/_data/industries";
 
-const BASE = process.env.NEXT_PUBLIC_APP_URL || "https://opticrank.com";
+const BASE = process.env.NEXT_PUBLIC_APP_URL || "https://www.opticrank.com";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
