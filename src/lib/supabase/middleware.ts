@@ -112,7 +112,12 @@ export async function updateSession(request: NextRequest) {
   supabaseResponse.headers.set("x-pathname", request.nextUrl.pathname);
 
   // Add X-Robots-Tag: noindex to auth, dashboard, admin routes to prevent indexing
-  if (isAuthRoute || is2FARoute || isDashboardRoute || isAdminRoute) {
+  // Also noindex any non-primary domain (e.g. vercel.app previews) to prevent duplicates
+  const hostname = request.nextUrl.hostname;
+  const isNonPrimaryDomain =
+    hostname.endsWith(".vercel.app") ||
+    (hostname !== "www.opticrank.com" && hostname !== "localhost");
+  if (isAuthRoute || is2FARoute || isDashboardRoute || isAdminRoute || isNonPrimaryDomain) {
     supabaseResponse.headers.set("X-Robots-Tag", "noindex, nofollow");
   }
 

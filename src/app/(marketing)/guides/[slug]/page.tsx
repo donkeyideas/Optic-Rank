@@ -2,9 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { JsonLd, OG_IMAGES, breadcrumbJsonLd } from "@/components/seo/json-ld";
-import { getPostBySlug } from "@/lib/dal/admin";
+import { getPostBySlug, getPublishedPosts } from "@/lib/dal/admin";
 
 type Props = { params: Promise<{ slug: string }> };
+
+export async function generateStaticParams() {
+  const { data } = await getPublishedPosts("guide", 200);
+  return data.map((p) => ({ slug: p.slug }));
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;

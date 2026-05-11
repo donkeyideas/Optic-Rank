@@ -13,10 +13,16 @@ import {
 import {
   getGlossaryTermBySlug,
   getRelatedGlossaryTerms,
+  getPublishedGlossaryTerms,
 } from "@/lib/dal/admin";
 
 interface PageProps {
   params: Promise<{ term: string }>;
+}
+
+export async function generateStaticParams() {
+  const terms = await getPublishedGlossaryTerms();
+  return terms.map((t) => ({ term: t.slug }));
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
