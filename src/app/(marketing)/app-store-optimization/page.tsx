@@ -20,12 +20,12 @@ import { JsonLd, OG_IMAGES, breadcrumbJsonLd, faqJsonLd, speakableJsonLd } from 
 /* ── SEO Meta ──────────────────────────────────────────────────── */
 
 export const metadata: Metadata = {
-  title: "App Store Optimization (ASO) — AI-Powered Mobile Visibility",
+  title: { absolute: "App Store Optimization (ASO) | Optic Rank" },
   description:
     "Track app keyword rankings, monitor competitor apps, analyze reviews, and get AI-powered ASO recommendations for the Apple App Store and Google Play.",
   alternates: { canonical: "/app-store-optimization" },
   openGraph: {
-    title: "App Store Optimization (ASO) — AI-Powered Mobile Visibility",
+    title: "App Store Optimization (ASO) | Optic Rank",
     description:
       "Track app keyword rankings, monitor competitor apps, analyze reviews, and get AI-powered ASO recommendations for the Apple App Store and Google Play.",
     images: OG_IMAGES,

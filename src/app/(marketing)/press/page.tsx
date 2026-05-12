@@ -2,15 +2,15 @@ import type { Metadata } from "next";
 import { JsonLd, OG_IMAGES, breadcrumbJsonLd } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = {
-  title: "Press & Media Kit",
+  title: { absolute: "Press & Media Kit | Optic Rank" },
   description:
     "Download Optic Rank brand assets, logos, and media kit. Find press releases and media contact information for journalists and publications.",
   alternates: { canonical: "/press" },
   openGraph: {
-    title: "Press & Media Kit",
+    title: "Press & Media Kit | Optic Rank",
     description: "Optic Rank brand assets, press releases, and media contacts.",
-  
-    images: OG_IMAGES,},
+    images: OG_IMAGES,
+  },
 };
 
 export default function PressPage() {

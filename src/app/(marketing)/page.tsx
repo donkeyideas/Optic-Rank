@@ -27,14 +27,14 @@ import {
 } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = {
-  title: "AI-Powered SEO Dashboard Tool | Search Engine Ranking Software",
+  title: { absolute: "SEO Rank Tracker | Keyword Rank Checker | Optic Rank" },
   description:
-    "Track SEO performance, check keyword rankings, and monitor competitors with AI-powered SEO insights. The all-in-one SEO analytics software and website ranking tracker.",
+    "Track your search rankings and check keyword positions with AI-powered insights. Try Optic Rank's all-in-one SEO rank tracker and improve your visibility today.",
   alternates: { canonical: "/" },
   openGraph: {
-    title: "AI-Powered SEO Dashboard Tool | Search Engine Ranking Software",
+    title: "SEO Rank Tracker | Keyword Rank Checker | Optic Rank",
     description:
-      "Track keyword rankings, analyze competitors, audit your site, and unlock AI-driven SEO insights. The best SEO dashboard tool for search engine ranking and analytics.",
+      "Track your search rankings and check keyword positions with AI-powered insights. Try Optic Rank's all-in-one SEO rank tracker and improve your visibility today.",
     images: OG_IMAGES,
   },
 };
@@ -167,15 +167,15 @@ export default async function MarketingHomePage() {
           </div>
 
           <h1 className="editorial-headline max-w-4xl text-5xl md:text-7xl lg:text-8xl">
-            {hero?.headline ?? "Your Rankings,"}{" "}
+            {hero?.headline ?? "AI-Powered SEO Rank Tracker"}{" "}
             <span className="text-editorial-red">
-              {hero?.headline_highlight ?? "Decoded by AI"}
+              {hero?.headline_highlight ?? "& Keyword Checker"}
             </span>
           </h1>
 
           <p className="mt-6 max-w-2xl font-serif text-xl leading-relaxed text-ink-secondary md:text-2xl">
             {hero?.subheadline ??
-              "The SEO dashboard tool that transforms raw ranking data into editorial-grade intelligence. Track SEO performance, check keyword rankings, analyze competitors, and act on AI-powered insights -- your all-in-one search engine ranking software."}
+              "The SEO rank tracker that transforms raw ranking data into editorial-grade intelligence. Check keyword positions daily, analyze competitors, audit your site, and act on AI-powered insights — your all-in-one keyword rank checker and SEO dashboard."}
           </p>
 
           <div className="mt-10 flex flex-col gap-4 sm:flex-row">
@@ -288,6 +288,215 @@ export default async function MarketingHomePage() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      </section>
+
+      {/* ==== WHY OPTIC RANK SECTION ==== */}
+      <section className="border-b border-rule">
+        <div className="mx-auto max-w-7xl px-6 py-20 md:py-28">
+          <div className="mb-16 max-w-3xl">
+            <span className="editorial-label">Why Use AI for Keyword Rankings?</span>
+            <h2 className="mt-4 font-serif text-4xl font-bold leading-tight tracking-tight text-ink md:text-5xl">
+              How Optic Rank&rsquo;s SEO rank tracker works
+            </h2>
+            <p className="mt-4 text-lg leading-relaxed text-ink-secondary">
+              Most SEO tools give you data. Optic Rank gives you intelligence. Our AI-powered keyword rank checker goes beyond simple rank tracking
+              to surface the insights that actually move the needle for organic traffic growth. Whether you are an SEO agency managing dozens of clients,
+              an in-house marketer tracking your brand, or a freelancer building your portfolio, Optic Rank adapts to your workflow.
+            </p>
+          </div>
+
+          <div className="grid gap-px border border-rule bg-rule md:grid-cols-2">
+            <div className="bg-surface-card p-8 md:p-10">
+              <h3 className="font-serif text-xl font-bold tracking-tight text-ink">Daily Keyword Rank Monitoring</h3>
+              <p className="mt-3 text-sm leading-relaxed text-ink-secondary">
+                Optic Rank checks your keyword positions every day across Google, Bing, and local search results.
+                Unlike tools that update weekly, our daily tracking catches ranking changes the moment they happen,
+                so you can respond before traffic drops. Each keyword is tracked with full SERP feature data —
+                featured snippets, People Also Ask, local packs, and AI overviews — giving you the complete picture
+                of how search results are evolving for your target terms.
+              </p>
+            </div>
+            <div className="bg-surface-card p-8 md:p-10">
+              <h3 className="font-serif text-xl font-bold tracking-tight text-ink">AI-Powered Opportunity Detection</h3>
+              <p className="mt-3 text-sm leading-relaxed text-ink-secondary">
+                Our AI continuously analyzes your ranking patterns to identify opportunities you would miss manually.
+                It detects near-miss keywords sitting at positions 4-10 where a small improvement could capture
+                significant traffic. It spots content gaps where competitors rank but you do not, and it flags
+                technical issues that silently suppress your rankings. The result is a prioritized action list
+                that tells you exactly what to work on next for maximum impact.
+              </p>
+            </div>
+            <div className="bg-surface-card p-8 md:p-10">
+              <h3 className="font-serif text-xl font-bold tracking-tight text-ink">Competitor Intelligence Built In</h3>
+              <p className="mt-3 text-sm leading-relaxed text-ink-secondary">
+                Every ranking exists relative to your competitors. Optic Rank monitors competitor domains alongside yours,
+                tracking their keyword movements, new content, and backlink acquisitions. When a competitor gains ground
+                on a keyword you care about, you get alerted immediately. When they lose a position, you see the
+                opportunity to take it. This is not just rank tracking — it is competitive intelligence that helps
+                you make strategic decisions about where to invest your SEO resources.
+              </p>
+            </div>
+            <div className="bg-surface-card p-8 md:p-10">
+              <h3 className="font-serif text-xl font-bold tracking-tight text-ink">Technical Site Auditing</h3>
+              <p className="mt-3 text-sm leading-relaxed text-ink-secondary">
+                Rankings depend on technical health. Optic Rank performs comprehensive crawl-based site audits that uncover
+                issues search engines penalize: broken links, missing meta tags, slow page speeds, Core Web Vitals failures,
+                crawl errors, and indexability problems. Each issue comes with a severity rating and a clear recommendation
+                for how to fix it. Re-run audits after making changes to verify improvements and track your technical
+                SEO progress over time.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ==== COMPARISON TABLE SECTION ==== */}
+      <section className="border-b border-rule bg-surface-card">
+        <div className="mx-auto max-w-4xl px-6 py-20 md:py-28">
+          <div className="mb-12 text-center">
+            <span className="editorial-label">The Difference</span>
+            <h2 className="mt-4 font-serif text-3xl font-bold tracking-tight text-ink md:text-4xl">
+              Manual SEO tracking vs. Optic Rank
+            </h2>
+            <p className="mt-4 text-lg text-ink-secondary">
+              See how an AI-powered SEO dashboard replaces hours of manual work with automated intelligence.
+            </p>
+          </div>
+          <div className="overflow-hidden border border-rule">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-rule bg-surface-raised">
+                  <th className="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">Task</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-ink-muted">Manual Process</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-[0.15em] text-editorial-red">Optic Rank</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-rule">
+                <tr className="bg-surface-card">
+                  <td className="px-6 py-4 font-medium text-ink">Rank checking</td>
+                  <td className="px-6 py-4 text-ink-secondary">Search each keyword individually in an incognito browser, record positions in a spreadsheet</td>
+                  <td className="px-6 py-4 text-ink-secondary">Automated daily tracking across all keywords with historical trends and alerts</td>
+                </tr>
+                <tr className="bg-surface-card">
+                  <td className="px-6 py-4 font-medium text-ink">Competitor analysis</td>
+                  <td className="px-6 py-4 text-ink-secondary">Visit competitor sites one by one, compare content and backlinks manually</td>
+                  <td className="px-6 py-4 text-ink-secondary">Real-time competitor monitoring with automatic change detection and gap analysis</td>
+                </tr>
+                <tr className="bg-surface-card">
+                  <td className="px-6 py-4 font-medium text-ink">Technical auditing</td>
+                  <td className="px-6 py-4 text-ink-secondary">Use multiple free tools for different checks, compile results manually</td>
+                  <td className="px-6 py-4 text-ink-secondary">Full crawl-based audit with prioritized issues, severity ratings, and fix recommendations</td>
+                </tr>
+                <tr className="bg-surface-card">
+                  <td className="px-6 py-4 font-medium text-ink">Content optimization</td>
+                  <td className="px-6 py-4 text-ink-secondary">Read competitor pages, guess at keyword density, rewrite without data</td>
+                  <td className="px-6 py-4 text-ink-secondary">AI-powered page optimizer with real-time scoring, keyword placement matrix, and variant generation</td>
+                </tr>
+                <tr className="bg-surface-card">
+                  <td className="px-6 py-4 font-medium text-ink">Reporting</td>
+                  <td className="px-6 py-4 text-ink-secondary">Build reports in Google Sheets or Slides every week, hours of formatting</td>
+                  <td className="px-6 py-4 text-ink-secondary">Automated editorial-style intelligence briefs with actionable insights, generated in seconds</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {/* ==== WHAT IS SEO RANK TRACKING SECTION ==== */}
+      <section className="border-b border-rule">
+        <div className="mx-auto max-w-3xl px-6 py-20 md:py-28">
+          <div className="mb-10">
+            <span className="editorial-label">SEO Fundamentals</span>
+            <h2 className="mt-4 font-serif text-3xl font-bold tracking-tight text-ink md:text-4xl">
+              What is SEO rank tracking?
+            </h2>
+          </div>
+          <div className="prose prose-sm max-w-none text-ink-secondary">
+            <p className="text-base leading-relaxed">
+              SEO rank tracking is the process of monitoring where your website appears in search engine results pages (SERPs)
+              for specific keywords over time. A keyword rank checker like Optic Rank automates this process by checking your
+              positions daily across Google, Bing, and local search results, then recording historical data so you can spot
+              trends and measure the impact of your SEO efforts.
+            </p>
+            <p className="mt-4 text-base leading-relaxed">
+              Without an SEO rank tracker, you are flying blind. You might publish new content, optimize your pages, or build
+              backlinks, but you have no way to know whether those actions actually improved your rankings. Manual rank checking —
+              searching each keyword in an incognito browser — is time-consuming, inaccurate due to personalization, and impossible
+              to scale beyond a handful of keywords.
+            </p>
+            <p className="mt-4 text-base leading-relaxed">
+              Optic Rank solves this by tracking thousands of keywords automatically, alerting you to ranking changes the moment
+              they happen, and using AI to identify which changes matter most for your traffic. Our keyword rank checker does not just
+              tell you where you rank — it tells you what to do about it.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ==== WHO USES OPTIC RANK SECTION ==== */}
+      <section className="border-b border-rule bg-surface-card">
+        <div className="mx-auto max-w-7xl px-6 py-20 md:py-28">
+          <div className="mb-16 text-center">
+            <span className="editorial-label">Built For You</span>
+            <h2 className="mt-4 font-serif text-3xl font-bold tracking-tight text-ink md:text-4xl">
+              Who uses Optic Rank&rsquo;s SEO rank tracker?
+            </h2>
+          </div>
+          <div className="grid gap-px border border-rule bg-rule md:grid-cols-3">
+            <div className="bg-surface-card p-8">
+              <h3 className="font-serif text-lg font-bold text-ink">SEO Agencies</h3>
+              <p className="mt-3 text-sm leading-relaxed text-ink-secondary">
+                Manage keyword rankings across dozens of client domains from a single dashboard. White-label reports, automated
+                alerts for ranking drops, and AI-generated action plans save hours of manual work each week. Your team focuses
+                on strategy while Optic Rank handles the monitoring.
+              </p>
+            </div>
+            <div className="bg-surface-card p-8">
+              <h3 className="font-serif text-lg font-bold text-ink">In-House Marketers</h3>
+              <p className="mt-3 text-sm leading-relaxed text-ink-secondary">
+                Track your brand&rsquo;s search visibility alongside competitors without juggling multiple tools. The keyword rank
+                checker shows exactly which content investments are paying off and where to double down. Share clear, visual reports
+                with stakeholders who need to see ROI, not raw data.
+              </p>
+            </div>
+            <div className="bg-surface-card p-8">
+              <h3 className="font-serif text-lg font-bold text-ink">Freelancers &amp; Consultants</h3>
+              <p className="mt-3 text-sm leading-relaxed text-ink-secondary">
+                Demonstrate your value to clients with before-and-after ranking data that speaks for itself. The SEO rank tracker
+                runs in the background while you work on other projects, notifying you only when something needs attention. Start
+                free and scale as your client base grows.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ==== GET STARTED CTA SECTION ==== */}
+      <section className="border-b border-rule">
+        <div className="mx-auto max-w-3xl px-6 py-16 text-center">
+          <h2 className="font-serif text-3xl font-bold tracking-tight text-ink md:text-4xl">
+            Get started with your free SEO rank tracker
+          </h2>
+          <p className="mt-4 text-lg text-ink-secondary">
+            Add your domain, import your keywords, and start tracking rankings in under 5 minutes.
+            No credit card required — your first 14 days are free on any plan.
+          </p>
+          <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+            <Link
+              href="/signup"
+              className="inline-flex h-12 items-center justify-center bg-editorial-red px-8 text-sm font-bold uppercase tracking-widest text-white transition-colors hover:bg-editorial-red/90"
+            >
+              Start Free Trial
+            </Link>
+            <Link
+              href="/pricing"
+              className="inline-flex h-12 items-center justify-center border border-rule-dark bg-transparent px-8 text-sm font-bold uppercase tracking-widest text-ink transition-colors hover:bg-surface-raised"
+            >
+              See Pricing Plans
+            </Link>
           </div>
         </div>
       </section>

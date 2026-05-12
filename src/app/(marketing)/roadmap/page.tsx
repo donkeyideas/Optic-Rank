@@ -1,17 +1,18 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { JsonLd, OG_IMAGES, breadcrumbJsonLd } from "@/components/seo/json-ld";
 import { getPublishedRoadmap } from "@/lib/dal/admin";
 
 export const metadata: Metadata = {
-  title: "Product Roadmap",
+  title: { absolute: "Product Roadmap — Upcoming Features | Optic Rank" },
   description:
     "See what we're building next at Optic Rank. Our public roadmap shows planned features, in-progress work, and recently completed improvements.",
   alternates: { canonical: "/roadmap" },
   openGraph: {
-    title: "Product Roadmap",
+    title: "Product Roadmap — Upcoming Features | Optic Rank",
     description: "See what's planned, in progress, and recently shipped.",
-  
-    images: OG_IMAGES,},
+    images: OG_IMAGES,
+  },
 };
 
 const statusConfig: Record<
@@ -178,6 +179,82 @@ export default async function RoadmapPage() {
               fast and dependable
             </li>
           </ul>
+        </div>
+
+        {/* Roadmap FAQ */}
+        <div className="mt-12">
+          <h2 className="mb-6 font-serif text-xl font-bold text-ink">
+            Roadmap FAQ
+          </h2>
+          <div className="divide-y divide-rule">
+            <div className="py-6">
+              <h3 className="font-serif text-lg font-bold text-ink">
+                How often do you update the roadmap?
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">
+                We review and update this roadmap weekly. New items are added
+                based on user feedback, market trends, and our product vision.
+                Completed features are moved to the changelog.
+              </p>
+            </div>
+            <div className="py-6">
+              <h3 className="font-serif text-lg font-bold text-ink">
+                How can I request a feature?
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">
+                Visit our contact page or email us directly. Every feature
+                request is logged, evaluated against our prioritization criteria,
+                and considered for inclusion on the roadmap.
+              </p>
+            </div>
+            <div className="py-6">
+              <h3 className="font-serif text-lg font-bold text-ink">
+                Do you have a public API?
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">
+                A public REST API is on our roadmap. When launched, it will allow
+                developers to build custom workflows, pull ranking data into
+                external dashboards, and automate reporting pipelines.
+              </p>
+            </div>
+            <div className="py-6">
+              <h3 className="font-serif text-lg font-bold text-ink">
+                How do you handle breaking changes?
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">
+                We follow semantic versioning and announce all breaking changes
+                at least 30 days in advance. Migration guides are provided for
+                any changes that affect existing workflows or integrations.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Stay Updated CTA */}
+        <div className="mt-12 text-center">
+          <div className="border-2 border-ink p-10">
+            <h2 className="font-serif text-2xl font-bold text-ink">
+              Want to influence what we build?
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-ink-secondary">
+              Submit feature requests, vote on upcoming improvements, and get
+              notified when the features you care about launch.
+            </p>
+            <div className="mt-6 flex flex-col items-center justify-center gap-4 sm:flex-row">
+              <Link
+                href="/contact"
+                className="inline-flex h-11 items-center justify-center bg-editorial-red px-8 text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-editorial-red/90"
+              >
+                Submit a Feature Request
+              </Link>
+              <Link
+                href="/changelog"
+                className="inline-flex h-11 items-center justify-center border border-rule-dark bg-transparent px-8 text-xs font-bold uppercase tracking-widest text-ink transition-colors hover:bg-surface-raised"
+              >
+                View Recent Releases
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </>

@@ -12,12 +12,12 @@ import {
 } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = {
-  title: "Plans & Pricing for Every Team",
+  title: { absolute: "Plans & Pricing for Every Team | Optic Rank" },
   description:
     "Choose the right Optic Rank plan for your team. From free starter accounts to enterprise-grade SEO intelligence, find pricing that scales with your growth.",
   alternates: { canonical: "/pricing" },
   openGraph: {
-    title: "Plans & Pricing for Every Team",
+    title: "Plans & Pricing for Every Team | Optic Rank",
     description:
       "From free starter to enterprise SEO intelligence. Find pricing that scales with your growth.",
     images: OG_IMAGES,
@@ -286,6 +286,90 @@ export default async function PricingPage() {
           </div>
         </section>
       )}
+
+      {/* ==== WHICH PLAN IS RIGHT FOR YOU ==== */}
+      <section className="border-b border-rule">
+        <div className="mx-auto max-w-7xl px-6 py-16 md:py-24">
+          <div className="mb-12 text-center">
+            <span className="editorial-label">Find Your Fit</span>
+            <h2 className="mt-4 font-serif text-3xl font-bold tracking-tight text-ink md:text-4xl">
+              Which plan is right for you?
+            </h2>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-3">
+            <div className="border border-rule p-6">
+              <h3 className="font-serif text-xl font-bold text-ink">
+                Solo &amp; Freelancers
+              </h3>
+              <p className="mt-3 text-sm leading-relaxed text-ink-secondary">
+                Starting out or managing 1&ndash;3 clients? The Free or Starter
+                plan gives you everything you need to build momentum. Track core
+                keywords, run site audits, and monitor basic competitor data
+                without stretching your budget.
+              </p>
+            </div>
+
+            <div className="border border-rule p-6">
+              <h3 className="font-serif text-xl font-bold text-ink">
+                Growing Teams &amp; Agencies
+              </h3>
+              <p className="mt-3 text-sm leading-relaxed text-ink-secondary">
+                Managing 5&ndash;20+ clients and need room to scale? The
+                Professional plan unlocks unlimited keywords, white-label
+                reports, team collaboration, and advanced AI insights&mdash;so
+                your agency can deliver results faster.
+              </p>
+            </div>
+
+            <div className="border border-rule p-6">
+              <h3 className="font-serif text-xl font-bold text-ink">
+                Enterprise &amp; Large Brands
+              </h3>
+              <p className="mt-3 text-sm leading-relaxed text-ink-secondary">
+                Custom needs at scale demand a custom plan. The Enterprise tier
+                includes a dedicated account manager, custom integrations, SLA
+                guarantees, and priority support tailored to your
+                organization&rsquo;s workflow.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ==== WHAT EVERY PLAN INCLUDES ==== */}
+      <section className="border-b border-rule bg-surface-card">
+        <div className="mx-auto max-w-7xl px-6 py-16 md:py-24">
+          <div className="mb-12 text-center">
+            <span className="editorial-label">Universal Benefits</span>
+            <h2 className="mt-4 font-serif text-3xl font-bold tracking-tight text-ink md:text-4xl">
+              What every plan includes
+            </h2>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              "Daily rank tracking",
+              "Site audit tools",
+              "Competitor monitoring",
+              "AI-powered insights",
+              "Mobile-responsive dashboard",
+              "SSL-encrypted data",
+              "Email support",
+              "14-day free trial on paid plans",
+            ].map((item) => (
+              <div key={item} className="flex items-center gap-2.5">
+                <Check
+                  size={14}
+                  strokeWidth={2.5}
+                  className="shrink-0 text-editorial-green"
+                />
+                <span className="text-sm text-ink-secondary">{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* ==== FAQ SECTION ==== */}
       <section className="border-b border-rule">

@@ -15,12 +15,12 @@ import { JsonLd, OG_IMAGES, breadcrumbJsonLd, faqJsonLd, speakableJsonLd, howToJ
 /* ── SEO Meta ──────────────────────────────────────────────────── */
 
 export const metadata: Metadata = {
-  title: "SEO, AEO, GEO & CRO Strategy",
+  title: { absolute: "SEO, AEO, GEO & CRO Strategy | Optic Rank" },
   description:
     "Master all four pillars of modern search: SEO for rankings, AEO for snippets, GEO for AI citations, and CRO for conversions.",
   alternates: { canonical: "/search-ai" },
   openGraph: {
-    title: "SEO, AEO, GEO & CRO Strategy",
+    title: "SEO, AEO, GEO & CRO Strategy | Optic Rank",
     description:
       "Master all four pillars of modern search: SEO for rankings, AEO for answer snippets, GEO for AI citations, and CRO for conversions.",
     images: OG_IMAGES,

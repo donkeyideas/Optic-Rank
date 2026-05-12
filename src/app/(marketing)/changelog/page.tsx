@@ -4,15 +4,15 @@ import { JsonLd, OG_IMAGES, breadcrumbJsonLd } from "@/components/seo/json-ld";
 import { getPublishedChangelog } from "@/lib/dal/admin";
 
 export const metadata: Metadata = {
-  title: "Changelog — What's New",
+  title: { absolute: "Changelog — What's New | Optic Rank" },
   description:
     "See the latest features, improvements, and bug fixes shipped by the Optic Rank team. Stay up to date with every product update.",
   alternates: { canonical: "/changelog" },
   openGraph: {
-    title: "Changelog — What's New",
+    title: "Changelog — What's New | Optic Rank",
     description: "Latest features and improvements from Optic Rank.",
-  
-    images: OG_IMAGES,},
+    images: OG_IMAGES,
+  },
 };
 
 const typeBadge: Record<string, { label: string; className: string }> = {

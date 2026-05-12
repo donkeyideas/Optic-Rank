@@ -65,6 +65,7 @@ const dashboardNavItems = [
   { href: "/dashboard/recommendations", label: "Insights" },
   { href: "/dashboard/advanced-ai",   label: "Command Center", matchPaths: ["/dashboard/ai-visibility", "/dashboard/predictions", "/dashboard/entities", "/dashboard/ai-briefs", "/dashboard/ai-insights"] },
   { href: "/dashboard/search-ai",     label: "SEO & Analytics", matchPaths: ["/dashboard/optimization"] },
+  { href: "/dashboard/website-optimizer", label: "Page Optimizer" },
   { href: "/dashboard/app-store",     label: "App Store" },
   { href: "/dashboard/reports",       label: "Reports" },
   { href: "/dashboard/sop",           label: "SOP Guide", colorClass: "text-editorial-gold hover:text-editorial-gold/80" },

@@ -4,15 +4,15 @@ import { JsonLd, OG_IMAGES, breadcrumbJsonLd } from "@/components/seo/json-ld";
 import { getPublishedPosts } from "@/lib/dal/admin";
 
 export const metadata: Metadata = {
-  title: "Guides — Learn SEO with Optic Rank",
+  title: { absolute: "SEO Guides & Tutorials | Optic Rank" },
   description:
     "In-depth guides on keyword research, competitor analysis, technical SEO, and AI visibility. Step-by-step tutorials for every skill level.",
   alternates: { canonical: "/guides" },
   openGraph: {
-    title: "Guides — Learn SEO with Optic Rank",
+    title: "SEO Guides & Tutorials | Optic Rank",
     description: "Step-by-step SEO guides and tutorials.",
-  
-    images: OG_IMAGES,},
+    images: OG_IMAGES,
+  },
 };
 
 export default async function GuidesPage() {

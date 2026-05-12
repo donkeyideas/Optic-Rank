@@ -24,16 +24,16 @@ import { JsonLd, OG_IMAGES, breadcrumbJsonLd } from "@/components/seo/json-ld";
 /* ── SEO Meta ──────────────────────────────────────────────────── */
 
 export const metadata: Metadata = {
-  title: "Social Intelligence — AI-Powered Social Media Analytics",
+  title: { absolute: "Social Media Analytics & AI Intelligence | Optic Rank" },
   description:
-    "Track your social media performance across Instagram, TikTok, YouTube, Twitter, and LinkedIn. AI earnings forecasts, growth strategies, competitor benchmarking, content optimization, and more.",
+    "Track social media performance across Instagram, TikTok, YouTube, Twitter, and LinkedIn. AI earnings forecasts, growth strategies, and competitor benchmarking.",
   alternates: { canonical: "/social-intelligence" },
   openGraph: {
-    title: "Social Intelligence — AI-Powered Social Media Analytics",
+    title: "Social Media Analytics & AI Intelligence | Optic Rank",
     description:
       "AI-powered analytics for Instagram, TikTok, YouTube, Twitter, and LinkedIn. Earnings forecasts, growth strategies, and competitor benchmarking.",
-  
-    images: OG_IMAGES,},
+    images: OG_IMAGES,
+  },
 };
 
 /* ── Icon Map ──────────────────────────────────────────────────── */

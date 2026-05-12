@@ -3,15 +3,15 @@ import { JsonLd, OG_IMAGES, breadcrumbJsonLd } from "@/components/seo/json-ld";
 import { ContactForm } from "./contact-form";
 
 export const metadata: Metadata = {
-  title: "Contact Us",
+  title: { absolute: "Contact Optic Rank — Support & Partnerships" },
   description:
     "Get in touch with the Optic Rank team. Whether you have questions about our platform, need support, or want to discuss partnerships — we're here to help.",
   alternates: { canonical: "/contact" },
   openGraph: {
-    title: "Contact Us",
+    title: "Contact Optic Rank — Support & Partnerships",
     description: "Reach the Optic Rank team for support or partnership inquiries.",
-  
-    images: OG_IMAGES,},
+    images: OG_IMAGES,
+  },
 };
 
 export default function ContactPage() {

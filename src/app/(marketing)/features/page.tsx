@@ -20,12 +20,12 @@ import { getSiteContent } from "@/lib/dal/admin";
 import { JsonLd, OG_IMAGES, breadcrumbJsonLd, faqJsonLd, speakableJsonLd, howToJsonLd } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = {
-  title: "All SEO & Social Intelligence Features",
+  title: { absolute: "All SEO & Social Intelligence Features | Optic Rank" },
   description:
     "Keyword tracking, site audits, backlink monitoring, competitor analysis, AI visibility, and app store optimization. All in one platform.",
   alternates: { canonical: "/features" },
   openGraph: {
-    title: "All SEO & Social Intelligence Features",
+    title: "All SEO & Social Intelligence Features | Optic Rank",
     description:
       "Explore Optic Rank's complete feature set for modern SEO and social media intelligence.",
     images: OG_IMAGES,

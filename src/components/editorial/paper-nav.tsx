@@ -59,7 +59,8 @@ export function PaperNav({ items, onNavigate, className }: PaperNavProps) {
       {/* ── Desktop nav ── */}
       <nav
         className={cn(
-          "hidden lg:flex items-center justify-center gap-8 border-b border-rule bg-surface-card px-6 py-3",
+          "hidden lg:flex items-center justify-center gap-1.5 xl:gap-4 2xl:gap-6 border-b border-rule bg-surface-card px-4 xl:px-6 py-3",
+          "overflow-x-auto scrollbar-none",
           className,
         )}
       >
@@ -76,7 +77,7 @@ export function PaperNav({ items, onNavigate, className }: PaperNavProps) {
                 }
               }}
               className={cn(
-                "relative font-sans text-[12px] font-semibold uppercase tracking-[1.5px] transition-colors",
+                "relative whitespace-nowrap font-sans text-[10px] xl:text-[11px] 2xl:text-[12px] font-semibold uppercase tracking-[0.75px] xl:tracking-[1px] 2xl:tracking-[1.5px] transition-colors",
                 hasCustomColor
                   ? item.colorClass
                   : cn(
