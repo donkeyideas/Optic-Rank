@@ -183,6 +183,18 @@ export function SignupForm() {
 
       {/* Signup Form */}
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {/* Honeypot — hidden from real users, only bots fill this. */}
+        <div aria-hidden="true" className="absolute left-[-9999px] top-[-9999px] h-0 w-0 overflow-hidden" tabIndex={-1}>
+          <label htmlFor="company_website">Company Website</label>
+          <input
+            id="company_website"
+            name="company_website"
+            type="text"
+            tabIndex={-1}
+            autoComplete="off"
+          />
+        </div>
+
         <Input
           name="full_name"
           type="text"

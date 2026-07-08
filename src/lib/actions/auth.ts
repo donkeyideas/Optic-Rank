@@ -4,8 +4,15 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { sendEmail } from "@/lib/email/resend";
 import { emailConfirmationTemplate } from "@/lib/email/templates/supabase-auth";
+import { checkRateLimit } from "@/lib/rate-limit";
+import {
+  normalizeEmail,
+  isDisposableEmail,
+  isValidEmailFormat,
+} from "@/lib/auth/anti-spam";
 
 /**
  * Sign up a new user with email/password, create an organization, and link the profile.
@@ -13,17 +20,75 @@ import { emailConfirmationTemplate } from "@/lib/email/templates/supabase-auth";
 export async function signUp(
   formData: FormData
 ): Promise<{ error: string } | { success: true; needsEmailConfirmation?: boolean }> {
-  const email = formData.get("email") as string;
+  const email = ((formData.get("email") as string) || "").trim();
   const password = formData.get("password") as string;
   const fullName = formData.get("full_name") as string;
   const orgName = formData.get("org_name") as string | null;
+  // Honeypot — hidden field that real users never see/fill. Bots fill every field.
+  const honeypot = ((formData.get("company_website") as string) || "").trim();
 
   if (!email || !password) {
     return { error: "Email and password are required." };
   }
 
+  // --- Anti-spam guards -------------------------------------------------
+
+  // 1) Honeypot tripped → pretend success without creating anything, so the
+  //    bot doesn't learn it was blocked.
+  if (honeypot) {
+    return { success: true, needsEmailConfirmation: true };
+  }
+
+  // 2) Basic format + disposable-domain checks.
+  if (!isValidEmailFormat(email)) {
+    return { error: "Please enter a valid email address." };
+  }
+  if (isDisposableEmail(email)) {
+    return { error: "Please sign up with a permanent email address." };
+  }
+
+  // 3) Per-IP rate limit: cap signups from one origin. Blunts scripted bursts.
+  const hdrs = await headers();
+  const ip =
+    hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    hdrs.get("x-real-ip")?.trim() ||
+    "unknown";
+  const ipLimit = checkRateLimit(`signup:ip:${ip}`, {
+    limit: 5,
+    windowMs: 60 * 60_000, // 5 signups per IP per hour
+  });
+  if (!ipLimit.allowed) {
+    return {
+      error: "Too many sign-up attempts. Please try again later.",
+    };
+  }
+
+  // 4) Collapse provider aliasing (Gmail dots/+tags, googlemail⇄gmail) to a
+  //    canonical form and block if an equivalent account already exists. This
+  //    is what stops the "j.o.y+1@gmail.com" style duplicate-account abuse.
+  const canonical = normalizeEmail(email);
+  if (!canonical) {
+    return { error: "Please enter a valid email address." };
+  }
+
   // Use admin client for the entire signup flow — bypasses RLS and email rate limits
   const admin = createAdminClient();
+
+  const { data: existing } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("normalized_email", canonical)
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) {
+    // Don't reveal whether the exact address exists — generic message.
+    return {
+      error: "An account with this email already exists. Try signing in.",
+    };
+  }
+
+  // ---------------------------------------------------------------------
 
   // 1. Create the auth user (unconfirmed — requires email verification)
   const { data: authData, error: authError } = await admin.auth.admin.createUser({
@@ -74,6 +139,7 @@ export async function signUp(
           organization_id: org.id,
           full_name: fullName || null,
           role: "owner",
+          normalized_email: canonical,
         })
         .eq("id", authData.user.id);
     } else {
@@ -81,7 +147,7 @@ export async function signUp(
       // Still update the profile name even without an org
       await admin
         .from("profiles")
-        .update({ full_name: fullName || null })
+        .update({ full_name: fullName || null, normalized_email: canonical })
         .eq("id", authData.user.id);
     }
   } catch (err) {
