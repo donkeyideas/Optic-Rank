@@ -117,3 +117,68 @@ export function isValidEmailFormat(rawEmail: string): boolean {
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
   );
 }
+
+/**
+ * Verify the email's domain can actually receive mail by looking up MX (or, as a
+ * fallback, A/AAAA) DNS records. Domains with no mail server are almost always
+ * junk/disposable. Uses Node's built-in DNS resolver — no external service.
+ *
+ * Fails OPEN (returns true) on lookup timeout/DNS errors so a transient DNS
+ * hiccup never blocks a legitimate signup. Uses a short timeout so signup can't
+ * hang on a slow resolver.
+ */
+export async function hasDeliverableDomain(
+  rawEmail: string,
+  timeoutMs = 3000
+): Promise<boolean> {
+  const email = (rawEmail || "").trim().toLowerCase();
+  const at = email.lastIndexOf("@");
+  if (at === -1) return false;
+  const domain = email.slice(at + 1);
+  if (!domain) return false;
+
+  // Lazy import so the module stays usable in edge/client contexts.
+  const dns = await import("node:dns/promises");
+
+  const withTimeout = <T>(p: Promise<T>): Promise<T> =>
+    Promise.race([
+      p,
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error("dns-timeout")), timeoutMs)
+      ),
+    ]);
+
+  try {
+    const mx = await withTimeout(dns.resolveMx(domain));
+    if (mx && mx.length > 0 && mx.some((r) => r.exchange)) return true;
+  } catch {
+    // No MX — fall through to A/AAAA check.
+  }
+
+  try {
+    const a = await withTimeout(dns.resolve(domain));
+    if (a && a.length > 0) return true;
+  } catch (err) {
+    // Distinguish "domain doesn't exist" (block) from timeout/other (allow).
+    const code = (err as { code?: string })?.code;
+    if (code === "ENOTFOUND" || code === "NXDOMAIN") return false;
+    return true; // fail open on transient/unknown DNS errors
+  }
+
+  return false;
+}
+
+/**
+ * Reject obviously bot-generated / junk names. Real names aren't URLs, aren't
+ * all digits, and aren't a single character repeated. Kept intentionally loose
+ * so legitimate international / single-word names still pass.
+ */
+export function isPlausibleName(rawName: string): boolean {
+  const name = (rawName || "").trim();
+  if (name.length < 2 || name.length > 100) return false;
+  if (/https?:\/\/|www\.|\.[a-z]{2,}\//i.test(name)) return false; // contains a URL
+  if (/^\d+$/.test(name)) return false; // all digits
+  if (/^(.)\1+$/.test(name)) return false; // one char repeated (aaaa, ....)
+  if (!/[a-zA-ZÀ-￿]/.test(name)) return false; // no letters at all
+  return true;
+}

@@ -7,12 +7,17 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { sendEmail } from "@/lib/email/resend";
 import { emailConfirmationTemplate } from "@/lib/email/templates/supabase-auth";
-import { checkRateLimit } from "@/lib/rate-limit";
 import {
   normalizeEmail,
   isDisposableEmail,
   isValidEmailFormat,
+  hasDeliverableDomain,
+  isPlausibleName,
 } from "@/lib/auth/anti-spam";
+
+// Signup rate limits (durable, DB-backed — see migration 00063).
+const SIGNUP_MAX_PER_IP_PER_HOUR = 3;
+const SIGNUP_MAX_PER_EMAIL_PER_DAY = 2;
 
 /**
  * Sign up a new user with email/password, create an organization, and link the profile.
@@ -22,16 +27,12 @@ export async function signUp(
 ): Promise<{ error: string } | { success: true; needsEmailConfirmation?: boolean }> {
   const email = ((formData.get("email") as string) || "").trim();
   const password = formData.get("password") as string;
-  const fullName = formData.get("full_name") as string;
+  const fullName = ((formData.get("full_name") as string) || "").trim();
   const orgName = formData.get("org_name") as string | null;
   // Honeypot — hidden field that real users never see/fill. Bots fill every field.
   const honeypot = ((formData.get("company_website") as string) || "").trim();
 
-  if (!email || !password) {
-    return { error: "Email and password are required." };
-  }
-
-  // --- Anti-spam guards -------------------------------------------------
+  // --- Anti-spam guards (email/password path) --------------------------
 
   // 1) Honeypot tripped → pretend success without creating anything, so the
   //    bot doesn't learn it was blocked.
@@ -39,7 +40,21 @@ export async function signUp(
     return { success: true, needsEmailConfirmation: true };
   }
 
-  // 2) Basic format + disposable-domain checks.
+  // 2) Required fields — enforced server-side (client checks are trivially skipped).
+  if (!email || !password) {
+    return { error: "Email and password are required." };
+  }
+  if (!fullName) {
+    return { error: "Please enter your full name." };
+  }
+  if (password.length < 8) {
+    return { error: "Password must be at least 8 characters." };
+  }
+  if (!isPlausibleName(fullName)) {
+    return { error: "Please enter a valid name." };
+  }
+
+  // 3) Email format + disposable-domain checks.
   if (!isValidEmailFormat(email)) {
     return { error: "Please enter a valid email address." };
   }
@@ -47,33 +62,62 @@ export async function signUp(
     return { error: "Please sign up with a permanent email address." };
   }
 
-  // 3) Per-IP rate limit: cap signups from one origin. Blunts scripted bursts.
+  // 4) Collapse provider aliasing (Gmail dots/+tags, googlemail⇄gmail) to a
+  //    canonical form — used for dedup and rate limiting.
+  const canonical = normalizeEmail(email);
+  if (!canonical) {
+    return { error: "Please enter a valid email address." };
+  }
+  const emailDomain = canonical.slice(canonical.lastIndexOf("@") + 1);
+
   const hdrs = await headers();
   const ip =
     hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     hdrs.get("x-real-ip")?.trim() ||
     "unknown";
-  const ipLimit = checkRateLimit(`signup:ip:${ip}`, {
-    limit: 5,
-    windowMs: 60 * 60_000, // 5 signups per IP per hour
-  });
-  if (!ipLimit.allowed) {
-    return {
-      error: "Too many sign-up attempts. Please try again later.",
-    };
-  }
-
-  // 4) Collapse provider aliasing (Gmail dots/+tags, googlemail⇄gmail) to a
-  //    canonical form and block if an equivalent account already exists. This
-  //    is what stops the "j.o.y+1@gmail.com" style duplicate-account abuse.
-  const canonical = normalizeEmail(email);
-  if (!canonical) {
-    return { error: "Please enter a valid email address." };
-  }
 
   // Use admin client for the entire signup flow — bypasses RLS and email rate limits
   const admin = createAdminClient();
 
+  // Helper to record an attempt for the durable rate limiter / auditing.
+  const recordAttempt = (outcome: "attempt" | "blocked" | "created") =>
+    admin
+      .from("signup_attempts")
+      .insert({ ip, normalized_email: canonical, email_domain: emailDomain, outcome })
+      .then(() => {}, () => {}); // best-effort, never block signup on logging
+
+  // 5) Durable, DB-backed rate limiting — works across all serverless instances
+  //    (unlike the in-memory limiter). Cap per-IP and per-canonical-email.
+  const hourAgo = new Date(Date.now() - 60 * 60_000).toISOString();
+  const dayAgo = new Date(Date.now() - 24 * 60 * 60_000).toISOString();
+
+  const [{ count: ipCount }, { count: emailCount }] = await Promise.all([
+    admin
+      .from("signup_attempts")
+      .select("id", { count: "exact", head: true })
+      .eq("ip", ip)
+      .gte("created_at", hourAgo),
+    admin
+      .from("signup_attempts")
+      .select("id", { count: "exact", head: true })
+      .eq("normalized_email", canonical)
+      .gte("created_at", dayAgo),
+  ]);
+
+  if (ip !== "unknown" && (ipCount ?? 0) >= SIGNUP_MAX_PER_IP_PER_HOUR) {
+    await recordAttempt("blocked");
+    return { error: "Too many sign-up attempts. Please try again later." };
+  }
+  if ((emailCount ?? 0) >= SIGNUP_MAX_PER_EMAIL_PER_DAY) {
+    await recordAttempt("blocked");
+    return { error: "Too many sign-up attempts for this email. Please try again later." };
+  }
+
+  // Log this attempt up front so bursts are counted even if later steps fail.
+  await recordAttempt("attempt");
+
+  // 6) Block if a normalized-equivalent account already exists (kills the
+  //    "j.o.y+1@gmail.com" duplicate-account abuse).
   const { data: existing } = await admin
     .from("profiles")
     .select("id")
@@ -86,6 +130,13 @@ export async function signUp(
     return {
       error: "An account with this email already exists. Try signing in.",
     };
+  }
+
+  // 7) Reject undeliverable domains (no MX/A records) — dynamically catches
+  //    junk/disposable domains without a static list.
+  if (!(await hasDeliverableDomain(email))) {
+    await recordAttempt("blocked");
+    return { error: "That email domain can't receive mail. Please use a valid email." };
   }
 
   // ---------------------------------------------------------------------
@@ -107,6 +158,8 @@ export async function signUp(
   if (!authData.user) {
     return { error: "Failed to create user account." };
   }
+
+  await recordAttempt("created");
 
   const slug = (orgName || email.split("@")[0])
     .toLowerCase()
