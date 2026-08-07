@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { signUp } from "@/lib/actions/auth";
 import { createClient } from "@/lib/supabase/client";
+import { Turnstile } from "@/components/shared/turnstile";
 
 export function SignupForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -17,6 +18,10 @@ export function SignupForm() {
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileEnabled = Boolean(
+    process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+  );
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -42,6 +47,14 @@ export function SignupForm() {
     if (password !== confirmPassword) {
       setPasswordError("Passwords do not match.");
       return;
+    }
+
+    if (turnstileEnabled && !turnstileToken) {
+      setError("Please complete the verification challenge.");
+      return;
+    }
+    if (turnstileToken) {
+      formData.set("turnstile_token", turnstileToken);
     }
 
     startTransition(async () => {
@@ -282,12 +295,16 @@ export function SignupForm() {
           </span>
         </label>
 
+        {/* Bot verification (renders only when a site key is configured) */}
+        <Turnstile onToken={setTurnstileToken} />
+
         {/* Submit */}
         <Button
           type="submit"
           variant="primary"
           size="lg"
           loading={isPending}
+          disabled={turnstileEnabled && !turnstileToken}
           className="w-full"
         >
           Create Account

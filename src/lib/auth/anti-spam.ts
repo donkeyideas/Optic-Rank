@@ -169,6 +169,44 @@ export async function hasDeliverableDomain(
 }
 
 /**
+ * Verify a Cloudflare Turnstile token server-side.
+ *
+ * Fails OPEN (returns true) when TURNSTILE_SECRET_KEY isn't configured — so the
+ * feature stays dormant until you add the keys — and on network/Cloudflare
+ * errors, so a Cloudflare outage never locks real users out. Fails CLOSED
+ * (returns false) only on an explicit verification failure or a missing token
+ * when the secret IS configured.
+ */
+export async function verifyTurnstile(
+  token: string | null | undefined,
+  remoteIp?: string
+): Promise<boolean> {
+  const secret = process.env.TURNSTILE_SECRET_KEY;
+  if (!secret) return true; // not configured yet → don't block
+  if (!token) return false; // configured but no token → bot / JS disabled
+
+  try {
+    const body = new URLSearchParams();
+    body.append("secret", secret);
+    body.append("response", token);
+    if (remoteIp && remoteIp !== "unknown") body.append("remoteip", remoteIp);
+
+    const res = await fetch(
+      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body,
+      }
+    );
+    const data = (await res.json()) as { success?: boolean };
+    return data.success === true;
+  } catch {
+    return true; // fail open on transient network error
+  }
+}
+
+/**
  * Reject obviously bot-generated / junk names. Real names aren't URLs, aren't
  * all digits, and aren't a single character repeated. Kept intentionally loose
  * so legitimate international / single-word names still pass.

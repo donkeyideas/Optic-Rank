@@ -13,6 +13,7 @@ import {
   isValidEmailFormat,
   hasDeliverableDomain,
   isPlausibleName,
+  verifyTurnstile,
 } from "@/lib/auth/anti-spam";
 
 // Signup rate limits (durable, DB-backed — see migration 00063).
@@ -76,6 +77,12 @@ export async function signUp(
     hdrs.get("x-real-ip")?.trim() ||
     "unknown";
 
+  // 5) CAPTCHA — the primary bot defense. No-op until TURNSTILE_SECRET_KEY is set.
+  const turnstileToken = (formData.get("turnstile_token") as string) || null;
+  if (!(await verifyTurnstile(turnstileToken, ip))) {
+    return { error: "Verification failed. Please try again." };
+  }
+
   // Use admin client for the entire signup flow — bypasses RLS and email rate limits
   const admin = createAdminClient();
 
@@ -86,7 +93,7 @@ export async function signUp(
       .insert({ ip, normalized_email: canonical, email_domain: emailDomain, outcome })
       .then(() => {}, () => {}); // best-effort, never block signup on logging
 
-  // 5) Durable, DB-backed rate limiting — works across all serverless instances
+  // 6) Durable, DB-backed rate limiting — works across all serverless instances
   //    (unlike the in-memory limiter). Cap per-IP and per-canonical-email.
   const hourAgo = new Date(Date.now() - 60 * 60_000).toISOString();
   const dayAgo = new Date(Date.now() - 24 * 60 * 60_000).toISOString();
@@ -116,7 +123,7 @@ export async function signUp(
   // Log this attempt up front so bursts are counted even if later steps fail.
   await recordAttempt("attempt");
 
-  // 6) Block if a normalized-equivalent account already exists (kills the
+  // 7) Block if a normalized-equivalent account already exists (kills the
   //    "j.o.y+1@gmail.com" duplicate-account abuse).
   const { data: existing } = await admin
     .from("profiles")
@@ -132,7 +139,7 @@ export async function signUp(
     };
   }
 
-  // 7) Reject undeliverable domains (no MX/A records) — dynamically catches
+  // 8) Reject undeliverable domains (no MX/A records) — dynamically catches
   //    junk/disposable domains without a static list.
   if (!(await hasDeliverableDomain(email))) {
     await recordAttempt("blocked");
