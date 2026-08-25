@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { generateCompetitorSuggestions } from "@/lib/ai/generate-competitors";
 import { estimateCompetitorMetrics } from "@/lib/competitors/enrichment";
 import { aiChat } from "@/lib/ai/ai-provider";
+import { parseAiJson } from "@/lib/ai/json";
 
 /**
  * Enrich a single competitor with estimated metrics.
@@ -311,7 +312,11 @@ Return ONLY valid JSON in this format:
 
     if (!result?.text) return { error: "AI analysis returned no results. All providers may be unavailable or timed out." };
 
-    const parsed = JSON.parse(result.text);
+    const parsed = parseAiJson<{
+      topPages?: { urlPath: string; estimatedTraffic: number; topKeyword: string; title: string }[];
+      topKeywords?: { keyword: string; estimatedPosition: number; volume: number; difficulty: number }[];
+      summary?: string;
+    }>(result.text);
 
     revalidatePath("/dashboard/competitors");
     return {
@@ -419,7 +424,17 @@ Return ONLY valid JSON in this format:
 
     if (!result?.text) return { error: "AI analysis returned no results. All providers may be unavailable or timed out." };
 
-    const parsed = JSON.parse(result.text);
+    const parsed = parseAiJson<{
+      competitors?: {
+        name: string;
+        domain: string;
+        estimatedMonthlySpend: string;
+        topPaidKeywords: { keyword: string; estimatedCPC: number }[];
+        adCopyThemes: string[];
+        ppcStrategySummary: string;
+      }[];
+      overallInsights?: string;
+    }>(result.text);
 
     revalidatePath("/dashboard/competitors");
     return {
