@@ -16,6 +16,22 @@ interface AIResponse {
   provider: string;
 }
 
+/**
+ * Turn a raw provider error into a short, human-readable reason so failures are
+ * diagnosable from the UI (e.g. "deepseek: out of credits").
+ */
+function summarizeProviderError(provider: string, errMsg: string): string {
+  const m = errMsg.toLowerCase();
+  if (/\b402\b|insufficient balance|out of credit|billing/.test(m))
+    return `${provider}: out of credits / insufficient balance`;
+  if (/\b429\b|quota|rate limit|too many requests/.test(m))
+    return `${provider}: rate-limited / quota exceeded`;
+  if (/\b401\b|\b403\b|invalid api key|unauthorized|invalid.*token/.test(m))
+    return `${provider}: invalid or unauthorized API key`;
+  if (/timeout|timed out|abort/.test(m)) return `${provider}: request timed out`;
+  return `${provider}: ${errMsg.slice(0, 80)}`;
+}
+
 /** Context for logging full AI interactions to the knowledge base */
 export interface AIInteractionContext {
   feature: string;         // e.g. 'content_generator', 'aso_optimizer', 'review_reply'
@@ -190,7 +206,7 @@ async function resolveCurrentUserId(): Promise<string | null> {
  */
 export async function aiChat(
   prompt: string,
-  options: { temperature?: number; maxTokens?: number; timeout?: number; userId?: string; context?: AIInteractionContext; jsonMode?: boolean } = {}
+  options: { temperature?: number; maxTokens?: number; timeout?: number; userId?: string; context?: AIInteractionContext; jsonMode?: boolean; errors?: string[] } = {}
 ): Promise<AIResponse | null> {
   const { temperature = 0.7, maxTokens = 1024, timeout = 30000, jsonMode = false } = options;
 
@@ -323,6 +339,7 @@ export async function aiChat(
       });
 
       console.error(`[aiChat] ${providerName} error:`, err);
+      options.errors?.push(summarizeProviderError(providerName, errMsg));
       markProviderFailed(providerName);
     }
   }
@@ -400,6 +417,7 @@ export async function aiChat(
       });
 
       console.error("[aiChat] DeepSeek env fallback error:", err);
+      options.errors?.push(summarizeProviderError("deepseek", err instanceof Error ? err.message : String(err)));
       markProviderFailed("deepseek");
     }
   }
@@ -463,9 +481,13 @@ export async function aiChat(
       });
 
       console.error("[aiChat] Gemini env fallback error:", err);
+      options.errors?.push(summarizeProviderError("gemini", err instanceof Error ? err.message : String(err)));
     }
   }
 
+  if (options.errors && options.errors.length === 0) {
+    options.errors.push("No AI provider is configured with a working API key.");
+  }
   return null;
 }
 

@@ -933,14 +933,19 @@ ${getSeoComplianceRules()}
 
 Variation seed: ${Date.now()}`;
 
+  const providerErrors: string[] = [];
   const result = await aiChat(prompt, {
     temperature: 0.9,
     maxTokens: 2000,
     jsonMode: true,
+    errors: providerErrors,
     context: { feature: "web_optimizer", sub_type: "full_recommendation", metadata: { projectId, pageUrl } },
   });
 
-  if (!result?.text) return { error: "AI failed to generate recommendation. Please try again." };
+  if (!result?.text) {
+    const detail = providerErrors.length ? ` — ${providerErrors.join("; ")}` : "";
+    return { error: `AI failed to generate recommendation${detail}. Please try again.` };
+  }
 
   try {
     const parsed = parseAiJson<{
