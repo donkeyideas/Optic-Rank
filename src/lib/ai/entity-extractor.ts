@@ -5,6 +5,7 @@
  */
 
 import { aiChat } from "./ai-provider";
+import { parseAiJson } from "@/lib/ai/json";
 import type { EntityType } from "@/types";
 
 export interface ExtractedEntity {
@@ -126,7 +127,7 @@ No extra text, just JSON.`,
     const jsonMatch = result.text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return { missingEntities: [], recommendations: [] };
 
-    const parsed = JSON.parse(jsonMatch[0]);
+    const parsed = parseAiJson(jsonMatch[0]);
     return {
       missingEntities: validateEntities(parsed.missingEntities ?? []),
       recommendations: Array.isArray(parsed.recommendations)
@@ -151,7 +152,7 @@ function parseEntitiesResponse(text: string): ExtractedEntity[] {
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) return [];
 
-    const parsed = JSON.parse(jsonMatch[0]);
+    const parsed = parseAiJson(jsonMatch[0]);
     return validateEntities(parsed);
   } catch {
     return [];

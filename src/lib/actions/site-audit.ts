@@ -7,6 +7,7 @@ import { getPageSpeedData } from "@/lib/api/pagespeed";
 import { processPageSpeedAudit } from "@/lib/actions/audit-utils";
 import { crawlSite, type CrawledPage, type CrawlResult } from "@/lib/crawl/site-crawler";
 import { aiChat } from "@/lib/ai/ai-provider";
+import { parseAiJson } from "@/lib/ai/json";
 
 /* ==================================================================
    Scheduled Audit Actions
@@ -928,7 +929,7 @@ Return ONLY valid JSON in this format:
 
     if (aiResult?.text) {
       try {
-        const parsed = JSON.parse(aiResult.text);
+        const parsed = parseAiJson(aiResult.text);
         aiScores = parsed.results ?? [];
         aiSummary = parsed.summary ?? "";
       } catch {

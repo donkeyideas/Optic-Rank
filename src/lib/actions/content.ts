@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { scoreContent } from "@/lib/ai/score-content";
 import { aiChat } from "@/lib/ai/ai-provider";
+import { parseAiJson } from "@/lib/ai/json";
 
 /**
  * Delete a content page by ID.
@@ -185,7 +186,7 @@ Return ONLY a JSON array: [{"index": 1, "keyword": "inferred keyword"}, ...]`;
         const result = await aiChat(prompt, { temperature: 0.3, maxTokens: 1000 });
         if (result?.text) {
           const match = result.text.match(/\[[\s\S]*\]/);
-          if (match) assignments = JSON.parse(match[0]);
+          if (match) assignments = parseAiJson(match[0]);
         }
       } catch { /* AI optional — fallback below */ }
 
@@ -439,7 +440,7 @@ Return ONLY the JSON array.`;
     const result = await aiChat(prompt, { temperature: 0.7, maxTokens: 1500 });
     if (result?.text) {
       const match = result.text.match(/\[[\s\S]*?\]/);
-      if (match) suggestions = JSON.parse(match[0]);
+      if (match) suggestions = parseAiJson(match[0]);
     }
   } catch { /* AI is optional */ }
 
@@ -764,7 +765,7 @@ Return ONLY a JSON array of objects.`,
 
     if (result?.text) {
       const match = result.text.match(/\[[\s\S]*\]/);
-      if (match) aiBriefs = JSON.parse(match[0]);
+      if (match) aiBriefs = parseAiJson(match[0]);
     }
   } catch { /* AI optional */ }
 
@@ -910,7 +911,7 @@ Return ONLY valid JSON in this format:
       return { success: true, gaps: [] };
     }
 
-    const parsed = JSON.parse(result.text);
+    const parsed = parseAiJson(result.text);
 
     revalidatePath("/dashboard/content");
     return {

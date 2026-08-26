@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { aiChat } from "@/lib/ai/ai-provider";
+import { parseAiJson } from "@/lib/ai/json";
 
 /** Top 20 app store markets by revenue */
 const TOP_MARKETS = [
@@ -118,7 +119,7 @@ Rules:
   if (result?.text) {
     try {
       const match = result.text.match(/\{[\s\S]*?\}/);
-      if (match) translated = JSON.parse(match[0]);
+      if (match) translated = parseAiJson(match[0]);
     } catch { /* parse error */ }
   }
 

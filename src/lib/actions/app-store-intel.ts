@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { aiChat } from "@/lib/ai/ai-provider";
+import { parseAiJson } from "@/lib/ai/json";
 import { fetchCategoryTopApps } from "@/lib/app-store/fetcher";
 
 /**
@@ -85,7 +86,7 @@ Return ONLY a JSON array:
   if (result?.text) {
     try {
       const match = result.text.match(/\[[\s\S]*?\]/);
-      if (match) opportunities = JSON.parse(match[0]);
+      if (match) opportunities = parseAiJson(match[0]);
     } catch { /* parse error */ }
   }
 

@@ -3,6 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/dal/admin";
 import { aiChat } from "@/lib/ai/ai-provider";
+import { parseAiJson } from "@/lib/ai/json";
 import {
   getAdminStats,
   getInvestorMetrics,
@@ -143,7 +144,7 @@ Return ONLY the JSON array, no markdown formatting or explanations.`;
 
   try {
     const text = result.text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const parsed = JSON.parse(text);
+    const parsed = parseAiJson(text);
     // Handle both raw arrays and object-wrapped arrays (e.g. {"insights": [...]})
     if (Array.isArray(parsed)) {
       insights = parsed;

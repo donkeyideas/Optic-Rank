@@ -7,6 +7,7 @@
  */
 
 import { aiChat } from "./ai-provider";
+import { parseAiJson } from "@/lib/ai/json";
 
 // --- Interfaces ---
 
@@ -153,7 +154,7 @@ CRITICAL DISTRIBUTION REQUIREMENT:
     if (aiResult?.text) {
       const jsonMatch = aiResult.text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
+        const parsed = parseAiJson(jsonMatch[0]);
         for (const [kw, data] of Object.entries(parsed)) {
           const d = data as { position?: number; predicted7d?: number; direction?: string; confidence?: number };
           if (d.position != null && d.predicted7d != null) {
@@ -416,7 +417,7 @@ Return ONLY a JSON object where keys are exact keyword strings and values are th
     if (aiResult?.text) {
       const jsonMatch = aiResult.text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        narratives = JSON.parse(jsonMatch[0]);
+        narratives = parseAiJson(jsonMatch[0]);
       }
     }
   } catch {

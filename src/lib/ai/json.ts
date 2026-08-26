@@ -9,7 +9,10 @@
  * repairs trailing commas before parsing. Throws with a descriptive message if
  * no valid JSON can be recovered.
  */
-export function parseAiJson<T = unknown>(raw: string | null | undefined): T {
+// Defaults to `any` so callers that don't pass a generic behave exactly like the
+// `JSON.parse` they replaced (which returned `any`). Pass a generic for safety.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function parseAiJson<T = any>(raw: string | null | undefined): T {
   if (!raw || typeof raw !== "string") {
     throw new Error("Empty AI response");
   }

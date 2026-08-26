@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { aiChat } from "@/lib/ai/ai-provider";
+import { parseAiJson } from "@/lib/ai/json";
 import { findKeywordOpportunities } from "@/lib/actions/app-store-intel";
 
 export type OptimizationGoal = "balanced" | "visibility" | "keyword_opportunities" | "conversion" | "competitive_edge";
@@ -430,7 +431,7 @@ Return ONLY a JSON array: [{"title": "...", "score": 85, "reason": "Targets near
   if (result?.text) {
     try {
       const match = result.text.match(/\[[\s\S]*?\]/);
-      if (match) variants = JSON.parse(match[0]);
+      if (match) variants = parseAiJson(match[0]);
     } catch { /* parse error */ }
   }
 
@@ -803,14 +804,14 @@ Variation seed: ${Date.now()}`;
   if (!result?.text) return { error: "AI failed to generate recommendation. Please try again." };
 
   try {
-    const parsed = JSON.parse(result.text) as {
+    const parsed = parseAiJson<{
       analysis?: string;
       title?: string;
       subtitle?: string;
       description?: string;
       keywords_field?: string;
       promotional_text?: string;
-    };
+    }>(result.text);
 
     // Strip markdown from description
     let desc = parsed.description ?? "";

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { aiChat } from "@/lib/ai/ai-provider";
+import { parseAiJson } from "@/lib/ai/json";
 
 /**
  * Extract topics from reviews using AI.
@@ -52,7 +53,7 @@ Extract up to 15 topics. Be specific (not generic like "good app").`;
   if (result?.text) {
     try {
       const match = result.text.match(/\[[\s\S]*?\]/);
-      if (match) topics = JSON.parse(match[0]);
+      if (match) topics = parseAiJson(match[0]);
     } catch { /* parse error */ }
   }
 

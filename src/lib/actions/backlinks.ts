@@ -11,6 +11,7 @@ import {
 } from "@/lib/backlinks/crawler";
 import { fetchSiteContext } from "@/lib/ai/fetch-site-context";
 import { aiChat } from "@/lib/ai/ai-provider";
+import { parseAiJson } from "@/lib/ai/json";
 import { dispatchNotification } from "@/lib/notifications/dispatch";
 
 /**
@@ -606,7 +607,7 @@ Return ONLY valid JSON in this format:
 
     if (!result?.text) return { error: "AI analysis returned no results." };
 
-    const parsed = JSON.parse(result.text);
+    const parsed = parseAiJson(result.text);
 
     revalidatePath("/dashboard/backlinks");
     return {

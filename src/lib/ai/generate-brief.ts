@@ -5,6 +5,7 @@
  */
 
 import { aiChat } from "./ai-provider";
+import { parseAiJson } from "@/lib/ai/json";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { BriefSection } from "@/types";
 
@@ -173,7 +174,7 @@ No markdown, no extra text. Just the JSON object.`;
     const jsonMatch = result.text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return null;
 
-    const parsed = JSON.parse(jsonMatch[0]);
+    const parsed = parseAiJson(jsonMatch[0]);
 
     const sections: BriefSection[] = (parsed.sections ?? [])
       .filter((s: Record<string, unknown>) => s.title && s.content)

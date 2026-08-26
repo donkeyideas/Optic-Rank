@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { aiChat } from "@/lib/ai/ai-provider";
+import { parseAiJson } from "@/lib/ai/json";
 import { revalidatePath } from "next/cache";
 
 export interface KeywordOpportunity {
@@ -91,7 +92,7 @@ Volume guidelines: high = 5000+, medium = 500-5000, low = under 500. Provide rea
   if (result?.text) {
     try {
       const match = result.text.match(/\[[\s\S]*\]/);
-      if (match) opportunities = JSON.parse(match[0]);
+      if (match) opportunities = parseAiJson(match[0]);
     } catch { /* parse error */ }
   }
 

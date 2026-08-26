@@ -10,6 +10,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { aiChat } from "./ai-provider";
+import { parseAiJson } from "@/lib/ai/json";
 import type { RecommendationCategory, ImpactLevel, EffortLevel } from "@/types";
 
 // CTR curve by position (approximate Google CTR %)
@@ -615,11 +616,11 @@ Rules:
     const fenceMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (fenceMatch) jsonText = fenceMatch[1].trim();
 
-    const enhancements = JSON.parse(jsonText) as Array<{
+    const enhancements = parseAiJson<Array<{
       index: number;
       description?: string;
       expected_result?: string;
-    }>;
+    }>>(jsonText);
 
     for (const enh of enhancements) {
       const idx = enh.index - 1;

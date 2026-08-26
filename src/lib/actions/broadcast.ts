@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPushToAll } from "@/lib/notifications/push";
 import { aiChat } from "@/lib/ai/ai-provider";
+import { parseAiJson } from "@/lib/ai/json";
 import { revalidatePath } from "next/cache";
 
 async function verifyAdmin(): Promise<string | null> {
@@ -227,7 +228,7 @@ Return ONLY valid JSON: {"title": "...", "body": "..."}`;
   let title = "";
   let body = "";
   try {
-    const parsed = JSON.parse(result.text);
+    const parsed = parseAiJson(result.text);
     title = parsed.title || "";
     body = parsed.body || "";
   } catch {

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { aiChat } from "@/lib/ai/ai-provider";
+import { parseAiJson } from "@/lib/ai/json";
 import { getPageSpeedData } from "@/lib/api/pagespeed";
 import {
   classifyPerformanceReviews,
@@ -258,8 +259,8 @@ export async function runPerformanceAudit(
     .map((r) => `[${r.rating}★ | ${r.perfCategories.map((c) => CATEGORY_LABELS[c]).join(", ")}] ${r.title ?? ""} — ${r.text ?? ""}`)
     .join("\n---\n");
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const bugTopicsList = (topics ?? [])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((t: any) => `${t.topic} (${t.mention_count} mentions)`)
     .join(", ");
 
@@ -305,7 +306,7 @@ Provide your analysis in this JSON format:
   if (!result?.text) return { error: "AI analysis failed. Please try again." };
 
   try {
-    const parsed = JSON.parse(result.text);
+    const parsed = parseAiJson(result.text);
     return {
       success: true,
       audit: {

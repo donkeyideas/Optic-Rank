@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { aiChat } from "@/lib/ai/ai-provider";
+import { parseAiJson } from "@/lib/ai/json";
 import {
   getPageKeywords,
   getPageBacklinks,
@@ -561,8 +562,7 @@ Return ONLY a JSON array: [{"title": "...", "score": 85, "reason": "Targets near
   let variants: Array<{ title: string; score: number; reason: string }> = [];
   if (result?.text) {
     try {
-      const match = result.text.match(/\[[\s\S]*?\]/);
-      if (match) variants = JSON.parse(match[0]);
+      variants = parseAiJson<Array<{ title: string; score: number; reason: string }>>(result.text);
     } catch { /* parse error */ }
   }
 
@@ -943,7 +943,7 @@ Variation seed: ${Date.now()}`;
   if (!result?.text) return { error: "AI failed to generate recommendation. Please try again." };
 
   try {
-    const parsed = JSON.parse(result.text) as {
+    const parsed = parseAiJson<{
       analysis?: string;
       title?: string;
       meta_description?: string;
@@ -951,7 +951,7 @@ Variation seed: ${Date.now()}`;
       content_brief?: string;
       schema_recommendation?: string;
       internal_linking?: string[];
-    };
+    }>(result.text);
 
     return {
       success: true,

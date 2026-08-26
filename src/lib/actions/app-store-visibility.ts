@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { aiChat } from "@/lib/ai/ai-provider";
+import { parseAiJson } from "@/lib/ai/json";
 import {
   calculateVisibility,
   type VisibilityResult,
@@ -188,7 +189,7 @@ Return ONLY a JSON array, no markdown.`;
 
   try {
     const text = result.text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const parsed = JSON.parse(text);
+    const parsed = parseAiJson(text);
     // Handle both raw array and wrapped object (e.g. { "recommendations": [...] })
     const arr = Array.isArray(parsed)
       ? parsed

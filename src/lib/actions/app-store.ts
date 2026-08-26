@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { aiChat } from "@/lib/ai/ai-provider";
+import { parseAiJson } from "@/lib/ai/json";
 import { fetchAppData, fetchGooglePlayReviews, batchCheckKeywordRankings } from "@/lib/app-store/fetcher";
 import { trackVersionChange, recordSnapshot } from "@/lib/actions/app-store-versions";
 import { fetchPlayReviews, fetchPlayMetrics, validatePlayAccess, fetchPlayStoreListing } from "@/lib/google/play-console";
@@ -510,7 +511,7 @@ Return ONLY a JSON array of 3 recommendation strings. Example: ["Recommendation 
     if (aiResult?.text) {
       const match = aiResult.text.match(/\[[\s\S]*?\]/);
       if (match) {
-        const aiRecs = JSON.parse(match[0]) as string[];
+        const aiRecs = parseAiJson<string[]>(match[0]);
         recommendations.push(...aiRecs.slice(0, 3));
       }
     }
@@ -584,7 +585,7 @@ Return ONLY a JSON array of objects: [{"keyword": "...", "volume": 1000, "diffic
     try {
       const match = result.text.match(/\[[\s\S]*?\]/);
       if (match) {
-        const parsed = JSON.parse(match[0]);
+        const parsed = parseAiJson(match[0]);
         if (Array.isArray(parsed)) {
           keywordData = parsed.map((item: unknown) => {
             if (typeof item === "string") {
